@@ -186,12 +186,7 @@ export interface Database {
       };
     };
     Views: Record<never, never>;
-    Functions: {
-      current_user_role: {
-        Args: Record<string, never>;
-        Returns: UserRole;
-      };
-    };
+    Functions: Record<never, never>;
     Enums: {
       user_role: UserRole;
       department_type: DepartmentType;

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Starkville Country Club — initial schema
+-- Starkville Country Club — initial schema (final, hardened state)
 -- Postgres / Supabase. Idempotent: safe to run more than once.
 --
 -- Apply via the Supabase SQL Editor, or with the CLI:
@@ -8,6 +8,10 @@
 
 -- ---------- Extensions ----------
 create extension if not exists pgcrypto;          -- gen_random_uuid()
+
+-- ---------- Private schema (not exposed to the REST API) ----------
+create schema if not exists private;
+grant usage on schema private to authenticated;
 
 -- ---------- Enums ----------
 do $$ begin
@@ -78,10 +82,11 @@ create index if not exists calendar_events_date_idx on public.calendar_events (e
 -- Functions & triggers
 -- ============================================================================
 
--- Current user's role. SECURITY DEFINER so RLS policies can call it without
--- recursing through profiles' own policies. Only ever returns the caller's
--- own role (where id = auth.uid()), so it discloses nothing.
-create or replace function public.current_user_role()
+-- Current user's role. Lives in the private (non-API) schema so it is never
+-- exposed as an RPC endpoint. SECURITY DEFINER so RLS policies can call it
+-- without recursing through profiles' own policies; only ever returns the
+-- caller's own role.
+create or replace function private.current_user_role()
 returns public.user_role
 language sql
 stable
@@ -90,19 +95,21 @@ set search_path = ''
 as $$
   select role from public.profiles where id = auth.uid()
 $$;
-revoke all on function public.current_user_role() from public;
-grant execute on function public.current_user_role() to authenticated;
+revoke all on function private.current_user_role() from public, anon;
+grant execute on function private.current_user_role() to authenticated;
 
 -- Touch updated_at on row update.
 create or replace function public.update_updated_at_column()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();
   return new;
 end;
 $$;
+revoke all on function public.update_updated_at_column() from public, anon, authenticated;
 
 drop trigger if exists update_profiles_updated_at on public.profiles;
 create trigger update_profiles_updated_at
@@ -116,7 +123,6 @@ create trigger update_posts_updated_at
 
 -- Create a profiles row whenever an auth user is created (invite or signup).
 -- Role is ALWAYS 'member' here — never trust user-supplied metadata for role.
--- Admins assign elevated roles afterward via the service-role admin client.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -134,15 +140,16 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Guard against privilege escalation: only admins (or trusted server code with
--- no JWT, i.e. the service-role client) may change a profile's role. Without
--- this, the "update own profile" policy would let any member set role='admin'.
+-- Only admins (or trusted server code with no JWT, i.e. the service-role
+-- client) may change a profile's role — closes the privilege-escalation hole
+-- in the "update own profile" policy.
 create or replace function public.enforce_role_change()
 returns trigger
 language plpgsql
@@ -153,7 +160,7 @@ begin
   if new.role is distinct from old.role then
     if auth.uid() is null then
       return new;                                  -- service role / trusted server
-    elsif public.current_user_role() = 'admin' then
+    elsif private.current_user_role() = 'admin' then
       return new;                                  -- an admin via a normal session
     else
       raise exception 'Only admins can change a user role';
@@ -162,6 +169,7 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.enforce_role_change() from public, anon, authenticated;
 
 drop trigger if exists enforce_role_change_trg on public.profiles;
 create trigger enforce_role_change_trg
@@ -176,7 +184,6 @@ alter table public.posts           enable row level security;
 alter table public.reservations    enable row level security;
 alter table public.calendar_events enable row level security;
 
--- Expose tables to the Data API for the authenticated role (RLS gates rows).
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete
   on public.profiles, public.posts, public.reservations, public.calendar_events
@@ -202,7 +209,7 @@ drop policy if exists "posts_insert_staff_admin" on public.posts;
 create policy "posts_insert_staff_admin"
   on public.posts for insert to authenticated
   with check (
-    public.current_user_role() in ('staff', 'admin')
+    private.current_user_role() in ('staff', 'admin')
     and author_id = (select auth.uid())
   );
 
@@ -223,7 +230,7 @@ create policy "reservations_select_own_or_staff"
   on public.reservations for select to authenticated
   using (
     member_id = (select auth.uid())
-    or public.current_user_role() in ('staff', 'admin')
+    or private.current_user_role() in ('staff', 'admin')
   );
 
 drop policy if exists "reservations_insert_own" on public.reservations;
@@ -236,11 +243,11 @@ create policy "reservations_update_own_or_staff"
   on public.reservations for update to authenticated
   using (
     member_id = (select auth.uid())
-    or public.current_user_role() in ('staff', 'admin')
+    or private.current_user_role() in ('staff', 'admin')
   )
   with check (
     member_id = (select auth.uid())
-    or public.current_user_role() in ('staff', 'admin')
+    or private.current_user_role() in ('staff', 'admin')
   );
 
 -- ---- calendar_events ----
@@ -251,31 +258,27 @@ create policy "events_select_authenticated"
 drop policy if exists "events_insert_staff_admin" on public.calendar_events;
 create policy "events_insert_staff_admin"
   on public.calendar_events for insert to authenticated
-  with check ( public.current_user_role() in ('staff', 'admin') );
+  with check ( private.current_user_role() in ('staff', 'admin') );
 
 drop policy if exists "events_update_staff_admin" on public.calendar_events;
 create policy "events_update_staff_admin"
   on public.calendar_events for update to authenticated
-  using  ( public.current_user_role() in ('staff', 'admin') )
-  with check ( public.current_user_role() in ('staff', 'admin') );
+  using  ( private.current_user_role() in ('staff', 'admin') )
+  with check ( private.current_user_role() in ('staff', 'admin') );
 
 drop policy if exists "events_delete_staff_admin" on public.calendar_events;
 create policy "events_delete_staff_admin"
   on public.calendar_events for delete to authenticated
-  using ( public.current_user_role() in ('staff', 'admin') );
+  using ( private.current_user_role() in ('staff', 'admin') );
 
 -- ============================================================================
--- Storage: public 'posts' bucket. Public read; users manage only their own
--- top-level folder (named after their uid), e.g.  <uid>/filename.png
+-- Storage: public 'posts' bucket. Files are served via their public URL;
+-- no SELECT policy is needed (and omitting it prevents clients from listing
+-- the whole bucket). Users may write only to their own uid-named folder.
 -- ============================================================================
 insert into storage.buckets (id, name, public)
 values ('posts', 'posts', true)
 on conflict (id) do nothing;
-
-drop policy if exists "posts_bucket_public_read" on storage.objects;
-create policy "posts_bucket_public_read"
-  on storage.objects for select
-  using ( bucket_id = 'posts' );
 
 drop policy if exists "posts_bucket_insert_own" on storage.objects;
 create policy "posts_bucket_insert_own"
