@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -21,6 +21,14 @@ export const metadata: Metadata = {
   },
   description:
     "Member portal for Starkville Country Club — announcements, dining reservations, and the club calendar.",
+};
+
+// Mobile-first: fit the device width, tint the browser chrome club green, and
+// keep pinch-zoom enabled for accessibility.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#335d3b",
 };
 
 export default function RootLayout({

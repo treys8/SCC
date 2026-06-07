@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { updatePost } from "@/app/(app)/posts/actions";
 import { PageHeader } from "@/components/page-header";
-import { PostForm } from "@/components/post-form";
+import { PostComposer } from "@/components/post-composer";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import type { PostAttachment } from "@/lib/database.types";
 
-export const metadata: Metadata = { title: "Edit announcement" };
+export const metadata: Metadata = { title: "Edit post" };
 
 export default async function EditPostPage({
   params,
@@ -19,7 +19,7 @@ export default async function EditPostPage({
   const supabase = await createClient();
   const { data: post } = await supabase
     .from("posts")
-    .select("*")
+    .select("*, post_attachments(*)")
     .eq("id", id)
     .single();
 
@@ -27,12 +27,24 @@ export default async function EditPostPage({
   // Only the author may edit (RLS enforces this too).
   if (post.author_id !== profile.id) redirect("/posts");
 
-  const action = updatePost.bind(null, id);
+  const attachments = [...((post.post_attachments as PostAttachment[]) ?? [])].sort(
+    (a, b) => a.position - b.position,
+  );
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Edit announcement" />
-      <PostForm action={action} post={post} submitLabel="Save changes" />
+      <PageHeader title="Edit post" />
+      <PostComposer
+        userId={profile.id}
+        post={{
+          id: post.id,
+          department: post.department,
+          title: post.title,
+          content: post.content,
+          is_pinned: post.is_pinned,
+          attachments,
+        }}
+      />
     </div>
   );
 }

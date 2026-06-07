@@ -9,7 +9,7 @@ import type { Profile } from "@/lib/database.types";
 export function SiteNav({ profile }: { profile: Profile }) {
   const links: NavLink[] = [
     { href: "/", label: "Home" },
-    { href: "/posts", label: "Announcements" },
+    { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
   ];
@@ -55,11 +55,6 @@ export function SiteNav({ profile }: { profile: Profile }) {
             </button>
           </form>
         </div>
-      </div>
-
-      {/* Mobile nav row */}
-      <div className="overflow-x-auto border-t border-border px-2 py-1.5 md:hidden">
-        <NavLinks links={links} />
       </div>
     </header>
   );

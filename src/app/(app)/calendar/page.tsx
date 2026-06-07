@@ -1,35 +1,49 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { EmptyState } from "@/components/empty-state";
-import { EventCard } from "@/components/event-card";
+import { CalendarView } from "@/components/calendar/calendar-view";
 import { PageHeader } from "@/components/page-header";
 import { isStaff, requireProfile } from "@/lib/auth";
+import { gridRange, parseMonth } from "@/lib/calendar";
+import { DEPARTMENTS } from "@/lib/constants";
 import { todayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import type { DepartmentType } from "@/lib/database.types";
 
 export const metadata: Metadata = { title: "Calendar" };
 
-export default async function CalendarPage() {
-  const profile = await requireProfile();
-  const supabase = await createClient();
+const DEPT_VALUES = new Set<string>(DEPARTMENTS.map((d) => d.value));
 
-  const { data } = await supabase
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ m?: string; dept?: string }>;
+}) {
+  const profile = await requireProfile();
+  const sp = await searchParams;
+
+  const { key: month } = parseMonth(sp.m);
+  const dept =
+    sp.dept && DEPT_VALUES.has(sp.dept) ? (sp.dept as DepartmentType) : "all";
+  const { start, end } = gridRange(month);
+
+  const supabase = await createClient();
+  let query = supabase
     .from("calendar_events")
     .select("*")
+    .gte("event_date", start)
+    .lte("event_date", end)
     .order("event_date", { ascending: true })
     .order("start_time", { ascending: true });
+  if (dept !== "all") query = query.eq("department", dept);
+  const { data } = await query;
 
-  const all = data ?? [];
-  const today = todayISO();
-  const upcoming = all.filter((e) => e.event_date >= today);
-  const past = all.filter((e) => e.event_date < today).reverse();
   const canManage = isStaff(profile.role);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="Calendar"
-        description="Upcoming events at the club."
+        description="Events and functions around the club."
         action={
           canManage ? (
             <Link href="/calendar/new" className="btn btn-primary">
@@ -39,35 +53,13 @@ export default async function CalendarPage() {
         }
       />
 
-      <section className="space-y-4">
-        {upcoming.length === 0 ? (
-          <EmptyState
-            title="No upcoming events"
-            description={
-              canManage
-                ? "Add the next event on the club calendar."
-                : "Check back soon for upcoming events."
-            }
-          />
-        ) : (
-          upcoming.map((e) => (
-            <EventCard key={e.id} event={e} canManage={canManage} />
-          ))
-        )}
-      </section>
-
-      {past.length > 0 && (
-        <section>
-          <h2 className="mb-3 font-serif text-xl font-semibold text-foreground">
-            Past events
-          </h2>
-          <div className="space-y-4 opacity-75">
-            {past.slice(0, 10).map((e) => (
-              <EventCard key={e.id} event={e} canManage={canManage} />
-            ))}
-          </div>
-        </section>
-      )}
+      <CalendarView
+        key={`${month}-${dept}`}
+        events={data ?? []}
+        month={month}
+        dept={dept}
+        todayIso={todayISO()}
+      />
     </div>
   );
 }
