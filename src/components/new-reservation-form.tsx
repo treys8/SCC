@@ -7,10 +7,17 @@ import {
 } from "@/app/(app)/reservations/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { todayISO } from "@/lib/format";
+import type { SlotOption } from "@/lib/reservations";
 
 const INITIAL: ReservationState = {};
 
-export function NewReservationForm() {
+export function NewReservationForm({
+  slots,
+  windowNote,
+}: {
+  slots: SlotOption[];
+  windowNote?: string;
+}) {
   const [state, formAction] = useActionState(createReservation, INITIAL);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -25,6 +32,7 @@ export function NewReservationForm() {
       </h2>
       <p className="mt-1 text-sm text-muted">
         Staff will confirm your reservation shortly.
+        {windowNote ? ` ${windowNote}` : ""}
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
@@ -45,13 +53,22 @@ export function NewReservationForm() {
           <label className="label" htmlFor="reservation_time">
             Time
           </label>
-          <input
+          <select
             id="reservation_time"
             name="reservation_time"
-            type="time"
             required
-            className="input"
-          />
+            defaultValue=""
+            className="select"
+          >
+            <option value="" disabled>
+              Select a time
+            </option>
+            {slots.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="label" htmlFor="party_size">

@@ -10,6 +10,11 @@ import { cn } from "@/lib/cn";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { RESERVATION_STATUSES, STATUS_LABEL } from "@/lib/constants";
 import { formatDate, formatTime } from "@/lib/format";
+import {
+  fetchReservationSettings,
+  generateSlots,
+  serviceWindowNote,
+} from "@/lib/reservations";
 import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/database.types";
 
@@ -31,13 +36,17 @@ async function MemberView() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("reservations")
-    .select("*")
-    .eq("member_id", profile.id)
-    .order("reservation_date", { ascending: false })
-    .order("reservation_time", { ascending: false });
+  const [{ data }, settings] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select("*")
+      .eq("member_id", profile.id)
+      .order("reservation_date", { ascending: false })
+      .order("reservation_time", { ascending: false }),
+    fetchReservationSettings(supabase),
+  ]);
   const reservations = data ?? [];
+  const slots = generateSlots(settings);
 
   return (
     <div className="space-y-6">
@@ -45,7 +54,10 @@ async function MemberView() {
         title="Reservations"
         description="Request a table and track your reservations."
       />
-      <NewReservationForm />
+      <NewReservationForm
+        slots={slots}
+        windowNote={serviceWindowNote(settings)}
+      />
 
       <section>
         <h2 className="mb-3 font-serif text-xl font-semibold text-foreground">
