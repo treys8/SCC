@@ -7,14 +7,14 @@
   --foreground: #1c2620; /* ink */
   --muted: #6b7269;
   --border: #e4ddcd;
-  --primary: #1b4332; /* club green */
-  --primary-600: #245741;
-  --primary-700: #143728;
+  --primary: #335d3b; /* club green — sampled from the SCC logo (tree + lettering) */
+  --primary-600: #2c5234; /* deeper green */
+  --primary-700: #244328; /* darkest — button hover */
   --accent: #b08d57; /* gold */
   --accent-600: #99784a;
   --danger: #b3261e;
   --success: #2d6a4f;
-  --ring: rgba(27, 67, 50, 0.3);
+  --ring: rgba(51, 93, 59, 0.35);
 }
 
 @theme inline {
