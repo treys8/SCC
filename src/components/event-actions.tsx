@@ -5,7 +5,14 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteEvent } from "@/app/(app)/calendar/actions";
 
-export function EventActions({ id }: { id: string }) {
+export function EventActions({
+  id,
+  redirectTo,
+}: {
+  id: string;
+  /** Where to go after a successful delete. Defaults to refreshing in place. */
+  redirectTo?: string;
+}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -14,7 +21,8 @@ export function EventActions({ id }: { id: string }) {
     startTransition(async () => {
       try {
         await deleteEvent(id);
-        router.refresh();
+        if (redirectTo) router.push(redirectTo);
+        else router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "Could not delete event.");
       }

@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
-import { createPost } from "@/app/(app)/posts/actions";
 import { PageHeader } from "@/components/page-header";
-import { PostForm } from "@/components/post-form";
+import { PostComposer } from "@/components/post-composer";
 import { requireRole } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "New announcement" };
+export const metadata: Metadata = { title: "New post" };
 
 export default async function NewPostPage() {
-  await requireRole("staff", "admin");
+  const profile = await requireRole("staff", "admin");
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="New announcement" />
-      <PostForm action={createPost} submitLabel="Publish" />
+      <PageHeader title="New post" />
+      <PostComposer userId={profile.id} />
     </div>
   );
 }

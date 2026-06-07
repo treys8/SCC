@@ -48,6 +48,47 @@ export function formatTimestamp(ts: string): string {
   });
 }
 
+/**
+ * Compact, feed-style age: "now", "5m", "3h", "2d". Past a week it falls back
+ * to an absolute date. Pair with `formatTimestamp` as a `title` for the exact
+ * time on hover.
+ */
+export function formatRelativeTime(ts: string): string {
+  const then = new Date(ts).getTime();
+  const seconds = Math.round((Date.now() - then) / 1000);
+
+  if (seconds < 45) return "now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d`;
+
+  // Older than a week: show the date (drop the year if it's this year).
+  const date = new Date(ts);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+/** Bytes -> "512 KB", "2.4 MB". */
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  const rounded = value >= 10 || unit === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rounded} ${units[unit]}`;
+}
+
 /** Today as "YYYY-MM-DD" in local time (for date input min). */
 export function todayISO(): string {
   const now = new Date();

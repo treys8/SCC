@@ -2,88 +2,114 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { requireProfile, requireRole } from "@/lib/auth";
+import {
+  fetchFeedPage,
+  fetchPinnedPosts,
+  type FeedPage,
+} from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
-import type { DepartmentType } from "@/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
-
-export type PostFormState = { error?: string };
+import type { DepartmentType, FeedPost } from "@/lib/database.types";
 
 const BUCKET = "posts";
 
-async function uploadToBucket(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-  file: File | null,
-  fallbackExt: string,
-): Promise<string | null> {
-  if (!file || file.size === 0) return null;
-  const ext = file.name.includes(".")
-    ? file.name.split(".").pop()!.toLowerCase()
-    : fallbackExt;
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+export type PostActionResult = { error?: string };
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type || undefined,
-    upsert: false,
-  });
-  if (error) throw new Error(`Upload failed: ${error.message}`);
+/** Attachment metadata produced by the browser uploader (see lib/upload.ts). */
+export type AttachmentInput = {
+  kind: "image" | "file";
+  url: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+};
 
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-}
+export type CreatePostInput = {
+  department: DepartmentType;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  attachments: AttachmentInput[];
+};
 
-function parseFields(formData: FormData) {
+export type UpdatePostInput = CreatePostInput & {
+  /** ids of existing attachments to remove (row + Storage object). */
+  removedAttachmentIds: string[];
+};
+
+function sanitizeText(input: CreatePostInput) {
   return {
-    department: (String(formData.get("department") ?? "general") ||
-      "general") as DepartmentType,
-    title: String(formData.get("title") ?? "").trim(),
-    content: String(formData.get("content") ?? "").trim(),
-    isPinned: formData.get("is_pinned") === "on",
+    department: input.department,
+    title: (input.title ?? "").trim(),
+    content: (input.content ?? "").trim(),
+    isPinned: !!input.isPinned,
+    attachments: (input.attachments ?? []).filter(
+      (a) =>
+        (a.kind === "image" || a.kind === "file") && !!a.url && !!a.storage_path,
+    ),
   };
 }
 
+function attachmentRows(
+  postId: string,
+  attachments: AttachmentInput[],
+  startPosition = 0,
+) {
+  return attachments.map((a, i) => ({
+    post_id: postId,
+    kind: a.kind,
+    url: a.url,
+    storage_path: a.storage_path,
+    file_name: a.file_name || null,
+    mime_type: a.mime_type || null,
+    size_bytes: a.size_bytes || null,
+    width: a.width,
+    height: a.height,
+    position: startPosition + i,
+  }));
+}
+
 export async function createPost(
-  _prev: PostFormState,
-  formData: FormData,
-): Promise<PostFormState> {
+  input: CreatePostInput,
+): Promise<PostActionResult> {
   const profile = await requireRole("staff", "admin");
-  const { department, title, content, isPinned } = parseFields(formData);
-  if (!title || !content) {
-    return { error: "Title and content are required." };
+  const { department, title, content, isPinned, attachments } =
+    sanitizeText(input);
+
+  if (!title && !content && attachments.length === 0) {
+    return { error: "Add a title, some text, or at least one attachment." };
   }
 
   const supabase = await createClient();
 
-  let imageUrl: string | null = null;
-  let pdfUrl: string | null = null;
-  try {
-    imageUrl = await uploadToBucket(
-      supabase,
-      profile.id,
-      formData.get("image") as File | null,
-      "png",
-    );
-    pdfUrl = await uploadToBucket(
-      supabase,
-      profile.id,
-      formData.get("pdf") as File | null,
-      "pdf",
-    );
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "File upload failed." };
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .insert({
+      author_id: profile.id,
+      department,
+      title: title || null,
+      content,
+      is_pinned: isPinned,
+    })
+    .select("id")
+    .single();
+  if (postError || !post) {
+    return { error: postError?.message ?? "Could not publish the post." };
   }
 
-  const { error } = await supabase.from("posts").insert({
-    author_id: profile.id,
-    department,
-    title,
-    content,
-    image_url: imageUrl,
-    pdf_url: pdfUrl,
-    is_pinned: isPinned,
-  });
-  if (error) return { error: error.message };
+  if (attachments.length > 0) {
+    const { error: attError } = await supabase
+      .from("post_attachments")
+      .insert(attachmentRows(post.id, attachments));
+    if (attError) {
+      // Compensate: drop the post we just created so we don't leave a partial.
+      await supabase.from("posts").delete().eq("id", post.id);
+      return { error: `Couldn't save attachments: ${attError.message}` };
+    }
+  }
 
   revalidatePath("/posts");
   revalidatePath("/");
@@ -92,60 +118,62 @@ export async function createPost(
 
 export async function updatePost(
   id: string,
-  _prev: PostFormState,
-  formData: FormData,
-): Promise<PostFormState> {
+  input: UpdatePostInput,
+): Promise<PostActionResult> {
   const profile = await requireRole("staff", "admin");
-  const { department, title, content, isPinned } = parseFields(formData);
-  if (!title || !content) {
-    return { error: "Title and content are required." };
-  }
+  const { department, title, content, isPinned, attachments } =
+    sanitizeText(input);
+  const removedIds = (input.removedAttachmentIds ?? []).filter(Boolean);
 
   const supabase = await createClient();
+
   const { data: existing } = await supabase
     .from("posts")
-    .select("*")
+    .select("id, author_id")
     .eq("id", id)
     .single();
   if (!existing) return { error: "Announcement not found." };
-
-  let imageUrl = existing.image_url;
-  let pdfUrl = existing.pdf_url;
-
-  try {
-    if (formData.get("remove_image") === "on") imageUrl = null;
-    const newImage = await uploadToBucket(
-      supabase,
-      profile.id,
-      formData.get("image") as File | null,
-      "png",
-    );
-    if (newImage) imageUrl = newImage;
-
-    if (formData.get("remove_pdf") === "on") pdfUrl = null;
-    const newPdf = await uploadToBucket(
-      supabase,
-      profile.id,
-      formData.get("pdf") as File | null,
-      "pdf",
-    );
-    if (newPdf) pdfUrl = newPdf;
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "File upload failed." };
+  if (existing.author_id !== profile.id) {
+    return { error: "You can only edit your own posts." };
   }
 
-  const { error } = await supabase
+  const { data: current } = await supabase
+    .from("post_attachments")
+    .select("id, storage_path, position")
+    .eq("post_id", id);
+  const removedSet = new Set(removedIds);
+  const kept = (current ?? []).filter((a) => !removedSet.has(a.id));
+
+  if (!title && !content && kept.length + attachments.length === 0) {
+    return { error: "Add a title, some text, or at least one attachment." };
+  }
+
+  const { error: upError } = await supabase
     .from("posts")
-    .update({
-      department,
-      title,
-      content,
-      image_url: imageUrl,
-      pdf_url: pdfUrl,
-      is_pinned: isPinned,
-    })
+    .update({ department, title: title || null, content, is_pinned: isPinned })
     .eq("id", id);
-  if (error) return { error: error.message };
+  if (upError) return { error: upError.message };
+
+  // Remove de-selected attachments: DB rows first, then Storage objects.
+  if (removedSet.size > 0) {
+    const removedPaths = (current ?? [])
+      .filter((a) => removedSet.has(a.id))
+      .map((a) => a.storage_path)
+      .filter(Boolean);
+    await supabase.from("post_attachments").delete().in("id", [...removedSet]);
+    if (removedPaths.length) {
+      await supabase.storage.from(BUCKET).remove(removedPaths);
+    }
+  }
+
+  // Append new attachments after whatever is kept.
+  if (attachments.length > 0) {
+    const maxPos = kept.reduce((m, a) => Math.max(m, a.position), -1);
+    const { error: attError } = await supabase
+      .from("post_attachments")
+      .insert(attachmentRows(id, attachments, maxPos + 1));
+    if (attError) return { error: attError.message };
+  }
 
   revalidatePath("/posts");
   revalidatePath("/");
@@ -155,8 +183,19 @@ export async function updatePost(
 export async function deletePost(id: string) {
   await requireRole("staff", "admin");
   const supabase = await createClient();
+
+  // Gather Storage paths before the rows cascade away.
+  const { data: atts } = await supabase
+    .from("post_attachments")
+    .select("storage_path")
+    .eq("post_id", id);
+
   const { error } = await supabase.from("posts").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  const paths = (atts ?? []).map((a) => a.storage_path).filter(Boolean);
+  if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
+
   revalidatePath("/posts");
   revalidatePath("/");
 }
@@ -171,4 +210,27 @@ export async function togglePin(id: string, isPinned: boolean) {
   if (error) throw new Error(error.message);
   revalidatePath("/posts");
   revalidatePath("/");
+}
+
+/** Infinite-scroll: next page of non-pinned posts. Any member may load more. */
+export async function loadMorePosts(
+  depts: DepartmentType[],
+  before: string,
+): Promise<FeedPage> {
+  await requireProfile();
+  const supabase = await createClient();
+  return fetchFeedPage(supabase, { depts, before });
+}
+
+/** Reload the top of the feed (pinned + first page) — used by the "new posts" pill. */
+export async function refreshFeed(
+  depts: DepartmentType[],
+): Promise<{ pinned: FeedPost[]; page: FeedPage }> {
+  await requireProfile();
+  const supabase = await createClient();
+  const [pinned, page] = await Promise.all([
+    fetchPinnedPosts(supabase, depts),
+    fetchFeedPage(supabase, { depts, before: null }),
+  ]);
+  return { pinned, page };
 }

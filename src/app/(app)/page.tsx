@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const [{ data: posts }, { data: events }] = await Promise.all([
     supabase
       .from("posts")
-      .select("id, title, department, created_at, is_pinned")
+      .select("id, title, content, department, created_at, is_pinned")
       .order("is_pinned", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(4),
@@ -30,8 +30,8 @@ export default async function DashboardPage() {
   const tiles = [
     {
       href: "/posts",
-      title: "Announcements",
-      desc: "Updates from golf, dining, tennis, and the club.",
+      title: "Feed",
+      desc: "News, photos, and updates from around the club.",
     },
     {
       href: "/reservations",
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-8 lg:grid-cols-2">
         <section>
-          <SectionHeading title="Latest announcements" href="/posts" />
+          <SectionHeading title="Latest posts" href="/posts" />
           <div className="card divide-y divide-border">
             {posts && posts.length > 0 ? (
               posts.map((p) => (
@@ -93,8 +93,10 @@ export default async function DashboardPage() {
                   href="/posts"
                   className="flex items-start justify-between gap-3 p-4 hover:bg-surface-2"
                 >
-                  <div>
-                    <p className="font-medium text-foreground">{p.title}</p>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">
+                      {p.title || p.content || "Update"}
+                    </p>
                     <p className="mt-0.5 text-xs text-muted">
                       {formatDate(p.created_at.slice(0, 10))}
                     </p>
@@ -115,7 +117,7 @@ export default async function DashboardPage() {
               events.map((e) => (
                 <Link
                   key={e.id}
-                  href="/calendar"
+                  href={`/calendar/${e.id}`}
                   className="flex items-start justify-between gap-3 p-4 hover:bg-surface-2"
                 >
                   <div>
