@@ -32,17 +32,20 @@ register, get alerted) and surface the **live updates members rely on** (golf, p
 
 ## Phased plan
 
-### Phase 1 — Finish dinner reservations + wire notifications  ← START HERE
+### Phase 1 — Finish dinner reservations + wire notifications  ✅ DONE (2026-06-09)
 The `notifications` table exists but is **never written to**. Wiring it is the connective
 tissue for reservations *and* later push.
-- Write a notification on reservation status change (confirmed/declined) — DB trigger or server action.
-- Surface the declined reason (`staff_note`) to the member.
-- In-app notification center + bell (unread count, mark read).
-- *(Optional)* live slot availability ("3 left at 6:30").
+- ✅ Write a notification on reservation status change (confirmed/declined).
+- ✅ Surface the declined reason (`staff_note`) to the member.
+- ✅ In-app notification center + bell (unread count, mark read).
+- *(Optional, still open)* live slot availability ("3 left at 6:30").
 
-### Phase 2 — Event cards + GolfGenius handoff
+### Phase 2 — Event cards + GolfGenius handoff  ← START HERE
 - Add `registration_url`, `fee`, optional cover image to `calendar_events`.
-- Render events as feed/dashboard cards with **Register** (deep-link out) + **Add to calendar** (`.ics` exists).
+- Build **one shared `EventCard` component**, reused in three places: the Today page
+  (Phase 4), the feed (via Phase 5 `post_type`), and the calendar detail page.
+- Card = cover image, title, date/time/location, department badge, **Register**
+  (deep-link out) + **Add to calendar** (`.ics` exists).
 - Extend `event-form` for staff to enter registration URL + fee.
 
 ### Phase 3 — Facility status widget (golf / pool)
@@ -51,9 +54,19 @@ tissue for reservations *and* later push.
   One tap + lifecycle (All clear reverts).
 - Pinned, realtime-updated status widget.
 
-### Phase 4 — Dashboard-lite member home
+### Phase 4 — "Today at the Club" member home
 - Build the member home (today members are redirected straight to `/posts`).
-- Widgets above the feed: facility status, your next reservation, upcoming events.
+- Glanceable **Today page**, not a second feed: fixed sections, no infinite scroll,
+  empty sections collapse. Feed stays its own tab — Today answers "what's happening
+  right now / what do I need to do", the feed answers "what's been announced".
+- Sections, in priority order:
+  1. **Facility status** (Phase 3 widget) — pinned, realtime.
+  2. **Your next reservation** — "Tonight, 6:30 PM, party of 4, Confirmed."
+  3. **Today on the calendar** — today's events as `EventCard`s (Phase 2).
+  4. **Weather** — current temp + conditions + wind for the club's lat/long.
+     Server-side fetch (Open-Meteo, free/no key), cached ~15–30 min. A glance,
+     not a forecast page; pairs with facility status ("87° and sunny / Pool: Open").
+  5. **Latest 2–3 posts** teaser with "View all" → `/posts`.
 
 ### Phase 5 — More intuitive feed
 - Add `post_type` (announcement / menu / event / …) for differentiated rendering.
@@ -81,6 +94,8 @@ tissue for reservations *and* later push.
 
 ## Sequencing notes
 - **Phases 1–5 are independent of Capacitor** — pure web work, build now.
+- **Build Phase 4 (Today page) after Phases 2–3** — it composes event cards and the
+  facility-status widget; building it first means a page of placeholders.
 - **Phase 7 (push)** reuses Phase 1 (notifications) + Phase 6 (prefs).
 - **Phase 8 is last and isolated** to its own branch. Wrap only when the v1 web features
   are complete and stable as a PWA.
