@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setReservationStatus } from "@/app/(app)/reservations/actions";
 import { StatusBadge } from "@/components/badges";
+import { cn } from "@/lib/cn";
 import { formatDate, formatTime } from "@/lib/format";
 import type { Reservation, ReservationStatus } from "@/lib/database.types";
 
@@ -24,10 +25,70 @@ export function StaffReservationsTable({ rows }: { rows: Row[] }) {
     });
   }
 
+  // Render helper (not a component) so the buttons reconcile in place instead of
+  // remounting each render.
+  function actions(r: Row) {
+    return (
+      <div className="flex justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => update(r.id, "confirmed")}
+          disabled={pending || r.status === "confirmed"}
+          className="btn btn-ghost btn-sm text-success hover:bg-success/10"
+        >
+          Confirm
+        </button>
+        <button
+          type="button"
+          onClick={() => update(r.id, "cancelled")}
+          disabled={pending || r.status === "cancelled"}
+          className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+    <>
+      {/* Mobile: stacked cards (no horizontal scroll). */}
+      <div className="space-y-3 md:hidden">
+        {rows.map((r) => (
+          <div
+            key={r.id}
+            className={cn("card p-4", pending && "opacity-60")}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{r.memberName}</p>
+                <p className="mt-0.5 text-sm text-foreground">
+                  {formatDate(r.reservation_date)}
+                  <span className="text-muted">
+                    {" "}
+                    · {formatTime(r.reservation_time)}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-sm text-muted">
+                  Party of {r.party_size}
+                </p>
+              </div>
+              <StatusBadge status={r.status} />
+            </div>
+            {r.special_requests && (
+              <p className="mt-2 text-sm text-muted">{r.special_requests}</p>
+            )}
+            <div className="mt-3 border-t border-border pt-2">
+              {actions(r)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: full table. */}
+      <div className="card hidden overflow-hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
           <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Member</th>
@@ -64,30 +125,14 @@ export function StaffReservationsTable({ rows }: { rows: Row[] }) {
                   <StatusBadge status={r.status} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => update(r.id, "confirmed")}
-                      disabled={pending || r.status === "confirmed"}
-                      className="btn btn-ghost btn-sm text-success hover:bg-success/10"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => update(r.id, "cancelled")}
-                      disabled={pending || r.status === "cancelled"}
-                      className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  {actions(r)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

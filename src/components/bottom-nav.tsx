@@ -18,8 +18,11 @@ const TABS: Tab[] = [
  * Fixed bottom tab bar for phones (hidden on md+, where the top bar handles
  * navigation). Thumb-reachable, with safe-area padding for notched devices.
  */
-export function BottomNav() {
+export function BottomNav({ showHome }: { showHome: boolean }) {
   const pathname = usePathname();
+  // Members' home IS the feed, so the Home tab is hidden for them to avoid two
+  // tabs that land on the same page.
+  const tabs = showHome ? TABS : TABS.filter((t) => t.href !== "/");
 
   return (
     <nav
@@ -28,7 +31,7 @@ export function BottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active =
             tab.href === "/"
               ? pathname === "/"

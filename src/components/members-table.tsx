@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { removeMember, setMemberRole } from "@/app/(app)/members/actions";
+import { cn } from "@/lib/cn";
 import { ROLE_LABEL, ROLES } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import type { Profile, UserRole } from "@/lib/database.types";
@@ -45,10 +46,74 @@ export function MembersTable({
     });
   }
 
+  // Render helper (not a component) so the control reconciles in place instead
+  // of remounting each render.
+  function roleControl(m: Profile) {
+    if (m.id === currentUserId) {
+      return <span className="text-foreground">{ROLE_LABEL[m.role]}</span>;
+    }
+    return (
+      <select
+        className="select max-w-36"
+        value={m.role}
+        disabled={pending}
+        onChange={(e) => changeRole(m.id, e.target.value as UserRole)}
+      >
+        {ROLES.map((r) => (
+          <option key={r} value={r}>
+            {ROLE_LABEL[r]}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   return (
-    <div className="card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+    <>
+      {/* Mobile: stacked cards (no horizontal scroll). */}
+      <div className="space-y-3 md:hidden">
+        {members.map((m) => {
+          const isSelf = m.id === currentUserId;
+          return (
+            <div
+              key={m.id}
+              className={cn("card p-4", pending && "opacity-60")}
+            >
+              <div className="font-medium text-foreground">
+                {m.full_name}
+                {isSelf && <span className="ml-2 text-xs text-muted">(you)</span>}
+              </div>
+              <div className="text-sm text-muted">{m.email}</div>
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <dt className="text-muted">Phone</dt>
+                <dd className="text-foreground">{m.phone ?? "—"}</dd>
+                <dt className="text-muted">Joined</dt>
+                <dd className="text-foreground">
+                  {formatDate(m.created_at.slice(0, 10))}
+                </dd>
+              </dl>
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                {roleControl(m)}
+                {!isSelf && (
+                  <button
+                    type="button"
+                    onClick={() => remove(m.id, m.full_name)}
+                    disabled={pending}
+                    className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: full table. */}
+      <div className="card hidden overflow-hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
           <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Member</th>
@@ -77,26 +142,7 @@ export function MembersTable({
                     {formatDate(m.created_at.slice(0, 10))}
                   </td>
                   <td className="px-4 py-3">
-                    {isSelf ? (
-                      <span className="text-foreground">
-                        {ROLE_LABEL[m.role]}
-                      </span>
-                    ) : (
-                      <select
-                        className="select max-w-32"
-                        value={m.role}
-                        disabled={pending}
-                        onChange={(e) =>
-                          changeRole(m.id, e.target.value as UserRole)
-                        }
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABEL[r]}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                    {roleControl(m)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {!isSelf && (
@@ -115,7 +161,8 @@ export function MembersTable({
             })}
           </tbody>
         </table>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

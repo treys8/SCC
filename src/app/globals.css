@@ -35,6 +35,14 @@
   --font-serif: var(--font-playfair);
 }
 
+@layer base {
+  html {
+    /* No grey/blue flash on tap; keep text size stable on orientation change. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -50,7 +58,7 @@ h3,
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-primary {
     @apply bg-primary text-white hover:bg-primary-700;
@@ -78,7 +86,8 @@ h3,
   .input,
   .select,
   .textarea {
-    @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-[var(--ring)];
+    /* 16px on phones so iOS Safari doesn't auto-zoom on focus; tighter from sm up. */
+    @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-foreground outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-[var(--ring)] sm:text-sm;
   }
   .textarea {
     @apply min-h-24 resize-y;
