@@ -14,15 +14,25 @@ export function StaffReservationsTable({ rows }: { rows: Row[] }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  function update(id: string, status: ReservationStatus) {
+  function update(id: string, status: ReservationStatus, staffNote?: string) {
     startTransition(async () => {
       try {
-        await setReservationStatus(id, status);
+        await setReservationStatus(id, status, staffNote);
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "Could not update reservation.");
       }
     });
+  }
+
+  // Declining records a member-visible reason; an empty reason is allowed, but
+  // dismissing the prompt aborts.
+  function decline(id: string) {
+    const reason = prompt(
+      "Reason for declining (optional — the member will see this):",
+    );
+    if (reason === null) return;
+    update(id, "declined", reason);
   }
 
   // Render helper (not a component) so the buttons reconcile in place instead of
@@ -40,11 +50,11 @@ export function StaffReservationsTable({ rows }: { rows: Row[] }) {
         </button>
         <button
           type="button"
-          onClick={() => update(r.id, "cancelled")}
-          disabled={pending || r.status === "cancelled"}
+          onClick={() => decline(r.id)}
+          disabled={pending || r.status === "declined"}
           className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
         >
-          Cancel
+          Decline
         </button>
       </div>
     );

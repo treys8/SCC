@@ -1,12 +1,19 @@
 import Link from "next/link";
 import { Crest } from "@/components/crest";
 import { NavLinks, type NavLink } from "@/components/nav-links";
+import { NotificationBell } from "@/components/notification-bell";
 import { signOut } from "@/lib/actions/auth";
 import { isAdmin, isStaff } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
-export function SiteNav({ profile }: { profile: Profile }) {
+export function SiteNav({
+  profile,
+  unreadCount,
+}: {
+  profile: Profile;
+  unreadCount: number;
+}) {
   const links: NavLink[] = [
     // Members land on the feed as their home, so they don't get a Home link.
     ...(isStaff(profile.role) ? [{ href: "/", label: "Home" }] : []),
@@ -31,6 +38,7 @@ export function SiteNav({ profile }: { profile: Profile }) {
         <NavLinks links={links} className="ml-4 hidden md:flex" />
 
         <div className="ml-auto flex items-center gap-3">
+          <NotificationBell count={unreadCount} />
           <Link
             href="/profile"
             className="flex items-center gap-2 rounded-md px-2 py-1 text-right hover:bg-background"
