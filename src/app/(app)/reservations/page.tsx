@@ -84,10 +84,15 @@ async function MemberView() {
                     Party of {r.party_size}
                     {r.special_requests ? ` · ${r.special_requests}` : ""}
                   </p>
+                  {r.status === "declined" && r.staff_note && (
+                    <p className="mt-1 text-sm text-danger">
+                      Reason: {r.staff_note}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge status={r.status} />
-                  {r.status !== "cancelled" && (
+                  {(r.status === "pending" || r.status === "confirmed") && (
                     <CancelReservationButton id={r.id} />
                   )}
                 </div>
