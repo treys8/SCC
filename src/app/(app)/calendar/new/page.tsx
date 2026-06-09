@@ -7,12 +7,16 @@ import { requireRole } from "@/lib/auth";
 export const metadata: Metadata = { title: "New event" };
 
 export default async function NewEventPage() {
-  await requireRole("staff", "admin");
+  const profile = await requireRole("staff", "admin");
 
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="New event" />
-      <EventForm action={createEvent} submitLabel="Add event" />
+      <EventForm
+        action={createEvent}
+        userId={profile.id}
+        submitLabel="Add event"
+      />
     </div>
   );
 }

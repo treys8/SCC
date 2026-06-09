@@ -219,6 +219,9 @@ export interface Database {
           end_time: string | null;
           location: string | null;
           department: DepartmentType | null;
+          registration_url: string | null;
+          fee: string | null;
+          cover_image_url: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -231,6 +234,9 @@ export interface Database {
           end_time?: string | null;
           location?: string | null;
           department?: DepartmentType | null;
+          registration_url?: string | null;
+          fee?: string | null;
+          cover_image_url?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -243,6 +249,9 @@ export interface Database {
           end_time?: string | null;
           location?: string | null;
           department?: DepartmentType | null;
+          registration_url?: string | null;
+          fee?: string | null;
+          cover_image_url?: string | null;
           created_by?: string | null;
           created_at?: string;
         };

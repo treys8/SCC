@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
+import { EventCard } from "@/components/event-card";
 import { getProfile, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatTimeRange, todayISO } from "@/lib/format";
+import { formatDate, todayISO } from "@/lib/format";
 
 export default async function DashboardPage() {
   const profile = await getProfile();
@@ -21,11 +22,11 @@ export default async function DashboardPage() {
       .limit(4),
     supabase
       .from("calendar_events")
-      .select("id, title, event_date, start_time, end_time, location")
+      .select("*")
       .gte("event_date", today)
       .order("event_date", { ascending: true })
       .order("start_time", { ascending: true })
-      .limit(4),
+      .limit(3),
   ]);
 
   const firstName = profile?.full_name.split(" ")[0] ?? "Member";
@@ -115,30 +116,15 @@ export default async function DashboardPage() {
 
         <section>
           <SectionHeading title="Upcoming events" href="/calendar" />
-          <div className="card divide-y divide-border">
-            {events && events.length > 0 ? (
-              events.map((e) => (
-                <Link
-                  key={e.id}
-                  href={`/calendar/${e.id}`}
-                  className="flex items-start justify-between gap-3 p-4 hover:bg-surface-2"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{e.title}</p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      {formatTimeRange(e.start_time, e.end_time)}
-                      {e.location ? ` · ${e.location}` : ""}
-                    </p>
-                  </div>
-                  <span className="whitespace-nowrap text-sm text-muted">
-                    {formatDate(e.event_date)}
-                  </span>
-                </Link>
-              ))
-            ) : (
-              <p className="p-4 text-sm text-muted">No upcoming events.</p>
-            )}
-          </div>
+          {events && events.length > 0 ? (
+            <div className="space-y-4">
+              {events.map((e) => (
+                <EventCard key={e.id} event={e} />
+              ))}
+            </div>
+          ) : (
+            <p className="card p-4 text-sm text-muted">No upcoming events.</p>
+          )}
         </section>
       </div>
     </div>

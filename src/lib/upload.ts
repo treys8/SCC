@@ -135,3 +135,21 @@ export async function uploadPostFile(
     height,
   };
 }
+
+/**
+ * Upload an event cover photo (images only) and return its public URL.
+ * Reuses the `posts` bucket and per-user folder convention so Storage RLS and
+ * next/image's allowlist keep working unchanged. Events store only the URL —
+ * a replaced or deleted cover simply orphans the old object, which is fine at
+ * club scale.
+ */
+export async function uploadEventCover(
+  file: File,
+  userId: string,
+): Promise<string> {
+  if (classifyFile(file) !== "image") {
+    throw new Error(`${file.name}: cover must be an image`);
+  }
+  const meta = await uploadPostFile(file, userId);
+  return meta.url;
+}
