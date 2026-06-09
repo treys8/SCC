@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Crest } from "@/components/crest";
 import { NavLinks, type NavLink } from "@/components/nav-links";
 import { signOut } from "@/lib/actions/auth";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, isStaff } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
 export function SiteNav({ profile }: { profile: Profile }) {
   const links: NavLink[] = [
-    { href: "/", label: "Home" },
+    // Members land on the feed as their home, so they don't get a Home link.
+    ...(isStaff(profile.role) ? [{ href: "/", label: "Home" }] : []),
     { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },

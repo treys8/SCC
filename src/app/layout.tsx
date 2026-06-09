@@ -21,13 +21,20 @@ export const metadata: Metadata = {
   },
   description:
     "Member portal for Starkville Country Club — announcements, dining reservations, and the club calendar.",
+  // Launch standalone (no Safari chrome) when added to an iOS home screen.
+  // `appleWebApp` emits the modern `mobile-web-app-capable`; `other` adds the
+  // legacy `apple-mobile-web-app-capable` that iOS < 17 still needs.
+  appleWebApp: { capable: true, title: "SCC", statusBarStyle: "default" },
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
-// Mobile-first: fit the device width, tint the browser chrome club green, and
-// keep pinch-zoom enabled for accessibility.
+// Mobile-first: fit the device width, tint the browser chrome club green, extend
+// under the notch/home-indicator so the safe-area insets resolve, and keep
+// pinch-zoom enabled for accessibility.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#335d3b",
 };
 

@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatTimeRange, todayISO } from "@/lib/format";
 
 export default async function DashboardPage() {
   const profile = await getProfile();
+  // Members open straight into the feed; the portal dashboard is for staff.
+  if (profile && !isStaff(profile.role)) redirect("/posts");
   const supabase = await createClient();
   const today = todayISO();
 

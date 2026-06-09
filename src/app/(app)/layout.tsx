@@ -1,6 +1,6 @@
 import { BottomNav } from "@/components/bottom-nav";
 import { SiteNav } from "@/components/site-nav";
-import { requireProfile } from "@/lib/auth";
+import { isStaff, requireProfile } from "@/lib/auth";
 
 export default async function AppLayout({
   children,
@@ -11,8 +11,9 @@ export default async function AppLayout({
 
   return (
     // Reserve space at the bottom on phones so the fixed tab bar never covers
-    // content or the footer.
-    <div className="flex min-h-full flex-col pb-16 md:pb-0">
+    // content or the footer — including the home-indicator safe area on notched
+    // devices (the tab bar grows by the same inset).
+    <div className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       <SiteNav profile={profile} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:py-8">
         {children}
@@ -22,7 +23,7 @@ export default async function AppLayout({
           © {new Date().getFullYear()} Starkville Country Club · Member Portal
         </div>
       </footer>
-      <BottomNav />
+      <BottomNav showHome={isStaff(profile.role)} />
     </div>
   );
 }

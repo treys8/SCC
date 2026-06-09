@@ -2,8 +2,18 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-/** Paths reachable without an authenticated session. */
-const PUBLIC_PREFIXES = ["/login", "/auth", "/set-password"];
+/**
+ * Paths reachable without an authenticated session. Includes the PWA metadata
+ * routes (manifest + apple-touch-icon) — the browser fetches these without
+ * cookies, and they must not redirect to /login or the app can't be installed.
+ */
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/auth",
+  "/set-password",
+  "/manifest.webmanifest",
+  "/apple-icon",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some(
