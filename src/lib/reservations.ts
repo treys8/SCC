@@ -5,8 +5,8 @@
  * times the trigger will accept.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
-import { formatTime } from "@/lib/format";
+import type { Database, Reservation } from "@/lib/database.types";
+import { formatTime, todayISO } from "@/lib/format";
 
 type DB = SupabaseClient<Database>;
 
@@ -59,6 +59,28 @@ export function generateSlots(settings: BookingSettings): SlotOption[] {
     slots.push({ value, label: formatTime(value) });
   }
   return slots;
+}
+
+/**
+ * A member's soonest confirmed, still-upcoming reservation (today or later),
+ * or null if they have none — powers the Today page's "next reservation" card.
+ * Only `confirmed` counts: pending/declined aren't something to show up for.
+ */
+export async function fetchNextReservation(
+  supabase: DB,
+  memberId: string,
+): Promise<Reservation | null> {
+  const { data } = await supabase
+    .from("reservations")
+    .select("*")
+    .eq("member_id", memberId)
+    .eq("status", "confirmed")
+    .gte("reservation_date", todayISO())
+    .order("reservation_date", { ascending: true })
+    .order("reservation_time", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data;
 }
 
 /** e.g. "Seatings 5:00 PM–9:00 PM, every 30 min." */

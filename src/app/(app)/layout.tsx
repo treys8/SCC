@@ -1,6 +1,6 @@
 import { BottomNav } from "@/components/bottom-nav";
 import { SiteNav } from "@/components/site-nav";
-import { isStaff, requireProfile } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
@@ -32,7 +32,7 @@ export default async function AppLayout({
           © {new Date().getFullYear()} Starkville Country Club · Member Portal
         </div>
       </footer>
-      <BottomNav showHome={isStaff(profile.role)} />
+      <BottomNav />
     </div>
   );
 }

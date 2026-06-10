@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 type Tab = { href: string; label: string; icon: (p: IconProps) => React.ReactNode };
 
 const TABS: Tab[] = [
-  { href: "/", label: "Home", icon: HomeIcon },
+  { href: "/", label: "Today", icon: HomeIcon },
   { href: "/posts", label: "Feed", icon: FeedIcon },
   { href: "/reservations", label: "Reserve", icon: ReserveIcon },
   { href: "/calendar", label: "Calendar", icon: CalendarIcon },
@@ -18,11 +18,8 @@ const TABS: Tab[] = [
  * Fixed bottom tab bar for phones (hidden on md+, where the top bar handles
  * navigation). Thumb-reachable, with safe-area padding for notched devices.
  */
-export function BottomNav({ showHome }: { showHome: boolean }) {
+export function BottomNav() {
   const pathname = usePathname();
-  // Members' home IS the feed, so the Home tab is hidden for them to avoid two
-  // tabs that land on the same page.
-  const tabs = showHome ? TABS : TABS.filter((t) => t.href !== "/");
 
   return (
     <nav
@@ -31,7 +28,7 @@ export function BottomNav({ showHome }: { showHome: boolean }) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex">
-        {tabs.map((tab) => {
+        {TABS.map((tab) => {
           const active =
             tab.href === "/"
               ? pathname === "/"
