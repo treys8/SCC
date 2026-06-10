@@ -1,4 +1,6 @@
 import { BottomNav } from "@/components/bottom-nav";
+import { IosInstallPrompt } from "@/components/ios-install-prompt";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { SiteNav } from "@/components/site-nav";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -23,8 +25,10 @@ export default async function AppLayout({
     // content or the footer — including the home-indicator safe area on notched
     // devices (the tab bar grows by the same inset).
     <div className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+      <ServiceWorkerRegister />
       <SiteNav profile={profile} unreadCount={count ?? 0} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:py-8">
+        <IosInstallPrompt />
         {children}
       </main>
       <footer className="border-t border-border bg-surface">

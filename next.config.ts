@@ -22,6 +22,24 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // The Web Push service worker is served from /public. Override the default
+  // `public, max-age=0` so browsers never run a stale worker, set the JS
+  // content type explicitly, and allow root scope.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
