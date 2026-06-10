@@ -5,7 +5,7 @@ import { ProfileForm } from "@/components/profile-form";
 import { PushToggle } from "@/components/push-toggle";
 import { requireProfile } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
-import { getDepartmentPreferences } from "@/lib/preferences";
+import { getDepartmentOptIns } from "@/lib/preferences";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "My Profile" };
@@ -14,7 +14,7 @@ export default async function ProfilePage() {
   const profile = await requireProfile();
 
   const supabase = await createClient();
-  const departments = await getDepartmentPreferences(supabase, profile.id);
+  const departments = await getDepartmentOptIns(supabase, profile.id);
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

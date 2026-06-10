@@ -1,18 +1,27 @@
 /**
- * Member department preferences — the opt-in layer that targets Phase 7 push.
+ * Member department preferences — stored as **opt-OUT** rows. A row
+ * `(user_id, department)` means "do not alert me about this department." A
+ * member with no rows receives everything (default-on); a fully-opted-out
+ * member has one row per department. This lets a member who unchecks every box
+ * actually receive nothing (the old opt-in storage collapsed that to "never
+ * configured → default-on").
  *
- * `getDepartmentPreferences` reads one member's choices for the profile UI
- * (call it with the RLS-gated server client). `getUsersForDepartmentDefaultOn`
- * resolves the audience for a department alert under the default-on model (call
- * it with the service-role admin client so the fan-out can see every member).
+ * `getDepartmentOptIns` returns the departments a member still wants — the
+ * checked state of the profile form (call with the RLS-gated server client).
+ * `getUsersForDepartmentDefaultOn` resolves a department alert's audience:
+ * everyone who hasn't opted out (call with the service-role admin client so the
+ * fan-out sees every member).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DEPARTMENTS } from "@/lib/constants";
 import type { Database, DepartmentType } from "@/lib/database.types";
 
 type DB = SupabaseClient<Database>;
 
-/** The departments a member has opted into (empty array if none / on error). */
-export async function getDepartmentPreferences(
+const ALL_DEPARTMENTS = DEPARTMENTS.map((d) => d.value);
+
+/** Departments a member has opted OUT of (the raw stored rows). */
+export async function getDepartmentOptOuts(
   supabase: DB,
   userId: string,
 ): Promise<DepartmentType[]> {
@@ -24,27 +33,33 @@ export async function getDepartmentPreferences(
 }
 
 /**
- * Audience for a department alert under the **default-on** model: every member
- * EXCEPT those who have configured preferences that exclude this department. A
- * member who never set any preference receives everything; one who saved a list
- * without this department has explicitly opted out. Call with the service-role
- * client so the fan-out sees every member.
+ * Departments a member still wants alerts from = all minus their opt-outs.
+ * This is the checked state shown in the preferences form (all for a member who
+ * has opted out of nothing; empty for one who has opted out of everything).
+ */
+export async function getDepartmentOptIns(
+  supabase: DB,
+  userId: string,
+): Promise<DepartmentType[]> {
+  const optedOut = new Set(await getDepartmentOptOuts(supabase, userId));
+  return ALL_DEPARTMENTS.filter((d) => !optedOut.has(d));
+}
+
+/**
+ * Audience for a department alert: every member who hasn't opted out of it.
+ * Call with the service-role admin client so the fan-out sees every member.
  */
 export async function getUsersForDepartmentDefaultOn(
   supabase: DB,
   department: DepartmentType,
 ): Promise<string[]> {
-  const [{ data: members }, { data: prefs }] = await Promise.all([
+  const [{ data: members }, { data: optOuts }] = await Promise.all([
     supabase.from("profiles").select("id"),
-    supabase.from("member_department_preferences").select("user_id, department"),
+    supabase
+      .from("member_department_preferences")
+      .select("user_id")
+      .eq("department", department),
   ]);
-  const configured = new Set<string>();
-  const optedIn = new Set<string>();
-  for (const p of prefs ?? []) {
-    configured.add(p.user_id);
-    if (p.department === department) optedIn.add(p.user_id);
-  }
-  return (members ?? [])
-    .map((m) => m.id)
-    .filter((id) => !configured.has(id) || optedIn.has(id));
+  const excluded = new Set((optOuts ?? []).map((r) => r.user_id));
+  return (members ?? []).map((m) => m.id).filter((id) => !excluded.has(id));
 }

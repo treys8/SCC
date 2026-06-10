@@ -16,7 +16,19 @@ import type { AttachmentKind } from "@/lib/database.types";
 export const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB
 const BUCKET = "posts";
 
-const IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"];
+const IMAGE_EXTS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "heic",
+  "heif",
+  "avif",
+  "bmp",
+  "tif",
+  "tiff",
+];
 const FILE_EXTS = [
   "pdf",
   "doc",
@@ -62,6 +74,10 @@ const MIME_BY_EXT: Record<string, string> = {
   gif: "image/gif",
   heic: "image/heic",
   heif: "image/heif",
+  avif: "image/avif",
+  bmp: "image/bmp",
+  tif: "image/tiff",
+  tiff: "image/tiff",
   pdf: "application/pdf",
   doc: "application/msword",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -81,6 +97,30 @@ function contentTypeFor(file: File): string {
   return type || MIME_BY_EXT[ext(file.name)] || "application/octet-stream";
 }
 
+// Must mirror the posts bucket's allowed_mime_types so the composer rejects an
+// unsupported file up front with a clear message instead of letting Storage
+// reject it with an opaque error. SVG is intentionally excluded (XSS risk).
+const ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/bmp",
+  "image/tiff",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/csv",
+]);
+
 /** Decide whether a file is an image, a document, or unsupported. */
 export function classifyFile(file: File): AttachmentKind | null {
   if (file.type.startsWith("image/")) return "image";
@@ -94,6 +134,11 @@ export function classifyFile(file: File): AttachmentKind | null {
 /** Returns a human-readable error, or null if the file is acceptable. */
 export function validateFile(file: File): string | null {
   if (classifyFile(file) === null) return `${file.name}: unsupported file type`;
+  // Aligns with the bucket's server-side allow-list so e.g. an SVG (offered by
+  // the image/* picker) fails here with a clear message, not opaquely later.
+  if (!ALLOWED_MIME.has(contentTypeFor(file))) {
+    return `${file.name}: unsupported file type`;
+  }
   if (file.size > MAX_FILE_BYTES) return `${file.name} is larger than 25 MB`;
   return null;
 }

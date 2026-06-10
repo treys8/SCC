@@ -12,11 +12,12 @@ import type { DepartmentType } from "@/lib/database.types";
 const INITIAL: ProfileState = {};
 
 /**
- * Lets a member pick which departments may alert them. Alerts are on by default:
- * a member with no saved preferences receives everything, so we show every box
- * checked and let them uncheck to opt out. `selected` is their saved opt-ins;
- * empty means "never configured" → default-on. Safety alerts (lightning /
- * closures) bypass these choices, which the hint makes explicit.
+ * Lets a member pick which departments may alert them. Alerts are on by default
+ * (preferences are stored as opt-OUT rows). `selected` is the departments the
+ * member still wants — every box for someone who's opted out of nothing, none
+ * for someone who's opted out of everything — so the checkboxes mirror it
+ * directly and an all-off save sticks. Safety alerts (lightning / closures)
+ * bypass these choices, which the hint makes explicit.
  *
  * Controlled (useState) so a server-side error doesn't reset the boxes — React
  * 19 wipes uncontrolled fields after a form action returns.
@@ -31,10 +32,7 @@ export function DepartmentPreferencesForm({
     INITIAL,
   );
   const [checked, setChecked] = useState<Set<DepartmentType>>(
-    () =>
-      new Set(
-        selected.length ? selected : DEPARTMENTS.map((d) => d.value),
-      ),
+    () => new Set(selected),
   );
 
   const toggle = (value: DepartmentType, on: boolean) =>
