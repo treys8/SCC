@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
 import { AddToCalendar } from "@/components/calendar/add-to-calendar";
 import { DateChip } from "@/components/calendar/date-chip";
 import { EventActions } from "@/components/event-actions";
-import { RegisterLink } from "@/components/event-card";
+import { EventCover, RegisterLink } from "@/components/event-card";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { formatDate, formatTimeRange } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -49,16 +48,7 @@ export default async function EventDetailPage({ params }: Params) {
 
       <article className="card overflow-hidden">
         {event.cover_image_url && (
-          <div className="relative aspect-[2/1] bg-surface-2">
-            <Image
-              src={event.cover_image_url}
-              alt=""
-              fill
-              sizes="(max-width: 768px) 100vw, 672px"
-              className="object-cover"
-              priority
-            />
-          </div>
+          <EventCover url={event.cover_image_url} eager />
         )}
 
         <div className="space-y-5 p-6">

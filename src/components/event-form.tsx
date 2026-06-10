@@ -16,6 +16,10 @@ type EventAction = (
 
 const INITIAL: EventFormState = {};
 
+// Recover the UI if an upload stalls (storage-js issues a plain fetch with no
+// timeout); the underlying request may still finish, but the form unlocks.
+const UPLOAD_TIMEOUT_MS = 45_000;
+
 export function EventForm({
   action,
   event,
@@ -28,6 +32,21 @@ export function EventForm({
   submitLabel: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL);
+
+  // Fields are controlled so a server-side validation error doesn't wipe them:
+  // React 19 resets uncontrolled (<input defaultValue>) fields after a form
+  // action returns, which would discard everything the staff member typed.
+  const [title, setTitle] = useState(event?.title ?? "");
+  const [description, setDescription] = useState(event?.description ?? "");
+  const [eventDate, setEventDate] = useState(event?.event_date ?? "");
+  const [startTime, setStartTime] = useState(event?.start_time?.slice(0, 5) ?? "");
+  const [endTime, setEndTime] = useState(event?.end_time?.slice(0, 5) ?? "");
+  const [location, setLocation] = useState(event?.location ?? "");
+  const [department, setDepartment] = useState(event?.department ?? "");
+  const [registrationUrl, setRegistrationUrl] = useState(
+    event?.registration_url ?? "",
+  );
+  const [fee, setFee] = useState(event?.fee ?? "");
 
   // Cover photo uploads browser-direct on selection (Server Action bodies are
   // too small for photos); the form only submits the resulting public URL.
@@ -44,13 +63,27 @@ export function EventForm({
     if (!file) return;
     setUploadError(null);
     setUploading(true);
+
+    const upload = uploadEventCover(file, userId);
+    upload.catch(() => {}); // a stalled upload that loses the race shouldn't surface as unhandled
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      setCoverUrl(await uploadEventCover(file, userId));
+      const url = await Promise.race([
+        upload,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Upload timed out — please try again.")),
+            UPLOAD_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      setCoverUrl(url);
     } catch (err) {
       setUploadError(
         err instanceof Error ? err.message : "Couldn't upload the image.",
       );
     } finally {
+      clearTimeout(timer);
       setUploading(false);
     }
   }
@@ -66,7 +99,8 @@ export function EventForm({
           name="title"
           type="text"
           required
-          defaultValue={event?.title ?? ""}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
           className="input"
           placeholder="Member-Guest Golf Tournament"
         />
@@ -79,7 +113,8 @@ export function EventForm({
         <textarea
           id="description"
           name="description"
-          defaultValue={event?.description ?? ""}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           className="textarea"
           placeholder="Details members should know…"
         />
@@ -96,7 +131,8 @@ export function EventForm({
             type="date"
             required
             min={todayISO()}
-            defaultValue={event?.event_date ?? ""}
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
             className="input"
           />
         </div>
@@ -109,7 +145,8 @@ export function EventForm({
             name="start_time"
             type="time"
             required
-            defaultValue={event?.start_time?.slice(0, 5) ?? ""}
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
             className="input"
           />
         </div>
@@ -121,7 +158,8 @@ export function EventForm({
             id="end_time"
             name="end_time"
             type="time"
-            defaultValue={event?.end_time?.slice(0, 5) ?? ""}
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
             className="input"
           />
         </div>
@@ -136,7 +174,8 @@ export function EventForm({
             id="location"
             name="location"
             type="text"
-            defaultValue={event?.location ?? ""}
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
             className="input"
             placeholder="Main Clubhouse"
           />
@@ -149,7 +188,8 @@ export function EventForm({
             id="department"
             name="department"
             className="select"
-            defaultValue={event?.department ?? ""}
+            value={department}
+            onChange={(e) => setDepartment(e.target.value as typeof department)}
           >
             <option value="">None</option>
             {DEPARTMENTS.map((d) => (
@@ -171,7 +211,8 @@ export function EventForm({
             name="registration_url"
             type="text"
             inputMode="url"
-            defaultValue={event?.registration_url ?? ""}
+            value={registrationUrl}
+            onChange={(e) => setRegistrationUrl(e.target.value)}
             className="input"
             placeholder="https://golfgenius.com/…"
           />
@@ -187,7 +228,8 @@ export function EventForm({
             id="fee"
             name="fee"
             type="text"
-            defaultValue={event?.fee ?? ""}
+            value={fee}
+            onChange={(e) => setFee(e.target.value)}
             className="input"
             placeholder="$50 per player"
           />
@@ -202,7 +244,7 @@ export function EventForm({
         <input
           ref={coverInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={onCoverChange}
           className="hidden"
           id="cover-input"
@@ -240,13 +282,9 @@ export function EventForm({
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
 
       <div className="flex items-center gap-3">
-        {uploading ? (
-          <button type="button" disabled className="btn btn-primary">
-            Uploading…
-          </button>
-        ) : (
-          <SubmitButton pendingText="Saving…">{submitLabel}</SubmitButton>
-        )}
+        <SubmitButton pendingText="Saving…" disabled={uploading}>
+          {submitLabel}
+        </SubmitButton>
         <Link href="/calendar" className="btn btn-ghost">
           Cancel
         </Link>

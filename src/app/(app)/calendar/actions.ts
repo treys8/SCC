@@ -11,20 +11,54 @@ export type EventFormState = { error?: string };
 
 const VALID = new Set<string>(DEPARTMENTS.map((d) => d.value));
 
+const URL_ERROR = "Registration link must be a valid web address.";
+
 /**
- * Trim and require an http(s) URL, tolerating a pasted link with no scheme
- * ("golfgenius.com/…" → "https://golfgenius.com/…"). Returns an error for
- * anything that still doesn't parse.
+ * Normalize an optional registration link to an http(s) URL with a real domain.
+ * Tolerates a pasted link with no scheme ("golfgenius.com/…" →
+ * "https://golfgenius.com/…") but rejects non-web schemes (mailto:, etc.),
+ * malformed schemes ("https:/x"), and bare words ("TBD") that would otherwise
+ * silently save as a dead link behind a prominent Register button.
  */
 function parseRegistrationUrl(raw: string): { url: string | null; error?: string } {
   const trimmed = raw.trim();
   if (!trimmed) return { url: null };
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    return { url: new URL(candidate).toString() };
-  } catch {
-    return { url: null, error: "Registration link must be a valid web address." };
+
+  // A scheme is present but it isn't http(s) (covers "mailto:…" and the
+  // single-slash "https:/…" typo, which fails the // test).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
+    return { url: null, error: URL_ERROR };
   }
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return { url: null, error: URL_ERROR };
+  }
+  // Require a dotted hostname with a plausible TLD so "TBD"/"N/A" don't parse
+  // as hosts.
+  if (!/\.[a-z]{2,}$/i.test(parsed.hostname)) {
+    return { url: null, error: URL_ERROR };
+  }
+  return { url: parsed.toString() };
+}
+
+/**
+ * The cover URL comes from a client-controlled hidden input. Only accept URLs
+ * we actually uploaded — the public `posts` bucket on this project's Supabase
+ * host, which is the only origin next/image is configured to optimize. Anything
+ * else is dropped (event still saves, just coverless) rather than persisted as
+ * a value that would fail to render. Mirrors next.config.ts's remotePatterns.
+ */
+function parseCoverUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  if (!base) return trimmed; // can't verify without the host; trust the upload
+  const prefix = `${base}/storage/v1/object/public/posts/`;
+  return trimmed.startsWith(prefix) ? trimmed : null;
 }
 
 function parseEvent(formData: FormData) {
@@ -44,8 +78,7 @@ function parseEvent(formData: FormData) {
       department: VALID.has(deptRaw) ? (deptRaw as DepartmentType) : null,
       registration_url: registration.url,
       fee: String(formData.get("fee") ?? "").trim() || null,
-      cover_image_url:
-        String(formData.get("cover_image_url") ?? "").trim() || null,
+      cover_image_url: parseCoverUrl(String(formData.get("cover_image_url") ?? "")),
     },
   };
 }

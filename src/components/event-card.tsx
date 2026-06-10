@@ -9,55 +9,69 @@ import type { CalendarEvent } from "@/lib/database.types";
 const COVER_SIZES = "(max-width: 768px) 100vw, 640px";
 
 /**
+ * An event's 2:1 cover image. Shared so the card and the detail-page hero render
+ * covers identically. `eager` hints the optimizer for above-the-fold heroes.
+ */
+export function EventCover({
+  url,
+  eager = false,
+}: {
+  url: string;
+  eager?: boolean;
+}) {
+  return (
+    <div className="relative aspect-[2/1] bg-surface-2">
+      <Image
+        src={url}
+        alt=""
+        fill
+        sizes={COVER_SIZES}
+        className="object-cover"
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+      />
+    </div>
+  );
+}
+
+/**
  * Shared, actionable rendering of a calendar event: cover photo, when/where,
  * Register (deep-link out to GolfGenius etc.) and Add to calendar. Used on the
  * dashboard today; built to be reused by the "Today at the Club" page and
- * typed feed posts. The cover and title link to the event detail page.
+ * typed feed posts. The whole body links to the event detail page; the footer
+ * actions sit outside that link so they stay independently tappable.
  */
 export function EventCard({ event }: { event: CalendarEvent }) {
   const href = `/calendar/${event.id}`;
 
   return (
     <article className="card overflow-hidden">
-      {event.cover_image_url && (
-        <Link
-          href={href}
-          className="relative block aspect-[2/1] bg-surface-2"
-        >
-          <Image
-            src={event.cover_image_url}
-            alt=""
-            fill
-            sizes={COVER_SIZES}
-            className="object-cover"
-          />
-        </Link>
-      )}
+      <Link href={href} className="block transition-colors hover:bg-surface-2">
+        {event.cover_image_url && <EventCover url={event.cover_image_url} />}
 
-      <div className="flex gap-4 p-4 sm:p-5">
-        <DateChip dateStr={event.event_date} />
-        <div className="min-w-0 flex-1">
-          <Link href={href}>
-            <h3 className="font-serif text-lg font-semibold text-foreground transition-colors hover:text-accent-600">
+        <div className="flex gap-4 p-4 sm:p-5">
+          <DateChip dateStr={event.event_date} />
+          <div className="min-w-0 flex-1">
+            <h3 className="font-serif text-lg font-semibold text-foreground">
               {event.title}
             </h3>
-          </Link>
-          <p className="mt-1 text-sm text-muted">
-            {formatDate(event.event_date)} ·{" "}
-            {formatTimeRange(event.start_time, event.end_time)}
-          </p>
-          {(event.location || event.fee) && (
-            <p className="mt-0.5 text-sm text-muted">
-              {[event.location, event.fee].filter(Boolean).join(" · ")}
+            <p className="mt-1 text-sm text-muted">
+              {formatDate(event.event_date)} ·{" "}
+              {formatTimeRange(event.start_time, event.end_time)}
             </p>
-          )}
-          {event.department && (
-            <div className="mt-2">
-              <DepartmentBadge department={event.department} />
-            </div>
-          )}
+            {(event.location || event.fee) && (
+              <p className="mt-0.5 text-sm text-muted">
+                {[event.location, event.fee].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {event.department && (
+              <div className="mt-2">
+                <DepartmentBadge department={event.department} />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </Link>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-5">
         <AddToCalendar event={event} />
