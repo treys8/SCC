@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   setFacilityMessage,
   setFacilityStatus,
@@ -112,6 +112,16 @@ function FacilityRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState(row.message ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep the note input in sync with realtime updates to row.message — unless
+  // this staffer is actively editing it — so a remote clear/change isn't
+  // resurrected by a stale local draft.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDraft(row.message ?? "");
+    }
+  }, [row.message]);
 
   // A staffer's own change should look instant; realtime then reconciles with
   // the authoritative row. A client timestamp is fine for the optimistic gap.
@@ -194,6 +204,7 @@ function FacilityRow({
           </div>
           <div className="flex gap-2">
             <input
+              ref={inputRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               maxLength={120}

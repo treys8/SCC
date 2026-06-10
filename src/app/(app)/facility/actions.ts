@@ -7,7 +7,7 @@ import {
   FACILITY_LABEL,
   FACILITY_STATUS_LABEL,
 } from "@/lib/constants";
-import { getUsersOptedIntoDepartment } from "@/lib/preferences";
+import { getUsersForDepartmentDefaultOn } from "@/lib/preferences";
 import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -42,7 +42,7 @@ export async function setFacilityStatus(
   const supabase = await createClient();
 
   // Read the prior status first so we only alert on an actual change.
-  const { data: prev } = await supabase
+  const { data: prev, error: prevError } = await supabase
     .from("facility_status")
     .select("status")
     .eq("facility", facility)
@@ -58,12 +58,16 @@ export async function setFacilityStatus(
 
   // Best-effort: a real status change alerts members (in-app + push). A failure
   // here must never surface as a failed status change the staff already made.
-  if (prev && prev.status !== status) {
-    try {
+  try {
+    if (prevError) {
+      // Couldn't read the prior status — fail OPEN and force-send rather than
+      // risk swallowing a safety change (e.g. a lightning hold) or its all-clear.
+      await notifyFacilityChange(facility, status, status, { forceAll: true });
+    } else if (prev && prev.status !== status) {
       await notifyFacilityChange(facility, status, prev.status);
-    } catch (e) {
-      console.error("facility notification failed:", e);
     }
+  } catch (e) {
+    console.error("facility notification failed:", e);
   }
 }
 
@@ -97,20 +101,24 @@ async function notifyFacilityChange(
   facility: FacilityType,
   status: FacilityStatusType,
   prevStatus: FacilityStatusType,
+  opts: { forceAll?: boolean } = {},
 ) {
   const admin = createAdminClient();
 
-  // Force-send when entering OR leaving a safety state, so the de-escalation
-  // reaches the same broad audience the alarm did.
-  const forceAll = FORCE_SEND_ALL.has(status) || FORCE_SEND_ALL.has(prevStatus);
+  // Force-send when entering OR leaving a safety state (so the de-escalation
+  // reaches the same broad audience the alarm did), or when the caller asks
+  // (e.g. the prior status couldn't be read).
+  const forceAll =
+    opts.forceAll || FORCE_SEND_ALL.has(status) || FORCE_SEND_ALL.has(prevStatus);
 
   let targetIds: string[];
   if (forceAll) {
     const { data } = await admin.from("profiles").select("id");
     targetIds = (data ?? []).map((r) => r.id);
   } else {
-    // FacilityType ('golf' | 'pool') is a subset of DepartmentType.
-    targetIds = await getUsersOptedIntoDepartment(admin, facility);
+    // FacilityType ('golf' | 'pool') is a subset of DepartmentType. Default-on:
+    // reaches everyone who hasn't explicitly opted out of this department.
+    targetIds = await getUsersForDepartmentDefaultOn(admin, facility);
   }
   if (targetIds.length === 0) return;
 
