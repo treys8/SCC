@@ -1,27 +1,33 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
 import { EventCard } from "@/components/event-card";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
+import { NextReservationCard } from "@/components/today/next-reservation-card";
+import { WeatherCard } from "@/components/today/weather-card";
 import { getProfile, isStaff } from "@/lib/auth";
 import { fetchFacilityStatus } from "@/lib/facility";
-import { createClient } from "@/lib/supabase/server";
+import { fetchLatestPosts } from "@/lib/feed";
 import { formatDate, todayISO } from "@/lib/format";
+import { fetchNextReservation } from "@/lib/reservations";
+import { createClient } from "@/lib/supabase/server";
+import { fetchWeather } from "@/lib/weather";
 
-export default async function DashboardPage() {
+/**
+ * "Today at the Club" — the member home. A glanceable answer to "what's
+ * happening right now / what do I need to do," not a second feed: fixed
+ * sections in priority order, each collapsing when it has nothing to show.
+ * Staff see the same page, with the facility widget's inline controls.
+ */
+export default async function TodayPage() {
   const profile = await getProfile();
-  // Members open straight into the feed; the portal dashboard is for staff.
-  if (profile && !isStaff(profile.role)) redirect("/posts");
   const supabase = await createClient();
   const today = todayISO();
 
-  const [{ data: posts }, { data: events }, facilities] = await Promise.all([
-    supabase
-      .from("posts")
-      .select("id, title, content, department, created_at, is_pinned")
-      .order("is_pinned", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(4),
+  const [facilities, reservation, upcoming, posts, weather] = await Promise.all([
+    fetchFacilityStatus(supabase),
+    profile
+      ? fetchNextReservation(supabase, profile.id)
+      : Promise.resolve(null),
     supabase
       .from("calendar_events")
       .select("*")
@@ -29,124 +35,103 @@ export default async function DashboardPage() {
       .order("event_date", { ascending: true })
       .order("start_time", { ascending: true })
       .limit(3),
-    fetchFacilityStatus(supabase),
+    fetchLatestPosts(supabase, 3),
+    fetchWeather(),
   ]);
 
-  const firstName = profile?.full_name.split(" ")[0] ?? "Member";
+  const upcomingEvents = upcoming.data ?? [];
+  const todaysEvents = upcomingEvents.filter((e) => e.event_date === today);
+  // Show what's on *today*; if nothing is, fall back to the next few so the
+  // section isn't usually empty (the Calendar tab holds the full schedule).
+  const events = todaysEvents.length > 0 ? todaysEvents : upcomingEvents;
 
-  const tiles = [
-    {
-      href: "/posts",
-      title: "Feed",
-      desc: "News, photos, and updates from around the club.",
-    },
-    {
-      href: "/reservations",
-      title: "Reservations",
-      desc: "Book a table and review your upcoming reservations.",
-    },
-    {
-      href: "/calendar",
-      title: "Calendar",
-      desc: "See what's happening around the club.",
-    },
-    {
-      href: "/profile",
-      title: "My Profile",
-      desc: "Update your contact details.",
-    },
-  ];
+  const firstName = profile?.full_name.split(" ")[0] ?? "Member";
+  const canManage = profile ? isStaff(profile.role) : false;
 
   return (
-    <div className="space-y-10">
-      <section className="rounded-2xl border border-border bg-primary px-6 py-8 text-white sm:px-10 sm:py-10">
-        <p className="text-sm uppercase tracking-widest text-white/70">
-          Member Portal
+    <div className="space-y-8">
+      <header>
+        <p className="text-sm uppercase tracking-widest text-muted">
+          Today at the Club
         </p>
-        <h1 className="mt-2 font-serif text-3xl font-semibold sm:text-4xl">
+        <h1 className="mt-1 font-serif text-3xl font-semibold text-foreground">
           Welcome back, {firstName}.
         </h1>
-        <p className="mt-2 max-w-xl text-sm text-white/80">
-          Everything happening at Starkville Country Club, in one place.
-        </p>
-      </section>
+      </header>
 
       {facilities.length > 0 && (
-        <FacilityStatusWidget initial={facilities} canManage />
+        <FacilityStatusWidget initial={facilities} canManage={canManage} />
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {tiles.map((t) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className="card group flex flex-col p-5 transition-shadow hover:shadow-md"
-          >
-            <span className="font-serif text-lg font-semibold text-primary">
-              {t.title}
-            </span>
-            <span className="mt-1 flex-1 text-sm text-muted">{t.desc}</span>
-            <span className="mt-3 text-sm font-medium text-accent-600 transition-transform group-hover:translate-x-0.5">
-              Open →
-            </span>
-          </Link>
-        ))}
-      </section>
+      {reservation && (
+        <section className="space-y-3">
+          <SectionHeading title="Your next reservation" href="/reservations" />
+          <NextReservationCard reservation={reservation} />
+        </section>
+      )}
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section>
-          <SectionHeading title="Latest posts" href="/posts" />
-          <div className="card divide-y divide-border">
-            {posts && posts.length > 0 ? (
-              posts.map((p) => (
-                <Link
-                  key={p.id}
-                  href="/posts"
-                  className="flex items-start justify-between gap-3 p-4 hover:bg-surface-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-foreground">
-                      {p.title || p.content || "Update"}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      {formatDate(p.created_at.slice(0, 10))}
-                    </p>
-                  </div>
-                  <DepartmentBadge department={p.department} />
-                </Link>
-              ))
-            ) : (
-              <p className="p-4 text-sm text-muted">No announcements yet.</p>
-            )}
+      {events.length > 0 && (
+        <section className="space-y-3">
+          <SectionHeading
+            title={
+              todaysEvents.length > 0 ? "Today on the calendar" : "Upcoming events"
+            }
+            href="/calendar"
+          />
+          <div className="space-y-4">
+            {events.map((e) => (
+              <EventCard key={e.id} event={e} />
+            ))}
           </div>
         </section>
+      )}
 
-        <section>
-          <SectionHeading title="Upcoming events" href="/calendar" />
-          {events && events.length > 0 ? (
-            <div className="space-y-4">
-              {events.map((e) => (
-                <EventCard key={e.id} event={e} />
-              ))}
-            </div>
-          ) : (
-            <p className="card p-4 text-sm text-muted">No upcoming events.</p>
-          )}
+      {weather && (
+        <section className="space-y-3">
+          <SectionHeading title="Weather" />
+          <WeatherCard weather={weather} />
         </section>
-      </div>
+      )}
+
+      {posts.length > 0 && (
+        <section className="space-y-3">
+          <SectionHeading title="Latest posts" href="/posts" />
+          <div className="card divide-y divide-border">
+            {posts.map((p) => (
+              <Link
+                key={p.id}
+                href="/posts"
+                className="flex items-start justify-between gap-3 p-4 hover:bg-surface-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground">
+                    {p.title || p.content || "Update"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {formatDate(p.created_at.slice(0, 10))}
+                  </p>
+                </div>
+                <DepartmentBadge department={p.department} />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function SectionHeading({ title, href }: { title: string; href: string }) {
+function SectionHeading({ title, href }: { title: string; href?: string }) {
   return (
-    <div className="mb-3 flex items-center justify-between">
+    <div className="flex items-center justify-between">
       <h2 className="font-serif text-xl font-semibold text-foreground">
         {title}
       </h2>
-      <Link href={href} className="text-sm font-medium text-accent-600">
-        View all →
-      </Link>
+      {href && (
+        <Link href={href} className="text-sm font-medium text-accent-600">
+          View all →
+        </Link>
+      )}
     </div>
   );
 }

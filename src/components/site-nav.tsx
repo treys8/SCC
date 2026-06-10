@@ -3,7 +3,7 @@ import { Crest } from "@/components/crest";
 import { NavLinks, type NavLink } from "@/components/nav-links";
 import { NotificationBell } from "@/components/notification-bell";
 import { signOut } from "@/lib/actions/auth";
-import { isAdmin, isStaff } from "@/lib/auth";
+import { isAdmin } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
@@ -15,8 +15,8 @@ export function SiteNav({
   unreadCount: number;
 }) {
   const links: NavLink[] = [
-    // Members land on the feed as their home, so they don't get a Home link.
-    ...(isStaff(profile.role) ? [{ href: "/", label: "Home" }] : []),
+    // "/" is now the "Today at the Club" home for members and staff alike.
+    { href: "/", label: "Today" },
     { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
