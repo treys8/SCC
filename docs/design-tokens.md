@@ -72,8 +72,8 @@ sets the whole thing and the scale can't drift. Compose with colour utilities
 
 | Class | Size | Family | Role |
 | --- | --- | --- | --- |
-| `.text-display` | 30px | serif | top-of-page titles / Today greeting |
-| `.text-h1` | 24px | serif | in-card / secondary major titles |
+| `.text-display` | 30→36px | serif | the Today hero greeting (front-door moment) |
+| `.text-h1` | 24px | serif | page titles, detail / auth / calendar-month titles |
 | `.text-h2` | 20px | serif | section & card titles |
 | `.text-body` | 16px | sans | running prose (1.5 leading, ~65ch measure) |
 | `.text-caption` | 12px | sans | timestamps, eyebrows, meta, fine print |
@@ -81,7 +81,7 @@ sets the whole thing and the scale can't drift. Compose with colour utilities
 `text-sm` (14px) stays the general-purpose UI text (labels, table cells,
 single-line secondary lines) between `body` and `caption`. Raw steps `text-2xs`
 (new, 10px) and the Tailwind defaults remain available for non-prose numerals
-(weather temp, date-chip day) that aren't type-scale roles.
+(e.g. the date-chip day numeral) that aren't type-scale roles.
 
 ### Font weight
 `font-normal` (400) · `font-medium` (500, dominant) · `font-semibold` (600,
@@ -199,13 +199,13 @@ was introduced in `globals.css` as the heading/body single source of truth, with
 `.text-display` carrying the responsive hero step (`sm:text-4xl`). The rollout
 across the four pages and their components is **complete**:
 - **C2 resolved**: post body → `.text-body` (16px); the standalone 15px step dropped.
-- Card/section titles → `.text-h2`; major/page titles → `.text-h1`/`.text-display`;
-  the calendar month label → `.text-h1`, selected-day → `.text-h2`. (This turn I
-  migrated `reservations/page.tsx`, `facility-status-widget.tsx`,
-  `new-reservation-form.tsx`; the rest landed in parallel.)
+- Card/section titles → `.text-h2`; page titles → `.text-h1`, the Today hero →
+  `.text-display` (the one responsive role, 30→36px); the calendar month label →
+  `.text-h1`, selected-day → `.text-h2`. Body prose (post content, event
+  description, hero summary) → `.text-body`; eyebrows/timestamps/meta → `.text-caption`.
 - **Intentionally not roles** (not drift): the `site-nav` wordmark and the
-  `date-chip` day numeral / weather temp — display lettering & numerals, not
-  type-scale prose. `text-sm` (14px) remains general-purpose UI text.
+  `date-chip` day numeral — display lettering & numerals, not type-scale prose.
+  `text-sm` (14px) remains general-purpose UI text.
 
 Remaining flags: **D** (dead `--primary-600` / near-identical green — needs your
 call), **F** (scrims). **B, C, E and the type-scale rollout are done.**

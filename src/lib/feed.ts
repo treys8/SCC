@@ -9,16 +9,9 @@ import type {
   Database,
   DepartmentType,
   FeedPost,
-  Post,
 } from "@/lib/database.types";
 
 export const FEED_PAGE_SIZE = 10;
-
-/** The trimmed post shape the Today-page teaser renders (no attachments). */
-export type PostTeaser = Pick<
-  Post,
-  "id" | "title" | "content" | "department" | "created_at"
->;
 
 /** Post + its attachments + the author's display fields, in one round trip. */
 export const FEED_SELECT =
@@ -70,24 +63,6 @@ export async function fetchFeedPage(
   const posts = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
   const nextCursor = hasMore ? posts[posts.length - 1].created_at : null;
   return { posts, nextCursor };
-}
-
-/**
- * The latest few posts (pinned or not), newest first — a lightweight teaser for
- * the Today page that links through to the full feed. Skips the attachment/author
- * join the feed needs since the teaser only shows a title and department.
- */
-export async function fetchLatestPosts(
-  supabase: DB,
-  limit: number,
-): Promise<PostTeaser[]> {
-  const { data } = await supabase
-    .from("posts")
-    .select("id, title, content, department, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit)
-    .returns<PostTeaser[]>();
-  return data ?? [];
 }
 
 /** Newest-first attachment order for rendering. */
