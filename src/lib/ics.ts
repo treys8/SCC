@@ -23,17 +23,31 @@ function stamp(dateIso: string, time: string): string {
   return `${y}${m}${d}T${hh}${mm}${ss}`;
 }
 
-/** Add one hour to "HH:MM[:SS]", clamped to 23:59 (no day rollover). */
-function plusHour(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = Math.min(h * 60 + m + 60, 23 * 60 + 59);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
-    total % 60,
-  ).padStart(2, "0")}:00`;
+/**
+ * Add minutes to a wall-clock date+time and return an ICS stamp, rolling past
+ * midnight into the next day instead of clamping to 23:59. Arithmetic is done in
+ * UTC purely to borrow the calendar math — the result is still floating local.
+ */
+function stampPlusMinutes(dateIso: string, time: string, mins: number): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const [hh = 0, mm = 0, ss = 0] = time.split(":").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, hh, mm, ss));
+  dt.setUTCMinutes(dt.getUTCMinutes() + mins);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${dt.getUTCFullYear()}${p(dt.getUTCMonth() + 1)}${p(dt.getUTCDate())}` +
+    `T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}${p(dt.getUTCSeconds())}`
+  );
 }
 
-function endTimeOf(event: CalendarEvent): string {
-  return event.end_time ?? plusHour(event.start_time);
+/**
+ * DTEND stamp for an event. An explicit end_time is same-date (the model has no
+ * end-date); a missing end defaults to +1h, rolling past midnight if needed.
+ */
+function endStamp(event: CalendarEvent): string {
+  return event.end_time
+    ? stamp(event.event_date, event.end_time)
+    : stampPlusMinutes(event.event_date, event.start_time, 60);
 }
 
 /** UTC DTSTAMP ("20260607T120000Z") for "now". */
@@ -64,7 +78,7 @@ export function buildICS(event: CalendarEvent, dtstamp: string): string {
     `UID:${event.id}@scc-portal`,
     `DTSTAMP:${dtstamp}`,
     `DTSTART:${stamp(event.event_date, event.start_time)}`,
-    `DTEND:${stamp(event.event_date, endTimeOf(event))}`,
+    `DTEND:${endStamp(event)}`,
     `SUMMARY:${esc(event.title)}`,
   ];
   if (event.description) lines.push(`DESCRIPTION:${esc(event.description)}`);
@@ -75,15 +89,6 @@ export function buildICS(event: CalendarEvent, dtstamp: string): string {
 
 /** A dining reservation runs 90 min for calendar purposes (no end is stored). */
 const RESERVATION_DURATION_MIN = 90;
-
-/** Add minutes to "HH:MM[:SS]", clamped to 23:59 (no day rollover). */
-function addMinutes(time: string, mins: number): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = Math.min(h * 60 + (m || 0) + mins, 23 * 60 + 59);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
-    total % 60,
-  ).padStart(2, "0")}:00`;
-}
 
 /**
  * A downloadable VCALENDAR string for a dining reservation. Universal (.ics
@@ -102,9 +107,10 @@ export function buildReservationICS(r: Reservation, dtstamp: string): string {
     `UID:reservation-${r.id}@scc-portal`,
     `DTSTAMP:${dtstamp}`,
     `DTSTART:${stamp(r.reservation_date, r.reservation_time)}`,
-    `DTEND:${stamp(
+    `DTEND:${stampPlusMinutes(
       r.reservation_date,
-      addMinutes(r.reservation_time, RESERVATION_DURATION_MIN),
+      r.reservation_time,
+      RESERVATION_DURATION_MIN,
     )}`,
     "SUMMARY:Dinner at Starkville Country Club",
     `DESCRIPTION:${esc(
@@ -121,10 +127,7 @@ export function buildReservationICS(r: Reservation, dtstamp: string): string {
 
 /** Google Calendar "create event" template URL. */
 export function googleCalendarUrl(event: CalendarEvent): string {
-  const dates = `${stamp(event.event_date, event.start_time)}/${stamp(
-    event.event_date,
-    endTimeOf(event),
-  )}`;
+  const dates = `${stamp(event.event_date, event.start_time)}/${endStamp(event)}`;
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: event.title,

@@ -38,10 +38,10 @@ const VALID_DEPARTMENTS = new Set<string>(DEPARTMENTS.map((d) => d.value));
 
 /**
  * Replace the member's department opt-ins with the submitted set. These choices
- * decide which department alerts can reach them via push (Phase 7); safety
- * alerts — lightning holds and closures — reach everyone regardless. Writes
- * through the RLS-gated client, so the member can only ever touch their own
- * rows. Done as delete-all-then-insert because the set is tiny (≤8 rows).
+ * decide which department alerts can reach them; safety alerts — lightning holds
+ * and closures — reach everyone regardless. Done in one transactional RPC
+ * (`set_member_department_preferences`, SECURITY DEFINER scoped to auth.uid())
+ * so a failed insert can't leave the member with zero opt-ins.
  */
 export async function updateDepartmentPreferences(
   _prev: ProfileState,
@@ -58,18 +58,10 @@ export async function updateDepartmentPreferences(
     .map(String)
     .filter((d): d is DepartmentType => VALID_DEPARTMENTS.has(d));
 
-  const { error: deleteError } = await supabase
-    .from("member_department_preferences")
-    .delete()
-    .eq("user_id", user.id);
-  if (deleteError) return { error: deleteError.message };
-
-  if (selected.length > 0) {
-    const { error } = await supabase
-      .from("member_department_preferences")
-      .insert(selected.map((department) => ({ user_id: user.id, department })));
-    if (error) return { error: error.message };
-  }
+  const { error } = await supabase.rpc("set_member_department_preferences", {
+    p_departments: selected,
+  });
+  if (error) return { error: error.message };
 
   revalidatePath("/profile");
   return { success: true };

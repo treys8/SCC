@@ -9,6 +9,7 @@ import {
   type FeedPage,
 } from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
+import { postsObjectUrl, postsPublicUrl } from "@/lib/url";
 import type { DepartmentType, FeedPost } from "@/lib/database.types";
 
 const BUCKET = "posts";
@@ -61,7 +62,10 @@ function attachmentRows(
   return attachments.map((a, i) => ({
     post_id: postId,
     kind: a.kind,
-    url: a.url,
+    // The url is client-supplied; only persist one that points at our public
+    // posts bucket, else re-derive it from the (in-bucket) storage_path so a
+    // crafted off-origin link can't be stored and rendered into an <a href>.
+    url: postsPublicUrl(a.url) ?? postsObjectUrl(a.storage_path) ?? a.url,
     storage_path: a.storage_path,
     file_name: a.file_name || null,
     mime_type: a.mime_type || null,
@@ -190,8 +194,17 @@ export async function deletePost(id: string) {
     .select("storage_path")
     .eq("post_id", id);
 
-  const { error } = await supabase.from("posts").delete().eq("id", id);
+  // RLS scopes deletes to the author; .select() lets us tell "deleted" from
+  // "row hidden by RLS" so we don't report success (or wipe Storage) on a no-op.
+  const { data: deleted, error } = await supabase
+    .from("posts")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!deleted || deleted.length === 0) {
+    throw new Error("You can only delete your own posts.");
+  }
 
   const paths = (atts ?? []).map((a) => a.storage_path).filter(Boolean);
   if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
@@ -203,11 +216,15 @@ export async function deletePost(id: string) {
 export async function togglePin(id: string, isPinned: boolean) {
   await requireRole("staff", "admin");
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("posts")
     .update({ is_pinned: isPinned })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!updated || updated.length === 0) {
+    throw new Error("You can only pin your own posts.");
+  }
   revalidatePath("/posts");
   revalidatePath("/");
 }

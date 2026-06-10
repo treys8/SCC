@@ -1,7 +1,12 @@
 /**
  * Date/time formatting that avoids timezone drift by treating the
  * date/time strings as wall-clock values (not UTC instants).
+ *
+ * Helpers that render a real instant (formatTimestamp / formatRelativeTime) and
+ * compute "today" pin to the club's timezone — otherwise they'd render in the
+ * server's TZ (UTC on Vercel), giving wrong tooltip times and off-by-one dates.
  */
+import { CLUB_TZ } from "@/lib/constants";
 
 /** "2026-06-07" -> "Sun, Jun 7, 2026" */
 export function formatDate(dateStr: string): string {
@@ -48,9 +53,10 @@ export function formatTimeRange(
   return end ? `${formatTime(start)} – ${formatTime(end)}` : formatTime(start);
 }
 
-/** ISO timestamp -> "Jun 7, 2026, 6:30 PM" */
+/** ISO timestamp -> "Jun 7, 2026, 6:30 PM" (in club time). */
 export function formatTimestamp(ts: string): string {
   return new Date(ts).toLocaleString("en-US", {
+    timeZone: CLUB_TZ,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -76,10 +82,14 @@ export function formatRelativeTime(ts: string): string {
   const days = Math.round(hours / 24);
   if (days < 7) return `${days}d`;
 
-  // Older than a week: show the date (drop the year if it's this year).
+  // Older than a week: show the date in club time (drop the year if it's this
+  // year, judged in club time too).
   const date = new Date(ts);
-  const sameYear = date.getFullYear() === new Date().getFullYear();
+  const clubYear = (d: Date) =>
+    new Intl.DateTimeFormat("en-US", { timeZone: CLUB_TZ, year: "numeric" }).format(d);
+  const sameYear = clubYear(date) === clubYear(new Date());
   return date.toLocaleDateString("en-US", {
+    timeZone: CLUB_TZ,
     month: "short",
     day: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),
@@ -96,7 +106,13 @@ export function formatFileSize(bytes: number | null | undefined): string {
     value /= 1024;
     unit++;
   }
-  const rounded = value >= 10 || unit === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  let rounded =
+    value >= 10 || unit === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  // Rounding can land on the unit boundary (e.g. 1023.99 KB → "1024 KB").
+  if (rounded >= 1024 && unit < units.length - 1) {
+    rounded = 1;
+    unit++;
+  }
   return `${rounded} ${units[unit]}`;
 }
 
@@ -105,4 +121,17 @@ export function todayISO(): string {
   const now = new Date();
   const off = now.getTimezoneOffset();
   return new Date(now.getTime() - off * 60_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Today as "YYYY-MM-DD" in club time. Use this for server-side date validation
+ * (e.g. rejecting past reservations) so it doesn't drift to the server's TZ.
+ */
+export function clubTodayISO(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLUB_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }

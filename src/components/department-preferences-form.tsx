@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   updateDepartmentPreferences,
   type ProfileState,
@@ -12,10 +12,14 @@ import type { DepartmentType } from "@/lib/database.types";
 const INITIAL: ProfileState = {};
 
 /**
- * Lets a member pick which departments may alert them. `selected` is their
- * current opt-ins (server-fetched). Submitting replaces the whole set, so an
- * unchecked box opts out. Safety alerts (lightning / closures) bypass these
- * choices, which the hint below makes explicit.
+ * Lets a member pick which departments may alert them. Alerts are on by default:
+ * a member with no saved preferences receives everything, so we show every box
+ * checked and let them uncheck to opt out. `selected` is their saved opt-ins;
+ * empty means "never configured" → default-on. Safety alerts (lightning /
+ * closures) bypass these choices, which the hint makes explicit.
+ *
+ * Controlled (useState) so a server-side error doesn't reset the boxes — React
+ * 19 wipes uncontrolled fields after a form action returns.
  */
 export function DepartmentPreferencesForm({
   selected,
@@ -26,15 +30,29 @@ export function DepartmentPreferencesForm({
     updateDepartmentPreferences,
     INITIAL,
   );
-  const current = new Set(selected);
+  const [checked, setChecked] = useState<Set<DepartmentType>>(
+    () =>
+      new Set(
+        selected.length ? selected : DEPARTMENTS.map((d) => d.value),
+      ),
+  );
+
+  const toggle = (value: DepartmentType, on: boolean) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(value);
+      else next.delete(value);
+      return next;
+    });
 
   return (
     <form action={formAction} className="card space-y-4 p-6">
       <div>
         <h2 className="text-h2">Alert preferences</h2>
         <p className="field-hint">
-          Choose which departments can notify you. Urgent safety alerts — like a
-          lightning hold or a closure — always come through.
+          You&rsquo;re set to hear from every department. Uncheck any you&rsquo;d
+          rather not be notified about. Urgent safety alerts — like a lightning
+          hold or a closure — always come through.
         </p>
       </div>
 
@@ -48,7 +66,8 @@ export function DepartmentPreferencesForm({
               type="checkbox"
               name="department"
               value={dept.value}
-              defaultChecked={current.has(dept.value)}
+              checked={checked.has(dept.value)}
+              onChange={(e) => toggle(dept.value, e.target.checked)}
               className="h-4 w-4"
             />
             <span className="text-sm">{dept.label}</span>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { DEPARTMENTS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
+import { postsPublicUrl } from "@/lib/url";
 import type { DepartmentType } from "@/lib/database.types";
 
 export type EventFormState = { error?: string };
@@ -45,22 +46,6 @@ function parseRegistrationUrl(raw: string): { url: string | null; error?: string
   return { url: parsed.toString() };
 }
 
-/**
- * The cover URL comes from a client-controlled hidden input. Only accept URLs
- * we actually uploaded — the public `posts` bucket on this project's Supabase
- * host, which is the only origin next/image is configured to optimize. Anything
- * else is dropped (event still saves, just coverless) rather than persisted as
- * a value that would fail to render. Mirrors next.config.ts's remotePatterns.
- */
-function parseCoverUrl(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
-  if (!base) return trimmed; // can't verify without the host; trust the upload
-  const prefix = `${base}/storage/v1/object/public/posts/`;
-  return trimmed.startsWith(prefix) ? trimmed : null;
-}
-
 function parseEvent(formData: FormData) {
   const deptRaw = String(formData.get("department") ?? "");
   const registration = parseRegistrationUrl(
@@ -78,7 +63,7 @@ function parseEvent(formData: FormData) {
       department: VALID.has(deptRaw) ? (deptRaw as DepartmentType) : null,
       registration_url: registration.url,
       fee: String(formData.get("fee") ?? "").trim() || null,
-      cover_image_url: parseCoverUrl(String(formData.get("cover_image_url") ?? "")),
+      cover_image_url: postsPublicUrl(String(formData.get("cover_image_url") ?? "")),
     },
   };
 }

@@ -5,7 +5,7 @@ import { requireProfile, requireRole } from "@/lib/auth";
 import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatTime } from "@/lib/format";
+import { clubTodayISO, formatDate, formatTime } from "@/lib/format";
 import type { ReservationStatus } from "@/lib/database.types";
 
 export type ReservationState = { error?: string; success?: boolean };
@@ -23,6 +23,10 @@ export async function createReservation(
     String(formData.get("special_requests") ?? "").trim() || null;
 
   if (!date || !time) return { error: "Choose a date and time." };
+  // The HTML `min` is only a hint; enforce no past dates server-side too.
+  if (date < clubTodayISO()) {
+    return { error: "Choose a date that hasn't already passed." };
+  }
   if (!Number.isInteger(partySize) || partySize < 1) {
     return { error: "Party size must be at least 1." };
   }
