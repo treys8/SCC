@@ -1,6 +1,14 @@
 import { cn } from "@/lib/cn";
-import { DEPARTMENT_LABEL, STATUS_LABEL } from "@/lib/constants";
-import type { DepartmentType, ReservationStatus } from "@/lib/database.types";
+import {
+  DEPARTMENT_LABEL,
+  FACILITY_STATUS_LABEL,
+  STATUS_LABEL,
+} from "@/lib/constants";
+import type {
+  DepartmentType,
+  FacilityStatusType,
+  ReservationStatus,
+} from "@/lib/database.types";
 
 const DEPT_STYLES: Record<DepartmentType, string> = {
   golf: "bg-success/10 text-success",
@@ -36,6 +44,26 @@ export function StatusBadge({ status }: { status: ReservationStatus }) {
   return (
     <span className={cn("badge", STATUS_STYLES[status])}>
       {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+const FACILITY_STATUS_STYLES: Record<FacilityStatusType, string> = {
+  open: "bg-success/10 text-success",
+  closed: "bg-danger/10 text-danger",
+  frost_delay: "bg-sky-100 text-sky-700",
+  rain_delay: "bg-slate-100 text-slate-700",
+  lightning_hold: "bg-amber-100 text-amber-800",
+};
+
+export function FacilityStatusBadge({
+  status,
+}: {
+  status: FacilityStatusType;
+}) {
+  return (
+    <span className={cn("badge", FACILITY_STATUS_STYLES[status])}>
+      {FACILITY_STATUS_LABEL[status]}
     </span>
   );
 }

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { Feed } from "@/components/feed";
 import { FeedFilter } from "@/components/feed-filter";
 import { PageHeader } from "@/components/page-header";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { DEPARTMENTS } from "@/lib/constants";
+import { fetchFacilityStatus } from "@/lib/facility";
 import { fetchFeedPage, fetchPinnedPosts } from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
 import type { DepartmentType } from "@/lib/database.types";
@@ -32,9 +34,10 @@ export default async function FeedPage({
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [pinned, page] = await Promise.all([
+  const [pinned, page, facilities] = await Promise.all([
     fetchPinnedPosts(supabase, depts),
     fetchFeedPage(supabase, { depts, before: null }),
+    fetchFacilityStatus(supabase),
   ]);
 
   const canPost = isStaff(profile.role);
@@ -57,6 +60,10 @@ export default async function FeedPage({
           ) : undefined
         }
       />
+
+      {facilities.length > 0 && (
+        <FacilityStatusWidget initial={facilities} />
+      )}
 
       <FeedFilter active={depts} />
 

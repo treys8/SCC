@@ -28,6 +28,13 @@ export type ReservationStatus =
   | "declined"
   | "cancelled";
 export type AttachmentKind = "image" | "file";
+export type FacilityType = "golf" | "pool";
+export type FacilityStatusType =
+  | "open"
+  | "closed"
+  | "frost_delay"
+  | "rain_delay"
+  | "lightning_hold";
 
 export interface Database {
   public: {
@@ -373,6 +380,37 @@ export interface Database {
           },
         ];
       };
+      facility_status: {
+        Row: {
+          facility: FacilityType;
+          status: FacilityStatusType;
+          message: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          facility: FacilityType;
+          status?: FacilityStatusType;
+          message?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          facility?: FacilityType;
+          status?: FacilityStatusType;
+          message?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "facility_status_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<never, never>;
     Functions: Record<never, never>;
@@ -399,6 +437,8 @@ export type ReservationSettings =
   Database["public"]["Tables"]["reservation_settings"]["Row"];
 export type Notification =
   Database["public"]["Tables"]["notifications"]["Row"];
+export type FacilityStatus =
+  Database["public"]["Tables"]["facility_status"]["Row"];
 
 /** Just the author fields the feed renders. */
 export type PostAuthor = Pick<Profile, "full_name" | "avatar_url">;

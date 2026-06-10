@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
 import { EventCard } from "@/components/event-card";
+import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { getProfile, isStaff } from "@/lib/auth";
+import { fetchFacilityStatus } from "@/lib/facility";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, todayISO } from "@/lib/format";
 
@@ -13,7 +15,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const today = todayISO();
 
-  const [{ data: posts }, { data: events }] = await Promise.all([
+  const [{ data: posts }, { data: events }, facilities] = await Promise.all([
     supabase
       .from("posts")
       .select("id, title, content, department, created_at, is_pinned")
@@ -27,6 +29,7 @@ export default async function DashboardPage() {
       .order("event_date", { ascending: true })
       .order("start_time", { ascending: true })
       .limit(3),
+    fetchFacilityStatus(supabase),
   ]);
 
   const firstName = profile?.full_name.split(" ")[0] ?? "Member";
@@ -67,6 +70,10 @@ export default async function DashboardPage() {
           Everything happening at Starkville Country Club, in one place.
         </p>
       </section>
+
+      {facilities.length > 0 && (
+        <FacilityStatusWidget initial={facilities} canManage />
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map((t) => (
