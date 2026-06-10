@@ -1,5 +1,7 @@
 import type {
   DepartmentType,
+  FacilityStatusType,
+  FacilityType,
   ReservationStatus,
   UserRole,
 } from "@/lib/database.types";
@@ -47,3 +49,33 @@ export const STATUS_LABEL: Record<ReservationStatus, string> = {
   declined: "Declined",
   cancelled: "Cancelled",
 };
+
+/** Facilities with a member-facing operational status (golf / pool). */
+export const FACILITIES: FacilityType[] = ["golf", "pool"];
+
+export const FACILITY_LABEL: Record<FacilityType, string> = {
+  golf: "Golf Course",
+  pool: "Pool",
+};
+
+export const FACILITY_STATUS_LABEL: Record<FacilityStatusType, string> = {
+  open: "Open",
+  closed: "Closed",
+  frost_delay: "Frost delay",
+  rain_delay: "Rain delay",
+  lightning_hold: "Lightning hold",
+};
+
+/**
+ * Staff one-tap presets, in display order. "Open" and "All clear" both set the
+ * `open` status — "All clear" is the friendlier label for lifting a weather
+ * hold. Tapping any preset clears the facility's custom message.
+ */
+export const FACILITY_PRESETS: { label: string; status: FacilityStatusType }[] = [
+  { label: "Frost", status: "frost_delay" },
+  { label: "Rain", status: "rain_delay" },
+  { label: "Lightning hold", status: "lightning_hold" },
+  { label: "Closed", status: "closed" },
+  { label: "Open", status: "open" },
+  { label: "All clear", status: "open" },
+];
