@@ -1,24 +1,27 @@
-import { NextEvent } from "@/components/today/next-event";
-import { QuickActions } from "@/components/today/quick-actions";
-import { StatusStrip } from "@/components/today/status-strip";
+import Link from "next/link";
+import { BuffetCard } from "@/components/today/buffet-card";
+import { ConditionsGrid } from "@/components/today/conditions-grid";
+import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
-import { TonightCard } from "@/components/today/tonight-card";
 import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
 import { fetchFacilityStatus } from "@/lib/facility";
+import { formatTime } from "@/lib/format";
 import {
+  type BookingSettings,
   fetchReservationSettings,
   fetchTodaysReservation,
 } from "@/lib/reservations";
 import { createClient } from "@/lib/supabase/server";
-import { fetchWeather } from "@/lib/weather";
-import type { CalendarEvent, Reservation } from "@/lib/database.types";
+import { fetchWeather, type Weather, type WeatherIcon } from "@/lib/weather";
+import type { DiningBuffet, Reservation } from "@/lib/database.types";
 
 /**
- * "Today at the Club" — a personalized front door, distinct from the Feed. Top
- * to bottom: a concierge hero, the member's own "Tonight" card, a quick-actions
- * launcher, a Golf/Pool/Dining status strip, and the single next event. It
- * shares data sources with the Feed but no UI: every piece here is bespoke.
+ * "Today at the Club" — a conditions-first front door, distinct from the Feed.
+ * Top to bottom: a concierge hero, the Course & Pool conditions cards (the
+ * focus), today's lunch buffet, the day's events, and a dinner-service note.
+ * It's all live data: facility status + the conditions detail rows, the buffet
+ * (both staff-set on /facility), events, weather, and dining hours.
  */
 export default async function TodayPage() {
   const profile = await getProfile();
@@ -27,10 +30,10 @@ export default async function TodayPage() {
   // "Today" must be the club's calendar day, not the server's. On Vercel the
   // server runs in UTC, which rolls to tomorrow at ~7 PM Central — right in the
   // middle of dinner service — so a server-local date would make tonight's
-  // reservation vanish from the card exactly when the member is sitting down.
+  // reservation vanish from the hero exactly when the member is sitting down.
   const { hour, minute, today } = clubNow();
 
-  const [facilities, reservation, settings, nextEventRes, weather] =
+  const [facilities, reservation, settings, todaysEventsRes, buffetRes, weather] =
     await Promise.all([
       fetchFacilityStatus(supabase),
       profile
@@ -40,15 +43,14 @@ export default async function TodayPage() {
       supabase
         .from("calendar_events")
         .select("*")
-        .gte("event_date", today)
-        .order("event_date", { ascending: true })
-        .order("start_time", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
+        .eq("event_date", today)
+        .order("start_time", { ascending: true }),
+      supabase.from("dining_buffet").select("*").maybeSingle(),
       fetchWeather(),
     ]);
 
-  const nextEvent = nextEventRes.data;
+  const todaysEvents = todaysEventsRes.data ?? [];
+  const buffet = buffetRes.data;
   const firstName = profile?.full_name.split(" ")[0] ?? "Member";
 
   const greeting =
@@ -58,7 +60,7 @@ export default async function TodayPage() {
     settings.service_start,
     settings.service_end,
   );
-  const summary = conciergeSummary(reservation, nextEvent, today);
+  const summary = conciergeSummary(reservation, weather, buffet);
 
   return (
     <div className="space-y-8 sm:space-y-10">
@@ -69,15 +71,40 @@ export default async function TodayPage() {
         summary={summary}
         weather={weather}
       />
-      <TonightCard reservation={reservation} settings={settings} />
-      <QuickActions />
-      <StatusStrip
+      <ConditionsGrid
         facilities={facilities}
-        diningOpen={diningOpen}
         canManage={profile ? isStaff(profile.role) : false}
       />
-      {nextEvent && <NextEvent event={nextEvent} />}
+      {buffet?.active && <BuffetCard buffet={buffet} dateISO={today} />}
+      <TodayEvents events={todaysEvents} />
+      <DinnerNote settings={settings} diningOpen={diningOpen} />
     </div>
+  );
+}
+
+/** The dinner-service footnote — real service hours, plus a path to booking. */
+function DinnerNote({
+  settings,
+  diningOpen,
+}: {
+  settings: BookingSettings;
+  diningOpen: boolean;
+}) {
+  return (
+    <p className="flex items-center gap-2 border-t border-border pt-6 text-sm text-muted">
+      <span aria-hidden>📅</span>
+      <span>
+        Dinner service runs{" "}
+        <span className="font-medium text-foreground">
+          {formatTime(settings.service_start)}–
+          {formatTime(settings.service_end)}
+        </span>
+        {diningOpen ? " — we're seating now. " : " — "}
+        <Link href="/reservations" className="font-medium text-accent-600">
+          Reserve a table →
+        </Link>
+      </span>
+    </p>
   );
 }
 
@@ -115,19 +142,48 @@ function isWithinService(
   return nowMinutes >= toMin(start) && nowMinutes < toMin(end);
 }
 
-/** One warm line about the member's day for the hero (weather lives in the chip). */
+/**
+ * One warm line for the hero — the member's reservation first, otherwise a
+ * weather-led opener with a live nod to the buffet when one's on today. The
+ * buffet clause reads from the real row (time + active), so it can't contradict
+ * the card below it.
+ */
 function conciergeSummary(
   reservation: Reservation | null,
-  nextEvent: CalendarEvent | null,
-  today: string,
+  weather: Weather | null,
+  buffet: DiningBuffet | null,
 ): string {
   if (reservation) {
     return reservation.status === "confirmed"
       ? "You've a table reserved for this evening — we'll see you tonight."
       : "Your table request for this evening is in — we'll confirm it shortly.";
   }
-  if (nextEvent?.event_date === today) {
-    return `${nextEvent.title} is happening at the club today.`;
+  const lead = weather ? weatherLead(weather.icon) : "A fine day at the club.";
+  if (buffet?.active && buffet.end_time) {
+    return `${lead} The ${buffet.title.toLowerCase()} runs 'til ${formatTime(
+      buffet.end_time,
+    )}.`;
   }
-  return "Nothing booked today — the dining room's open for dinner from five.";
+  return lead;
+}
+
+/** A conditions-led opener keyed off the coarse weather glyph. */
+function weatherLead(icon: WeatherIcon): string {
+  switch (icon) {
+    case "sun":
+    case "partly":
+      return "Clear and warming up — a fine day for the course or the pool.";
+    case "cloud":
+    case "fog":
+      return "Soft and overcast — an easy day on the grounds.";
+    case "drizzle":
+    case "rain":
+    case "storm":
+      return "Wet out there — best check conditions before you head over.";
+    case "snow":
+      return "Cold and crisp — bundle up if you're coming by.";
+    default:
+      // A future WeatherIcon shouldn't blank the hero line.
+      return "A fine day at the club.";
+  }
 }

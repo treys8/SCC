@@ -35,6 +35,8 @@ export type FacilityStatusType =
   | "frost_delay"
   | "rain_delay"
   | "lightning_hold";
+/** One labelled row in a facility's conditions list (stored as jsonb). */
+export type FacilityDetail = { label: string; value: string };
 
 export interface Database {
   public: {
@@ -385,6 +387,7 @@ export interface Database {
           facility: FacilityType;
           status: FacilityStatusType;
           message: string | null;
+          details: FacilityDetail[];
           updated_at: string;
           updated_by: string | null;
         };
@@ -392,6 +395,7 @@ export interface Database {
           facility: FacilityType;
           status?: FacilityStatusType;
           message?: string | null;
+          details?: FacilityDetail[];
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -399,12 +403,62 @@ export interface Database {
           facility?: FacilityType;
           status?: FacilityStatusType;
           message?: string | null;
+          details?: FacilityDetail[];
           updated_at?: string;
           updated_by?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: "facility_status_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dining_buffet: {
+        Row: {
+          id: boolean;
+          title: string;
+          start_time: string | null;
+          end_time: string | null;
+          location: string | null;
+          price: string | null;
+          description: string | null;
+          walk_in: boolean;
+          active: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          title?: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          location?: string | null;
+          price?: string | null;
+          description?: string | null;
+          walk_in?: boolean;
+          active?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          title?: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          location?: string | null;
+          price?: string | null;
+          description?: string | null;
+          walk_in?: boolean;
+          active?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dining_buffet_updated_by_fkey";
             columns: ["updated_by"];
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -520,6 +574,8 @@ export type Notification =
   Database["public"]["Tables"]["notifications"]["Row"];
 export type FacilityStatus =
   Database["public"]["Tables"]["facility_status"]["Row"];
+export type DiningBuffet =
+  Database["public"]["Tables"]["dining_buffet"]["Row"];
 export type MemberDepartmentPreference =
   Database["public"]["Tables"]["member_department_preferences"]["Row"];
 export type PushSubscriptionRow =

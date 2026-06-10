@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { BuffetEditor } from "@/components/buffet-editor";
 import { EmptyState } from "@/components/empty-state";
+import { FacilityDetailsEditor } from "@/components/facility-details-editor";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { PageHeader } from "@/components/page-header";
 import { requireRole } from "@/lib/auth";
@@ -18,22 +20,33 @@ export default async function FacilityPage() {
   await requireRole("staff", "admin");
 
   const supabase = await createClient();
-  const facilities = await fetchFacilityStatus(supabase);
+  const [facilities, buffetRes] = await Promise.all([
+    fetchFacilityStatus(supabase),
+    supabase.from("dining_buffet").select("*").maybeSingle(),
+  ]);
+  const buffet = buffetRes.data;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Facility status"
-        description="Set the course and pool status members see across the club."
-      />
-      {facilities.length > 0 ? (
-        <FacilityStatusWidget initial={facilities} canManage />
-      ) : (
-        <EmptyState
-          title="No facilities configured"
-          description="Golf and pool status rows haven't been set up yet."
+    <div className="space-y-10">
+      <div className="space-y-6">
+        <PageHeader
+          title="Facility status"
+          description="Set the course and pool status members see across the club."
         />
+        {facilities.length > 0 ? (
+          <FacilityStatusWidget initial={facilities} canManage />
+        ) : (
+          <EmptyState
+            title="No facilities configured"
+            description="Golf and pool status rows haven't been set up yet."
+          />
+        )}
+      </div>
+
+      {facilities.length > 0 && (
+        <FacilityDetailsEditor facilities={facilities} />
       )}
+      {buffet && <BuffetEditor initial={buffet} />}
     </div>
   );
 }

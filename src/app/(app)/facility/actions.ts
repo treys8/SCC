@@ -11,7 +11,11 @@ import { getUsersForDepartmentDefaultOn } from "@/lib/preferences";
 import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { FacilityStatusType, FacilityType } from "@/lib/database.types";
+import type {
+  FacilityDetail,
+  FacilityStatusType,
+  FacilityType,
+} from "@/lib/database.types";
 
 const VALID_FACILITY = new Set<string>(FACILITIES);
 const VALID_STATUS = new Set<string>(Object.keys(FACILITY_STATUS_LABEL));
@@ -164,6 +168,105 @@ export async function setFacilityMessage(
     .update({ message: trimmed, updated_by: profile.id })
     .eq("facility", facility);
   if (error) throw new Error(error.message);
+
+  revalidateFacilityViews();
+}
+
+const DETAIL_LABEL_MAX = 24;
+const DETAIL_VALUE_MAX = 60;
+const MAX_DETAILS = 6;
+
+/**
+ * Staff/admin set a facility's conditions detail rows — the labelled list shown
+ * under its status on the Today page (Carts / Greens / Tee sheet, etc.). The
+ * whole list is replaced on save; rows missing a label or value are dropped, and
+ * the count + lengths are capped server-side so the card can't be overrun. These
+ * rows are NOT realtime — members pick them up on their next page load.
+ */
+export async function setFacilityDetails(
+  facility: FacilityType,
+  details: FacilityDetail[],
+) {
+  const profile = await requireRole("staff", "admin");
+  if (!VALID_FACILITY.has(facility)) {
+    throw new Error("Unknown facility.");
+  }
+  if (!Array.isArray(details)) {
+    throw new Error("Invalid details.");
+  }
+
+  const clean: FacilityDetail[] = details
+    .map((d) => ({
+      label: String(d?.label ?? "")
+        .trim()
+        .slice(0, DETAIL_LABEL_MAX),
+      value: String(d?.value ?? "")
+        .trim()
+        .slice(0, DETAIL_VALUE_MAX),
+    }))
+    .filter((d) => d.label && d.value)
+    .slice(0, MAX_DETAILS);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("facility_status")
+    .update({ details: clean, updated_by: profile.id })
+    .eq("facility", facility);
+  if (error) throw new Error(error.message);
+
+  revalidateFacilityViews();
+}
+
+const trimOrNull = (s: string | null, max: number) =>
+  (s ?? "").trim().slice(0, max) || null;
+
+/** Accept "HH:MM" / "HH:MM:SS" from a time input; anything else becomes null. */
+const normalizeTime = (t: string | null) =>
+  t && /^\d{2}:\d{2}(:\d{2})?$/.test(t.trim()) ? t.trim().slice(0, 5) : null;
+
+type BuffetInput = {
+  title: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  price: string | null;
+  description: string | null;
+  walk_in: boolean;
+  active: boolean;
+};
+
+/**
+ * Staff/admin edit the single lunch-buffet row that drives the Today page's
+ * featured dining card. `active` hides the card on days with no buffet. The row
+ * is seeded by migration and only ever updated (singleton table), so there's no
+ * insert path. Not realtime — the home page reflects it on next load.
+ */
+export async function setBuffet(input: BuffetInput) {
+  const profile = await requireRole("staff", "admin");
+
+  const clean = {
+    title: input.title.trim().slice(0, 80) || "Lunch Buffet",
+    start_time: normalizeTime(input.start_time),
+    end_time: normalizeTime(input.end_time),
+    location: trimOrNull(input.location, 80),
+    price: trimOrNull(input.price, 40),
+    description: trimOrNull(input.description, 200),
+    walk_in: Boolean(input.walk_in),
+    active: Boolean(input.active),
+    updated_by: profile.id,
+  };
+
+  const supabase = await createClient();
+  // The singleton row is seeded by migration and there's no insert path, so a
+  // 0-row update means it's gone — surface that instead of reporting success.
+  const { data, error } = await supabase
+    .from("dining_buffet")
+    .update(clean)
+    .eq("id", true)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Buffet row is missing.");
 
   revalidateFacilityViews();
 }
