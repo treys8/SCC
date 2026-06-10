@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth";
+import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatTime } from "@/lib/format";
@@ -140,5 +141,14 @@ async function notifyStatusChange(
     body,
     link: "/reservations",
     reservation_id: row.id,
+  });
+
+  // Mirror the in-app notification to Web Push (same copy). Best-effort —
+  // sendPushToUsers never throws.
+  await sendPushToUsers([row.member_id], {
+    title,
+    body,
+    url: "/reservations",
+    tag: `reservation-${row.id}`,
   });
 }
