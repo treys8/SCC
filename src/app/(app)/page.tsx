@@ -3,7 +3,7 @@ import { QuickActions } from "@/components/today/quick-actions";
 import { StatusStrip } from "@/components/today/status-strip";
 import { TodayHero } from "@/components/today/today-hero";
 import { TonightCard } from "@/components/today/tonight-card";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
 import { fetchFacilityStatus } from "@/lib/facility";
 import {
@@ -71,7 +71,11 @@ export default async function TodayPage() {
       />
       <TonightCard reservation={reservation} settings={settings} />
       <QuickActions />
-      <StatusStrip facilities={facilities} diningOpen={diningOpen} />
+      <StatusStrip
+        facilities={facilities}
+        diningOpen={diningOpen}
+        canManage={profile ? isStaff(profile.role) : false}
+      />
       {nextEvent && <NextEvent event={nextEvent} />}
     </div>
   );

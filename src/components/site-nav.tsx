@@ -3,7 +3,7 @@ import { Crest } from "@/components/crest";
 import { NavLinks, type NavLink } from "@/components/nav-links";
 import { NotificationBell } from "@/components/notification-bell";
 import { signOut } from "@/lib/actions/auth";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, isStaff } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
@@ -21,6 +21,10 @@ export function SiteNav({
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
   ];
+  // Staff get the facility-status console; admins additionally get Members.
+  if (isStaff(profile.role)) {
+    links.push({ href: "/facility", label: "Facility" });
+  }
   if (isAdmin(profile.role)) {
     links.push({ href: "/members", label: "Members" });
   }
