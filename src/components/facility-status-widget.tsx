@@ -57,7 +57,14 @@ export function FacilityStatusWidget({
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "facility_status" },
-          (payload) => mergeRow(payload.new as FacilityStatus),
+          (payload) => {
+            // Realtime sends timestamptz in Postgres' raw text format
+            // ("2026-06-10 00:36:11.638+00"), which iOS Safari's Date parser
+            // rejects. The update just arrived, so stamp it with the client's
+            // own ISO receipt time for a parse-safe, accurate "Updated …".
+            const next = payload.new as FacilityStatus;
+            mergeRow({ ...next, updated_at: new Date().toISOString() });
+          },
         )
         .subscribe();
     })();
