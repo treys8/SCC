@@ -5,6 +5,7 @@ import { DepartmentBadge } from "@/components/badges";
 import { AddToCalendar } from "@/components/calendar/add-to-calendar";
 import { DateChip } from "@/components/calendar/date-chip";
 import { EventActions } from "@/components/event-actions";
+import { EventCover, RegisterLink } from "@/components/event-card";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { formatDate, formatTimeRange } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -45,37 +46,51 @@ export default async function EventDetailPage({ params }: Params) {
         ← Back to calendar
       </Link>
 
-      <article className="card space-y-5 p-6">
-        <div className="flex gap-4">
-          <DateChip dateStr={event.event_date} />
-          <div className="min-w-0 flex-1">
-            <h1 className="font-serif text-2xl font-semibold text-foreground">
-              {event.title}
-            </h1>
-            <p className="mt-1 text-sm text-muted">
-              {formatDate(event.event_date)} ·{" "}
-              {formatTimeRange(event.start_time, event.end_time)}
-            </p>
-            {event.location && (
-              <p className="mt-0.5 text-sm text-muted">{event.location}</p>
-            )}
-            {event.department && (
-              <div className="mt-3">
-                <DepartmentBadge department={event.department} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {event.description && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-            {event.description}
-          </p>
+      <article className="card overflow-hidden">
+        {event.cover_image_url && (
+          <EventCover url={event.cover_image_url} eager />
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-          <AddToCalendar event={event} />
-          {canManage && <EventActions id={event.id} redirectTo="/calendar" />}
+        <div className="space-y-5 p-6">
+          <div className="flex gap-4">
+            <DateChip dateStr={event.event_date} />
+            <div className="min-w-0 flex-1">
+              <h1 className="font-serif text-2xl font-semibold text-foreground">
+                {event.title}
+              </h1>
+              <p className="mt-1 text-sm text-muted">
+                {formatDate(event.event_date)} ·{" "}
+                {formatTimeRange(event.start_time, event.end_time)}
+              </p>
+              {event.location && (
+                <p className="mt-0.5 text-sm text-muted">{event.location}</p>
+              )}
+              {event.fee && (
+                <p className="mt-0.5 text-sm text-muted">Fee: {event.fee}</p>
+              )}
+              {event.department && (
+                <div className="mt-3">
+                  <DepartmentBadge department={event.department} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {event.description && (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+              {event.description}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+            <div className="flex flex-wrap items-center gap-2">
+              {event.registration_url && (
+                <RegisterLink href={event.registration_url} />
+              )}
+              <AddToCalendar event={event} />
+            </div>
+            {canManage && <EventActions id={event.id} redirectTo="/calendar" />}
+          </div>
         </div>
       </article>
     </div>

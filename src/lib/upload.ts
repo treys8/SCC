@@ -97,7 +97,9 @@ function probeImageSize(
 export async function uploadPostFile(
   file: File,
   userId: string,
+  opts: { probe?: boolean } = {},
 ): Promise<NewAttachmentMeta> {
+  const { probe = true } = opts;
   const validationError = validateFile(file);
   if (validationError) throw new Error(validationError);
 
@@ -116,7 +118,7 @@ export async function uploadPostFile(
 
   let width: number | null = null;
   let height: number | null = null;
-  if (kind === "image") {
+  if (probe && kind === "image") {
     const size = await probeImageSize(file);
     if (size) {
       width = size.width;
@@ -134,4 +136,39 @@ export async function uploadPostFile(
     width,
     height,
   };
+}
+
+// HEIC/HEIF (the iPhone camera default) is accepted as an "image" but next/image
+// can't optimize it — the cover would render broken for non-Safari members.
+function isHeic(file: File): boolean {
+  const e = ext(file.name);
+  return (
+    file.type === "image/heic" ||
+    file.type === "image/heif" ||
+    e === "heic" ||
+    e === "heif"
+  );
+}
+
+/**
+ * Upload an event cover photo (images only) and return its public URL.
+ * Reuses the `posts` bucket and per-user folder convention so Storage RLS and
+ * next/image's allowlist keep working unchanged. Events store only the URL —
+ * a replaced or deleted cover simply orphans the old object, which is fine at
+ * club scale. Skips the dimension probe since the cover crops to a fixed ratio.
+ */
+export async function uploadEventCover(
+  file: File,
+  userId: string,
+): Promise<string> {
+  if (classifyFile(file) !== "image") {
+    throw new Error(`${file.name}: cover must be an image`);
+  }
+  if (isHeic(file)) {
+    throw new Error(
+      "HEIC photos aren't supported here — please choose a JPEG or PNG.",
+    );
+  }
+  const meta = await uploadPostFile(file, userId, { probe: false });
+  return meta.url;
 }

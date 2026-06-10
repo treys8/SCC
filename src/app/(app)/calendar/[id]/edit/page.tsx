@@ -14,7 +14,7 @@ export default async function EditEventPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireRole("staff", "admin");
+  const profile = await requireRole("staff", "admin");
 
   const supabase = await createClient();
   const { data: event } = await supabase
@@ -30,7 +30,12 @@ export default async function EditEventPage({
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Edit event" />
-      <EventForm action={action} event={event} submitLabel="Save changes" />
+      <EventForm
+        action={action}
+        event={event}
+        userId={profile.id}
+        submitLabel="Save changes"
+      />
     </div>
   );
 }
