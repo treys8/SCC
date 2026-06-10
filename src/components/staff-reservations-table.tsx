@@ -99,7 +99,7 @@ export function StaffReservationsTable({ rows }: { rows: Row[] }) {
       <div className="card hidden overflow-hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
+          <thead className="bg-surface-2 text-left text-caption uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Member</th>
               <th className="px-4 py-3 font-medium">When</th>
@@ -117,7 +117,7 @@ export function StaffReservationsTable({ rows }: { rows: Row[] }) {
                 </td>
                 <td className="px-4 py-3 text-foreground">
                   {formatDate(r.reservation_date)}
-                  <span className="block text-xs text-muted">
+                  <span className="block text-caption text-muted">
                     {formatTime(r.reservation_time)}
                   </span>
                 </td>

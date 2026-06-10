@@ -322,7 +322,7 @@ function PreviewTile({
           <span className="text-2xl" aria-hidden>
             📄
           </span>
-          <span className="line-clamp-2 break-all text-[10px] leading-tight text-muted">
+          <span className="line-clamp-2 break-all text-2xs leading-tight text-muted">
             {name}
           </span>
         </div>

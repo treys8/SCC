@@ -78,7 +78,7 @@ export function PushToggle() {
   return (
     <div className="card space-y-3 p-6">
       <div>
-        <h2 className="text-lg font-semibold">Push notifications</h2>
+        <h2 className="text-h2">Push notifications</h2>
         <p className="field-hint">
           Get alerts on this device for facility status changes and updates to
           your reservations — even when the app is closed.

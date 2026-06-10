@@ -38,7 +38,7 @@ export function PostCard({
               dateTime={post.created_at}
               title={formatTimestamp(post.created_at)}
               suppressHydrationWarning
-              className="shrink-0 text-sm text-muted"
+              className="shrink-0 text-caption text-muted"
             >
               {formatRelativeTime(post.created_at)}
             </time>
@@ -46,7 +46,7 @@ export function PostCard({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <DepartmentBadge department={post.department} />
             {post.is_pinned && (
-              <span className="badge bg-accent/15 text-accent-600">
+              <span className="badge bg-accent/10 text-accent-600">
                 📌 Pinned
               </span>
             )}
@@ -61,12 +61,10 @@ export function PostCard({
       </div>
 
       {post.title && (
-        <h3 className="mt-3 font-serif text-xl font-semibold text-foreground">
-          {post.title}
-        </h3>
+        <h3 className="mt-3 text-h2 text-foreground">{post.title}</h3>
       )}
       {post.content && (
-        <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground/90">
+        <p className="mt-2 whitespace-pre-wrap break-words text-body text-foreground/90">
           {post.content}
         </p>
       )}

@@ -22,6 +22,17 @@ export function formatDateShort(dateStr: string): string {
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** "2026-06-10" -> "Tuesday, June 10" (full weekday + month, no year) */
+export function formatLongDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 /** "18:30:00" -> "6:30 PM" */
 export function formatTime(timeStr: string): string {
   const [h, min] = timeStr.split(":").map(Number);

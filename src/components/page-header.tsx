@@ -12,9 +12,7 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-foreground">
-          {title}
-        </h1>
+        <h1 className="text-h1 text-foreground">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}

@@ -55,9 +55,7 @@ export default async function EventDetailPage({ params }: Params) {
           <div className="flex gap-4">
             <DateChip dateStr={event.event_date} />
             <div className="min-w-0 flex-1">
-              <h1 className="font-serif text-2xl font-semibold text-foreground">
-                {event.title}
-              </h1>
+              <h1 className="text-h1 text-foreground">{event.title}</h1>
               <p className="mt-1 text-sm text-muted">
                 {formatDate(event.event_date)} ·{" "}
                 {formatTimeRange(event.start_time, event.end_time)}
@@ -77,7 +75,7 @@ export default async function EventDetailPage({ params }: Params) {
           </div>
 
           {event.description && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+            <p className="whitespace-pre-wrap text-body text-foreground/90">
               {event.description}
             </p>
           )}

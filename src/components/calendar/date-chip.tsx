@@ -19,8 +19,8 @@ export function DateChip({
         className,
       )}
     >
-      <span className="text-[10px] font-semibold tracking-wide">{month}</span>
-      <span className="font-serif text-xl font-bold leading-none">{d}</span>
+      <span className="text-2xs font-semibold tracking-wide">{month}</span>
+      <span className="font-serif text-xl font-semibold leading-none">{d}</span>
     </div>
   );
 }

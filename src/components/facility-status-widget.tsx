@@ -80,10 +80,10 @@ export function FacilityStatusWidget({
   return (
     <section className="card overflow-hidden">
       <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
-        <h2 className="font-serif text-lg font-semibold text-foreground">
+        <h2 className="text-h2 text-foreground">
           Course &amp; Pool
         </h2>
-        <span className="text-xs font-medium uppercase tracking-wide text-muted">
+        <span className="text-caption font-medium uppercase tracking-wide text-muted">
           Live status
         </span>
       </header>
@@ -158,7 +158,7 @@ function FacilityRow({
             dateTime={row.updated_at}
             title={formatTimestamp(row.updated_at)}
             suppressHydrationWarning
-            className="text-xs text-muted"
+            className="text-caption text-muted"
           >
             Updated {formatRelativeTime(row.updated_at)}
           </time>

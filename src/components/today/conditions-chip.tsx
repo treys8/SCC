@@ -1,25 +1,19 @@
 import type { Weather, WeatherIcon } from "@/lib/weather";
 
 /**
- * The Today page's weather glance: a compact card with the current temperature,
- * condition, and wind. Renders nothing when the reading is unavailable so the
- * section collapses cleanly.
+ * The hero's small "conditions" pill — temperature, a coarse weather glyph, and
+ * the condition label. A glance, not the full weather card the old Today page
+ * used. Renders only when a reading is available (the hero passes `null` away).
  */
-export function WeatherCard({ weather }: { weather: Weather | null }) {
-  if (!weather) return null;
-
+export function ConditionsChip({ weather }: { weather: Weather }) {
   return (
-    <section className="card flex items-center gap-4 p-4 sm:p-5">
+    <div className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-border bg-surface px-3 py-1.5 shadow-sm">
       <WeatherGlyph icon={weather.icon} />
-      <div className="min-w-0">
-        <p className="font-serif text-3xl font-semibold leading-none text-foreground">
-          {weather.tempF}°
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          {weather.condition} · {weather.windMph} mph {weather.windDir}
-        </p>
-      </div>
-    </section>
+      <span className="text-sm font-semibold text-foreground">
+        {weather.tempF}°
+      </span>
+      <span className="text-sm text-muted">{weather.condition}</span>
+    </div>
   );
 }
 
@@ -28,10 +22,10 @@ function WeatherGlyph({ icon }: { icon: WeatherIcon }) {
     <svg
       aria-hidden
       viewBox="0 0 24 24"
-      className="h-10 w-10 shrink-0 text-accent-600"
+      className="h-4 w-4 shrink-0 text-accent-600"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.6}
+      strokeWidth={1.7}
       strokeLinecap="round"
       strokeLinejoin="round"
     >
@@ -46,7 +40,9 @@ const SUN = (
     <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
   </>
 );
-const CLOUD = <path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.3A3.5 3.5 0 0 1 17 18H7z" />;
+const CLOUD = (
+  <path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.3A3.5 3.5 0 0 1 17 18H7z" />
+);
 
 const GLYPHS: Record<WeatherIcon, React.ReactNode> = {
   sun: SUN,

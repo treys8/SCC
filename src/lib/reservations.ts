@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Reservation } from "@/lib/database.types";
-import { formatTime, todayISO } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 
 type DB = SupabaseClient<Database>;
 
@@ -62,21 +62,24 @@ export function generateSlots(settings: BookingSettings): SlotOption[] {
 }
 
 /**
- * A member's soonest confirmed, still-upcoming reservation (today or later),
- * or null if they have none — powers the Today page's "next reservation" card.
- * Only `confirmed` counts: pending/declined aren't something to show up for.
+ * The member's soonest still-active reservation *for today* (pending or
+ * confirmed), or null — powers the Today page's "Tonight" card. Today-scoped:
+ * the card shows an invitation when there's nothing on tonight, regardless of
+ * what's booked later in the week. Declined/cancelled are excluded — they
+ * aren't something to show up for. `today` is the club-local date (the caller
+ * computes it in the club's timezone, not the server's).
  */
-export async function fetchNextReservation(
+export async function fetchTodaysReservation(
   supabase: DB,
   memberId: string,
+  today: string,
 ): Promise<Reservation | null> {
   const { data } = await supabase
     .from("reservations")
     .select("*")
     .eq("member_id", memberId)
-    .eq("status", "confirmed")
-    .gte("reservation_date", todayISO())
-    .order("reservation_date", { ascending: true })
+    .eq("reservation_date", today)
+    .in("status", ["pending", "confirmed"])
     .order("reservation_time", { ascending: true })
     .limit(1)
     .maybeSingle();

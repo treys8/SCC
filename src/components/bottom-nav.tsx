@@ -40,7 +40,7 @@ export function BottomNav() {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
+                  "flex flex-col items-center gap-0.5 py-2 text-2xs font-medium transition-colors",
                   active ? "text-primary" : "text-muted",
                 )}
               >

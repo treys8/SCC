@@ -52,9 +52,7 @@ export function EventCard({ event }: { event: CalendarEvent }) {
         <div className="flex gap-4 p-4 sm:p-5">
           <DateChip dateStr={event.event_date} />
           <div className="min-w-0 flex-1">
-            <h3 className="font-serif text-lg font-semibold text-foreground">
-              {event.title}
-            </h3>
+            <h3 className="text-h2 text-foreground">{event.title}</h3>
             <p className="mt-1 text-sm text-muted">
               {formatDate(event.event_date)} ·{" "}
               {formatTimeRange(event.start_time, event.end_time)}

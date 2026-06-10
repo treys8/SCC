@@ -27,7 +27,7 @@ export function NewReservationForm({
 
   return (
     <form ref={formRef} action={formAction} className="card p-6">
-      <h2 className="font-serif text-lg font-semibold text-foreground">
+      <h2 className="text-h2 text-foreground">
         Request a reservation
       </h2>
       <p className="mt-1 text-sm text-muted">

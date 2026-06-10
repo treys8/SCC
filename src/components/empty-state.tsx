@@ -11,7 +11,7 @@ export function EmptyState({
 }) {
   return (
     <div className="card flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <p className="font-serif text-lg text-foreground">{title}</p>
+      <p className="text-h2 text-foreground">{title}</p>
       {description && (
         <p className="max-w-sm text-sm text-muted">{description}</p>
       )}

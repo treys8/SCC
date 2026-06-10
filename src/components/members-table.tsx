@@ -81,7 +81,7 @@ export function MembersTable({
             >
               <div className="font-medium text-foreground">
                 {m.full_name}
-                {isSelf && <span className="ml-2 text-xs text-muted">(you)</span>}
+                {isSelf && <span className="ml-2 text-caption text-muted">(you)</span>}
               </div>
               <div className="text-sm text-muted">{m.email}</div>
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
@@ -114,7 +114,7 @@ export function MembersTable({
       <div className="card hidden overflow-hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
+          <thead className="bg-surface-2 text-left text-caption uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Member</th>
               <th className="px-4 py-3 font-medium">Phone</th>
@@ -132,10 +132,10 @@ export function MembersTable({
                     <div className="font-medium text-foreground">
                       {m.full_name}
                       {isSelf && (
-                        <span className="ml-2 text-xs text-muted">(you)</span>
+                        <span className="ml-2 text-caption text-muted">(you)</span>
                       )}
                     </div>
-                    <div className="text-xs text-muted">{m.email}</div>
+                    <div className="text-caption text-muted">{m.email}</div>
                   </td>
                   <td className="px-4 py-3 text-muted">{m.phone ?? "—"}</td>
                   <td className="px-4 py-3 text-muted">

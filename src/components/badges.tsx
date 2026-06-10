@@ -12,13 +12,13 @@ import type {
 
 const DEPT_STYLES: Record<DepartmentType, string> = {
   golf: "bg-success/10 text-success",
-  dining: "bg-accent/15 text-accent-600",
+  dining: "bg-accent/10 text-accent-600",
   tennis: "bg-primary/10 text-primary",
-  general: "bg-foreground/5 text-muted",
-  pool: "bg-sky-100 text-sky-700",
-  social: "bg-violet-100 text-violet-700",
-  pro_shop: "bg-amber-100 text-amber-800",
-  membership: "bg-slate-100 text-slate-700",
+  general: "bg-foreground/10 text-muted",
+  pool: "bg-info-soft text-info-strong",
+  social: "bg-violet-soft text-violet-strong",
+  pro_shop: "bg-warning-soft text-warning-strong",
+  membership: "bg-neutral-soft text-neutral-strong",
 };
 
 export function DepartmentBadge({
@@ -34,10 +34,10 @@ export function DepartmentBadge({
 }
 
 const STATUS_STYLES: Record<ReservationStatus, string> = {
-  pending: "bg-accent/15 text-accent-600",
+  pending: "bg-accent/10 text-accent-600",
   confirmed: "bg-success/10 text-success",
   declined: "bg-danger/10 text-danger",
-  cancelled: "bg-foreground/5 text-muted",
+  cancelled: "bg-foreground/10 text-muted",
 };
 
 export function StatusBadge({ status }: { status: ReservationStatus }) {
@@ -51,9 +51,9 @@ export function StatusBadge({ status }: { status: ReservationStatus }) {
 const FACILITY_STATUS_STYLES: Record<FacilityStatusType, string> = {
   open: "bg-success/10 text-success",
   closed: "bg-danger/10 text-danger",
-  frost_delay: "bg-sky-100 text-sky-700",
-  rain_delay: "bg-slate-100 text-slate-700",
-  lightning_hold: "bg-amber-100 text-amber-800",
+  frost_delay: "bg-info-soft text-info-strong",
+  rain_delay: "bg-neutral-soft text-neutral-strong",
+  lightning_hold: "bg-warning-soft text-warning-strong",
 };
 
 export function FacilityStatusBadge({

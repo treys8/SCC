@@ -60,7 +60,7 @@ async function MemberView() {
       />
 
       <section>
-        <h2 className="mb-3 font-serif text-xl font-semibold text-foreground">
+        <h2 className="mb-3 text-h2 text-foreground">
           Your reservations
         </h2>
         {reservations.length === 0 ? (

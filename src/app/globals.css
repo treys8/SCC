@@ -17,6 +17,47 @@
   --ring: rgba(51, 93, 59, 0.35);
 }
 
+/* ── Extended category palette ──────────────────────────────────────────────
+   The 8-department badge palette (badges.tsx) and the calendar day-dots
+   (calendar-view.tsx) were split: golf/dining/tennis/general map to project
+   tokens (success/accent/primary/muted), while pool/social/pro_shop/membership
+   were spelled as *raw* Tailwind classes (sky/violet/amber/slate) and the dot
+   map was a hand-copied "mirror" of the badge map. These four hues give the
+   un-named half a home so the whole palette lives in one place.
+
+   Each hue has three stops that reproduce today's output EXACTLY (values are
+   Tailwind v4's OKLCH defaults, copied verbatim), so adopting them is a visual
+   no-op:
+     -soft   = badge background  (was *-100)
+     base    = calendar dot      (was *-500)
+     -strong = badge text        (was *-700, amber *-800)
+   Reused by facility status too: frost→info, rain→neutral, lightning→warning. */
+:root {
+  --info: oklch(68.5% 0.169 237.323); /* sky-500   · pool / frost dot */
+  --info-soft: oklch(95.1% 0.026 236.824); /* sky-100   · badge bg */
+  --info-strong: oklch(50% 0.134 242.749); /* sky-700   · badge text */
+
+  --violet: oklch(60.6% 0.25 292.717); /* violet-500 · social dot */
+  --violet-soft: oklch(94.3% 0.029 294.588); /* violet-100 · badge bg */
+  --violet-strong: oklch(49.1% 0.27 292.581); /* violet-700 · badge text */
+
+  --warning: oklch(76.9% 0.188 70.08); /* amber-500 · pro_shop / lightning dot */
+  --warning-soft: oklch(96.2% 0.059 95.617); /* amber-100 · badge bg */
+  --warning-strong: oklch(47.3% 0.137 46.201); /* amber-800 · badge text */
+
+  --neutral: oklch(55.4% 0.046 257.417); /* slate-500 · membership / rain dot */
+  --neutral-soft: oklch(96.8% 0.007 247.896); /* slate-100 · badge bg */
+  --neutral-strong: oklch(37.2% 0.044 257.287); /* slate-700 · badge text */
+
+  /* Canonical badge tint: a badge background is its text colour at 10%
+     (e.g. `bg-success/10 text-success`). All badges/file-tags now conform —
+     dining/pending/pinned/PPT moved 15→10, general/cancelled/TXT moved 5→10. */
+
+  /* NOTE: --primary-600 (#2c5234, above) is currently unused and is a
+     near-identical green to --success (#2d6a4f). Kept pending a decision —
+     see the audit report's "near-identical greens" flag. */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -31,6 +72,22 @@
   --color-accent-600: var(--accent-600);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-strong: var(--info-strong);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-violet-strong: var(--violet-strong);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-strong: var(--warning-strong);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-strong: var(--neutral-strong);
+  /* Smallest type step — currently spelled `text-[10px]` in 6 places (Today
+     eyebrow, date-chip month, calendar "+N", file-type tag, nav bell, bottom
+     nav). Defining it here generates a `text-2xs` utility to replace them. */
+  --text-2xs: 0.625rem; /* 10px */
   --font-sans: var(--font-inter);
   --font-serif: var(--font-playfair);
 }
@@ -47,6 +104,9 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
+  /* Comfortable default leading for running text; headings tighten this back
+     up via the type-scale classes below. */
+  line-height: 1.5;
 }
 
 h1,
@@ -57,6 +117,43 @@ h3,
 }
 
 @layer components {
+  /* ── Type scale ─────────────────────────────────────────────────────────────
+     Five roles, one home. Serif (Playfair) is reserved for headings
+     (display / h1 / h2); the sans (Inter) carries body and caption. Each role
+     bundles family + size + weight + leading + tracking so a single class sets
+     the whole role and the scale can't drift. Compose freely with colour
+     utilities (`text-foreground`, `text-muted`, …) — these classes set no colour.
+
+       display  30→36px  serif · the Today hero greeting (front-door moment)
+       h1       24px     serif · page titles, detail/auth/calendar-month titles
+       h2       20px     serif · section & card titles
+       body     16px     sans  · running prose — 1.5 leading, capped at ~65ch
+       caption  12px     sans  · timestamps, eyebrows, meta, fine print
+
+     Headings get tight leading for a compact, editorial block; body gets 1.5
+     and a ~65ch measure so prose never runs the full width of a wide card.
+     The deliberate jump from a section title to its body comes from this pairing
+     of serif/semibold/tight against sans/normal/1.5, not size alone. The 14px
+     `text-sm` step stays the general-purpose UI text (labels, table cells,
+     single-line secondary lines) between body and caption. */
+  .text-display {
+    @apply font-serif text-3xl font-semibold leading-tight tracking-tight sm:text-4xl;
+  }
+  .text-h1 {
+    @apply font-serif text-2xl font-semibold leading-tight tracking-tight;
+  }
+  .text-h2 {
+    @apply font-serif text-xl font-semibold leading-snug;
+  }
+  .text-body {
+    /* leading-normal is 1.5; max-w-[65ch] is the comfortable measure. Override
+       with `max-w-none` in the rare case body must fill its container. */
+    @apply max-w-[65ch] text-base leading-normal;
+  }
+  .text-caption {
+    @apply text-xs leading-normal;
+  }
+
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }

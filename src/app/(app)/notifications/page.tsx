@@ -57,7 +57,7 @@ export default async function NotificationsPage() {
                   <time
                     dateTime={n.created_at}
                     title={formatTimestamp(n.created_at)}
-                    className="shrink-0 text-xs text-muted"
+                    className="shrink-0 text-caption text-muted"
                   >
                     {formatRelativeTime(n.created_at)}
                   </time>

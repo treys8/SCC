@@ -17,9 +17,7 @@ export function InviteMemberForm() {
 
   return (
     <form ref={formRef} action={formAction} className="card p-6">
-      <h2 className="font-serif text-lg font-semibold text-foreground">
-        Invite a member
-      </h2>
+      <h2 className="text-h2 text-foreground">Invite a member</h2>
       <p className="mt-1 text-sm text-muted">
         They&apos;ll receive an email to set a password and join the portal.
       </p>

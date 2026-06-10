@@ -19,16 +19,19 @@ import type { CalendarEvent, DepartmentType } from "@/lib/database.types";
 
 type DeptFilter = DepartmentType | "all";
 
-// Solid dot colors mirroring the badge palette in components/badges.tsx.
+// Solid dot colors keyed to the shared category palette (globals.css tokens) —
+// same hues as the DepartmentBadge. golf/dining/tennis/general reuse the brand
+// tokens; pool/social/pro_shop/membership use the extended info/violet/warning/
+// neutral hues, so badge and dot can never drift apart again.
 const DOT: Record<DepartmentType, string> = {
   golf: "bg-success",
   dining: "bg-accent",
   tennis: "bg-primary",
   general: "bg-muted",
-  pool: "bg-sky-500",
-  social: "bg-violet-500",
-  pro_shop: "bg-amber-500",
-  membership: "bg-slate-500",
+  pool: "bg-info",
+  social: "bg-violet",
+  pro_shop: "bg-warning",
+  membership: "bg-neutral",
 };
 
 function dotClass(dept: DepartmentType | null): string {
@@ -97,9 +100,7 @@ export function CalendarView({
     <div className="space-y-4">
       {/* Toolbar: month navigation */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-serif text-xl font-semibold text-foreground sm:text-2xl">
-          {monthLabel(month)}
-        </h2>
+        <h2 className="text-h1 text-foreground">{monthLabel(month)}</h2>
         <div className="flex items-center gap-1">
           <NavButton href={href(addMonths(month, -1), dept)} label="Previous month">
             <ChevronIcon dir="left" />
@@ -145,7 +146,7 @@ export function CalendarView({
           {WEEKDAYS.map((w) => (
             <div
               key={w}
-              className="pb-1 text-center text-xs font-semibold uppercase tracking-wide text-muted"
+              className="pb-1 text-center text-caption font-semibold uppercase tracking-wide text-muted"
             >
               {w}
             </div>
@@ -190,7 +191,7 @@ export function CalendarView({
                       />
                     ))}
                     {dayEvents.length > 3 && (
-                      <span className="text-[10px] font-medium text-muted">
+                      <span className="text-2xs font-medium text-muted">
                         +{dayEvents.length - 3}
                       </span>
                     )}
@@ -202,9 +203,7 @@ export function CalendarView({
         </div>
 
         <div className="mt-3 border-t border-border pt-3">
-          <h3 className="mb-2 font-serif text-base font-semibold text-foreground">
-            {formatDate(selected)}
-          </h3>
+          <h3 className="mb-2 text-h2 text-foreground">{formatDate(selected)}</h3>
           {selectedEvents.length === 0 ? (
             <p className="px-1 py-3 text-sm text-muted">
               No events scheduled for this day.
@@ -235,7 +234,7 @@ export function CalendarView({
                   <p className="font-medium text-foreground">
                     {weekdayLong(g.iso)}
                   </p>
-                  <p className="text-xs text-muted">
+                  <p className="text-caption text-muted">
                     {g.events.length} event{g.events.length > 1 ? "s" : ""}
                   </p>
                 </div>
@@ -269,7 +268,7 @@ function EventRow({ event }: { event: CalendarEvent }) {
       />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-foreground">{event.title}</p>
-        <p className="truncate text-xs text-muted">
+        <p className="truncate text-caption text-muted">
           {formatTimeRange(event.start_time, event.end_time)}
           {event.location ? ` · ${event.location}` : ""}
         </p>

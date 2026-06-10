@@ -3,14 +3,14 @@ import type { PostAttachment } from "@/lib/database.types";
 
 const EXT_STYLES: Record<string, string> = {
   PDF: "bg-danger/10 text-danger",
-  DOC: "bg-sky-100 text-sky-700",
-  DOCX: "bg-sky-100 text-sky-700",
+  DOC: "bg-info-soft text-info-strong",
+  DOCX: "bg-info-soft text-info-strong",
   XLS: "bg-success/10 text-success",
   XLSX: "bg-success/10 text-success",
   CSV: "bg-success/10 text-success",
-  PPT: "bg-accent/15 text-accent-600",
-  PPTX: "bg-accent/15 text-accent-600",
-  TXT: "bg-foreground/5 text-muted",
+  PPT: "bg-accent/10 text-accent-600",
+  PPTX: "bg-accent/10 text-accent-600",
+  TXT: "bg-foreground/10 text-muted",
 };
 
 function ext(name: string | null): string {
@@ -38,8 +38,8 @@ export function AttachmentList({ files }: { files: PostAttachment[] }) {
               className="flex items-center gap-3 rounded-lg border border-border bg-surface-2 p-2.5 transition-colors hover:bg-background"
             >
               <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${
-                  EXT_STYLES[label] ?? "bg-foreground/5 text-muted"
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-2xs font-bold ${
+                  EXT_STYLES[label] ?? "bg-foreground/10 text-muted"
                 }`}
               >
                 {label}
@@ -49,7 +49,7 @@ export function AttachmentList({ files }: { files: PostAttachment[] }) {
                   {file.file_name ?? "Attachment"}
                 </span>
                 {size && (
-                  <span className="block text-xs text-muted">{size}</span>
+                  <span className="block text-caption text-muted">{size}</span>
                 )}
               </span>
               <span aria-hidden className="pr-1 text-muted">

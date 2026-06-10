@@ -47,7 +47,7 @@ export function SiteNav({
               <span className="block text-sm font-medium text-foreground">
                 {profile.full_name}
               </span>
-              <span className="block text-xs text-muted">
+              <span className="block text-caption text-muted">
                 {ROLE_LABEL[profile.role]}
               </span>
             </span>

@@ -32,7 +32,7 @@ export default async function AppLayout({
         {children}
       </main>
       <footer className="border-t border-border bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-6 text-center text-xs text-muted">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-center text-caption text-muted">
           © {new Date().getFullYear()} Starkville Country Club · Member Portal
         </div>
       </footer>

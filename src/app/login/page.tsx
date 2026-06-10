@@ -20,7 +20,7 @@ export default async function LoginPage({
         </p>
       )}
       <LoginForm redirectTo={redirectTo} />
-      <p className="mt-5 text-center text-xs text-muted">
+      <p className="mt-5 text-center text-caption text-muted">
         Accounts are created by club staff. Contact the front office if you need
         access.
       </p>

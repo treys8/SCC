@@ -31,7 +31,7 @@ export function DepartmentPreferencesForm({
   return (
     <form action={formAction} className="card space-y-4 p-6">
       <div>
-        <h2 className="text-lg font-semibold">Alert preferences</h2>
+        <h2 className="text-h2">Alert preferences</h2>
         <p className="field-hint">
           Choose which departments can notify you. Urgent safety alerts — like a
           lightning hold or a closure — always come through.

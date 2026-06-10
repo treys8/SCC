@@ -5,7 +5,7 @@
  * club's local timezone, so the wall-clock reading is what we want.
  */
 
-import type { CalendarEvent } from "@/lib/database.types";
+import type { CalendarEvent, Reservation } from "@/lib/database.types";
 
 /** Escape text per RFC 5545 (commas, semicolons, backslashes, newlines). */
 function esc(text: string): string {
@@ -70,6 +70,52 @@ export function buildICS(event: CalendarEvent, dtstamp: string): string {
   if (event.description) lines.push(`DESCRIPTION:${esc(event.description)}`);
   if (event.location) lines.push(`LOCATION:${esc(event.location)}`);
   lines.push("END:VEVENT", "END:VCALENDAR");
+  return lines.join("\r\n") + "\r\n"; // RFC 5545 CRLF line endings
+}
+
+/** A dining reservation runs 90 min for calendar purposes (no end is stored). */
+const RESERVATION_DURATION_MIN = 90;
+
+/** Add minutes to "HH:MM[:SS]", clamped to 23:59 (no day rollover). */
+function addMinutes(time: string, mins: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = Math.min(h * 60 + (m || 0) + mins, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
+    total % 60,
+  ).padStart(2, "0")}:00`;
+}
+
+/**
+ * A downloadable VCALENDAR string for a dining reservation. Universal (.ics
+ * imports into Apple, Outlook, and Google alike), so the Today card needs only
+ * one "Add to calendar" action. The reservation's time is carried here even
+ * though the card itself never displays it.
+ */
+export function buildReservationICS(r: Reservation, dtstamp: string): string {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Starkville Country Club//Member Portal//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:reservation-${r.id}@scc-portal`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART:${stamp(r.reservation_date, r.reservation_time)}`,
+    `DTEND:${stamp(
+      r.reservation_date,
+      addMinutes(r.reservation_time, RESERVATION_DURATION_MIN),
+    )}`,
+    "SUMMARY:Dinner at Starkville Country Club",
+    `DESCRIPTION:${esc(
+      `Party of ${r.party_size}.${
+        r.special_requests ? ` ${r.special_requests}` : ""
+      }`,
+    )}`,
+    "LOCATION:Starkville Country Club",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
   return lines.join("\r\n") + "\r\n"; // RFC 5545 CRLF line endings
 }
 
