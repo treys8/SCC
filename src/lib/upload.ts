@@ -50,6 +50,34 @@ function ext(name: string): string {
   return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
 }
 
+// The `posts` bucket now enforces an allowed_mime_types list server-side, so we
+// must always send a concrete content-type — some browsers leave File.type empty
+// for HEIC/csv, which would otherwise be rejected. Keyed by the extensions we
+// accept (see IMAGE_EXTS / FILE_EXTS).
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain",
+  csv: "text/csv",
+};
+
+/** A concrete content-type for the upload, falling back to the file extension. */
+function contentTypeFor(file: File): string {
+  return file.type || MIME_BY_EXT[ext(file.name)] || "application/octet-stream";
+}
+
 /** Decide whether a file is an image, a document, or unsupported. */
 export function classifyFile(file: File): AttachmentKind | null {
   if (file.type.startsWith("image/")) return "image";
@@ -109,7 +137,7 @@ export async function uploadPostFile(
   const path = `${userId}/${crypto.randomUUID()}.${e}`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type || undefined,
+    contentType: contentTypeFor(file),
     upsert: false,
   });
   if (error) throw new Error(`Couldn't upload ${file.name}: ${error.message}`);

@@ -445,6 +445,7 @@ export interface Database {
           auth: string;
           user_agent: string | null;
           created_at: string;
+          failure_count: number;
         };
         Insert: {
           id?: string;
@@ -454,6 +455,7 @@ export interface Database {
           auth: string;
           user_agent?: string | null;
           created_at?: string;
+          failure_count?: number;
         };
         Update: {
           id?: string;
@@ -463,6 +465,7 @@ export interface Database {
           auth?: string;
           user_agent?: string | null;
           created_at?: string;
+          failure_count?: number;
         };
         Relationships: [
           {
@@ -474,8 +477,24 @@ export interface Database {
         ];
       };
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Views: {
+      /** Name + avatar only, readable by any member (see security_hardening migration). */
+      member_cards: {
+        Row: {
+          id: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+        };
+        Relationships: [];
+      };
+    };
+    Functions: {
+      /** Atomically replace a member's department opt-ins. */
+      set_member_department_preferences: {
+        Args: { p_departments: DepartmentType[] };
+        Returns: undefined;
+      };
+    };
     Enums: {
       user_role: UserRole;
       department_type: DepartmentType;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth-shell";
 import { LoginForm } from "@/components/login-form";
+import { safeInternalPath } from "@/lib/url";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -10,7 +11,7 @@ export default async function LoginPage({
   searchParams: Promise<{ redirectTo?: string; error?: string }>;
 }) {
   const sp = await searchParams;
-  const redirectTo = sp.redirectTo?.startsWith("/") ? sp.redirectTo : "/";
+  const redirectTo = safeInternalPath(sp.redirectTo);
 
   return (
     <AuthShell title="Member sign in" subtitle="Welcome back to the club.">

@@ -1,5 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isAllowedPushEndpoint } from "@/lib/url";
+
+// Bound how many browsers one member can register, so a leaked/looping client
+// can't bloat the table. Oldest rows are pruned once a member exceeds this.
+const MAX_SUBSCRIPTIONS_PER_USER = 20;
 
 /**
  * Persist a browser's Web Push subscription for the signed-in member.
@@ -9,6 +14,10 @@ import { createClient } from "@/lib/supabase/server";
  * previously registered on a shared device (an RLS update gated on the existing
  * row's owner would reject that). The endpoint is unique, so upserting on it
  * keeps one row per browser.
+ *
+ * Hardening: the endpoint must be an https URL on a known push-service host
+ * (rejects junk/SSRF targets), and we cap rows per member. The shared-device
+ * transfer is kept deliberately — see MAX_SUBSCRIPTIONS_PER_USER.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -34,6 +43,9 @@ export async function POST(request: Request) {
   if (!endpoint || !p256dh || !auth) {
     return new Response("Invalid subscription", { status: 400 });
   }
+  if (!isAllowedPushEndpoint(endpoint)) {
+    return new Response("Unsupported push endpoint", { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { error } = await admin.from("push_subscriptions").upsert(
@@ -47,6 +59,17 @@ export async function POST(request: Request) {
     { onConflict: "endpoint" },
   );
   if (error) return new Response(error.message, { status: 500 });
+
+  // Cap rows per member: drop the oldest beyond the limit (keeps newest browsers).
+  const { data: rows } = await admin
+    .from("push_subscriptions")
+    .select("id")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (rows && rows.length > MAX_SUBSCRIPTIONS_PER_USER) {
+    const stale = rows.slice(MAX_SUBSCRIPTIONS_PER_USER).map((r) => r.id);
+    await admin.from("push_subscriptions").delete().in("id", stale);
+  }
 
   return Response.json({ ok: true });
 }

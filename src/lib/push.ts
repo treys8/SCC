@@ -1,6 +1,7 @@
 import "server-only";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAllowedPushEndpoint } from "@/lib/url";
 
 /**
  * Server-side Web Push send pipeline. Loads a set of members' subscriptions
@@ -38,6 +39,28 @@ export type PushPayload = {
   icon?: string;
 };
 
+// Web Push caps the encrypted payload near 4 KB; an over-long body (e.g. a
+// reservation staff note) would 413 and silently drop. Bound the free-text
+// fields so the notification always sends, just trimmed.
+const MAX_BODY_CHARS = 480;
+const MAX_TITLE_CHARS = 120;
+
+// Prune an endpoint after this many consecutive non-fatal send failures, so
+// dead-but-not-410 endpoints don't linger forever (without nuking on a 403).
+const MAX_SEND_FAILURES = 8;
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function clampPayload(payload: PushPayload): PushPayload {
+  return {
+    ...payload,
+    title: truncate(payload.title, MAX_TITLE_CHARS),
+    body: truncate(payload.body, MAX_BODY_CHARS),
+  };
+}
+
 /** Send a push to every subscription owned by the given members. */
 export async function sendPushToUsers(
   userIds: string[],
@@ -53,17 +76,20 @@ export async function sendPushToUsers(
     }
 
     const admin = createAdminClient();
-    const { data: subs, error } = await admin
+    const { data: allSubs, error } = await admin
       .from("push_subscriptions")
-      .select("endpoint, p256dh, auth")
+      .select("endpoint, p256dh, auth, failure_count")
       .in("user_id", ids);
     if (error) {
       console.error("push: failed to load subscriptions:", error.message);
       return;
     }
-    if (!subs || subs.length === 0) return;
+    // Defense in depth: never POST to an endpoint that isn't a known push host
+    // (a bad row can't be turned into an outbound SSRF target).
+    const subs = (allSubs ?? []).filter((s) => isAllowedPushEndpoint(s.endpoint));
+    if (subs.length === 0) return;
 
-    const body = JSON.stringify(payload);
+    const body = JSON.stringify(clampPayload(payload));
     const results = await Promise.allSettled(
       subs.map((s) =>
         webpush.sendNotification(
@@ -73,19 +99,51 @@ export async function sendPushToUsers(
       ),
     );
 
-    // Prune endpoints the push service says are gone; log other failures.
+    // Classify outcomes:
+    //  • 404/410      → endpoint is gone, prune immediately.
+    //  • 403          → batch-wide VAPID/auth failure; NEVER prune (it'd wipe
+    //                   the whole table), just log.
+    //  • other reject → transient; bump failure_count, prune once it caps out.
+    //  • success      → reset a previously-nonzero failure_count.
     const dead: string[] = [];
+    const bumped: { endpoint: string; failure_count: number }[] = [];
+    const recovered: string[] = [];
     results.forEach((r, i) => {
-      if (r.status === "rejected") {
-        const status = (r.reason as { statusCode?: number })?.statusCode;
-        if (status === 404 || status === 410) dead.push(subs[i].endpoint);
-        else console.error("push send failed:", r.reason);
+      const sub = subs[i];
+      if (r.status === "fulfilled") {
+        if ((sub.failure_count ?? 0) > 0) recovered.push(sub.endpoint);
+        return;
+      }
+      const status = (r.reason as { statusCode?: number })?.statusCode;
+      if (status === 404 || status === 410) {
+        dead.push(sub.endpoint);
+      } else if (status === 403) {
+        console.error("push send failed (VAPID/403, not pruning):", r.reason);
+      } else {
+        console.error("push send failed:", r.reason);
+        const next = (sub.failure_count ?? 0) + 1;
+        if (next >= MAX_SEND_FAILURES) dead.push(sub.endpoint);
+        else bumped.push({ endpoint: sub.endpoint, failure_count: next });
       }
     });
 
     if (dead.length > 0) {
       await admin.from("push_subscriptions").delete().in("endpoint", dead);
     }
+    if (recovered.length > 0) {
+      await admin
+        .from("push_subscriptions")
+        .update({ failure_count: 0 })
+        .in("endpoint", recovered);
+    }
+    await Promise.all(
+      bumped.map((b) =>
+        admin
+          .from("push_subscriptions")
+          .update({ failure_count: b.failure_count })
+          .eq("endpoint", b.endpoint),
+      ),
+    );
   } catch (e) {
     console.error("sendPushToUsers failed:", e);
   }

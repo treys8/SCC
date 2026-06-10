@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/url";
 
 export type LoginState = { error?: string };
 
@@ -11,9 +12,8 @@ export async function login(
 ): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const requested = String(formData.get("redirectTo") ?? "/");
   // Only allow internal redirects (no open-redirect to other hosts).
-  const redirectTo = requested.startsWith("/") ? requested : "/";
+  const redirectTo = safeInternalPath(formData.get("redirectTo") as string | null);
 
   if (!email || !password) {
     return { error: "Enter your email and password." };

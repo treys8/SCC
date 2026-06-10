@@ -1,6 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/url";
 
 /**
  * Handles links from Supabase auth emails (invite, recovery, magic link,
@@ -13,8 +14,7 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
 
-  const requestedNext = searchParams.get("next") ?? "/";
-  const next = requestedNext.startsWith("/") ? requestedNext : "/";
+  const next = safeInternalPath(searchParams.get("next"));
 
   const supabase = await createClient();
 
