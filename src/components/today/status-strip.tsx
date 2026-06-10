@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { FACILITY_STATUS_LABEL } from "@/lib/constants";
 import type {
@@ -12,6 +13,10 @@ import type {
  * "Course & Pool" card the Feed renders; it's a front-door summary. Golf and
  * Pool come from staff-set facility rows; Dining is derived from whether the
  * dinner service window is open right now.
+ *
+ * Members see status only. Staff get a "Manage" link to the /facility console —
+ * the strip is the one facility surface on a bottom-nav page, so this keeps
+ * setting status reachable from a phone out on the grounds.
  */
 const DOT: Record<FacilityStatusType, string> = {
   open: "bg-success",
@@ -30,12 +35,14 @@ const SHORT_LABEL: Record<FacilityType, string> = {
 export function StatusStrip({
   facilities,
   diningOpen,
+  canManage = false,
 }: {
   facilities: FacilityStatus[];
   diningOpen: boolean;
+  canManage?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {facilities.map((f) => (
         <Chip
           key={f.facility}
@@ -49,6 +56,14 @@ export function StatusStrip({
         status={diningOpen ? "Open" : "Closed"}
         dotClass={diningOpen ? "bg-success" : "bg-neutral"}
       />
+      {canManage && (
+        <Link
+          href="/facility"
+          className="ml-auto text-sm font-medium text-accent-600"
+        >
+          Manage →
+        </Link>
+      )}
     </div>
   );
 }
