@@ -40,7 +40,7 @@ tissue for reservations *and* later push.
 - ✅ In-app notification center + bell (unread count, mark read).
 - *(Optional, still open)* live slot availability ("3 left at 6:30").
 
-### Phase 2 — Event cards + GolfGenius handoff  ← START HERE
+### Phase 2 — Event cards + GolfGenius handoff  ✅ DONE (2026-06-10)
 - Add `registration_url`, `fee`, optional cover image to `calendar_events`.
 - Build **one shared `EventCard` component**, reused in three places: the Today page
   (Phase 4), the feed (via Phase 5 `post_type`), and the calendar detail page.
@@ -48,13 +48,13 @@ tissue for reservations *and* later push.
   (deep-link out) + **Add to calendar** (`.ics` exists).
 - Extend `event-form` for staff to enter registration URL + fee.
 
-### Phase 3 — Facility status widget (golf / pool)
+### Phase 3 — Facility status widget (golf / pool)  ✅ DONE (2026-06-10)
 - New `facility_status` table (facility, status, message, updated_at/by).
 - Fast staff control with **preset buttons**: Frost / Rain / Lightning hold / Open / Closed / All clear.
   One tap + lifecycle (All clear reverts).
 - Pinned, realtime-updated status widget.
 
-### Phase 4 — "Today at the Club" member home
+### Phase 4 — "Today at the Club" member home  ← START HERE
 - Build the member home (today members are redirected straight to `/posts`).
 - Glanceable **Today page**, not a second feed: fixed sections, no infinite scroll,
   empty sections collapse. Feed stays its own tab — Today answers "what's happening
