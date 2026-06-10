@@ -75,7 +75,10 @@ const MIME_BY_EXT: Record<string, string> = {
 
 /** A concrete content-type for the upload, falling back to the file extension. */
 function contentTypeFor(file: File): string {
-  return file.type || MIME_BY_EXT[ext(file.name)] || "application/octet-stream";
+  // Some browsers/files report the non-standard "image/jpg"; the bucket
+  // allow-list (and the world) uses "image/jpeg".
+  const type = file.type === "image/jpg" ? "image/jpeg" : file.type;
+  return type || MIME_BY_EXT[ext(file.name)] || "application/octet-stream";
 }
 
 /** Decide whether a file is an image, a document, or unsupported. */

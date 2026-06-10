@@ -36,6 +36,14 @@ create view public.member_cards
   with (security_invoker = off) as
   select id, full_name, avatar_url
   from public.profiles;
+-- A new view inherits Supabase's default ALL-grant to anon + authenticated.
+-- Because this is a definer, auto-updatable view, that would let anon READ every
+-- member and let authenticated WRITE profiles THROUGH the view (bypassing RLS).
+-- Lock it to authenticated-SELECT only, immediately, so re-running this file in
+-- isolation can never reopen that window. (20260611010000 reconciled the
+-- already-applied DB, where this fold-in didn't yet exist.)
+revoke all on public.member_cards from anon;
+revoke all on public.member_cards from authenticated;
 grant select on public.member_cards to authenticated;
 
 -- ----------------------------------------------------------------------------
