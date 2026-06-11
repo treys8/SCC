@@ -13,6 +13,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   // typed: React 19 resets uncontrolled (defaultValue) fields after a form
   // action returns. (Same reason event-form.tsx is controlled.)
   const [fullName, setFullName] = useState(profile.full_name);
+  const [displayName, setDisplayName] = useState(profile.display_name ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
 
   return (
@@ -30,6 +31,24 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           onChange={(e) => setFullName(e.target.value)}
           className="input"
         />
+      </div>
+
+      <div>
+        <label className="label" htmlFor="display_name">
+          Preferred name <span className="font-normal text-muted">(optional)</span>
+        </label>
+        <input
+          id="display_name"
+          name="display_name"
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          className="input"
+          placeholder="e.g. Trey"
+        />
+        <p className="field-hint">
+          What we&rsquo;ll call you in greetings. Defaults to your full name.
+        </p>
       </div>
 
       <div>

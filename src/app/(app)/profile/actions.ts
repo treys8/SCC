@@ -12,6 +12,7 @@ export async function updateProfile(
   formData: FormData,
 ): Promise<ProfileState> {
   const fullName = String(formData.get("full_name") ?? "").trim();
+  const displayName = String(formData.get("display_name") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
 
   if (!fullName) return { error: "Name is required." };
@@ -24,7 +25,7 @@ export async function updateProfile(
 
   const { error } = await supabase
     .from("profiles")
-    .update({ full_name: fullName, phone })
+    .update({ full_name: fullName, display_name: displayName, phone })
     .eq("id", user.id);
 
   if (error) return { error: error.message };

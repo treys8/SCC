@@ -7,6 +7,7 @@ import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
 import { fetchFacilityStatus } from "@/lib/facility";
 import { formatTime } from "@/lib/format";
+import { memberFirstName } from "@/lib/member";
 import {
   type BookingSettings,
   fetchReservationSettings,
@@ -51,7 +52,7 @@ export default async function TodayPage() {
 
   const todaysEvents = todaysEventsRes.data ?? [];
   const buffet = buffetRes.data;
-  const firstName = profile?.full_name.split(" ")[0] ?? "Member";
+  const firstName = (profile && memberFirstName(profile)) || "Member";
 
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";

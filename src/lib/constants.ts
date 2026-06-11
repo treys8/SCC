@@ -58,6 +58,9 @@ export const CLUB_COORDS = { lat: 33.45, lng: -88.79 } as const;
 /** IANA timezone the club operates in (Open-Meteo localizes against this). */
 export const CLUB_TZ = "America/Chicago";
 
+/** The club's name, shown as the byline on official (club-voice) feed posts. */
+export const CLUB_NAME = "Starkville Country Club";
+
 /** Facilities with a member-facing operational status (golf / pool). */
 export const FACILITIES: FacilityType[] = ["golf", "pool"];
 

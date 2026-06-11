@@ -39,6 +39,7 @@ export default async function EditPostPage({
         post={{
           id: post.id,
           department: post.department,
+          author_type: post.author_type,
           title: post.title,
           content: post.content,
           is_pinned: post.is_pinned,

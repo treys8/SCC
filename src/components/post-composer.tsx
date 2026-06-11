@@ -8,7 +8,7 @@ import {
   type AttachmentInput,
 } from "@/app/(app)/posts/actions";
 import { cn } from "@/lib/cn";
-import { DEPARTMENTS } from "@/lib/constants";
+import { CLUB_NAME, DEPARTMENTS } from "@/lib/constants";
 import {
   ACCEPT_ATTR,
   classifyFile,
@@ -19,11 +19,13 @@ import type {
   AttachmentKind,
   DepartmentType,
   PostAttachment,
+  PostAuthorType,
 } from "@/lib/database.types";
 
 type ExistingPost = {
   id: string;
   department: DepartmentType;
+  author_type: PostAuthorType;
   title: string | null;
   content: string;
   is_pinned: boolean;
@@ -52,6 +54,8 @@ export function PostComposer({
   const [title, setTitle] = useState(post?.title ?? "");
   const [content, setContent] = useState(post?.content ?? "");
   const [isPinned, setIsPinned] = useState(post?.is_pinned ?? false);
+  // New posts speak for the club by default; staff can switch to a personal post.
+  const [asClub, setAsClub] = useState(post ? post.author_type === "club" : true);
 
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
@@ -144,6 +148,7 @@ export function PostComposer({
 
     const base = {
       department,
+      authorType: (asClub ? "club" : "member") as PostAuthorType,
       title: title.trim(),
       content: content.trim(),
       isPinned,
@@ -265,6 +270,21 @@ export function PostComposer({
             </ul>
           )}
         </div>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={asClub}
+            onChange={(e) => setAsClub(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          Post as {CLUB_NAME}
+        </label>
+        <p className="field-hint">
+          On for official club news. Turn off to post under your own name.
+        </p>
       </div>
 
       <label className="flex items-center gap-2 text-sm font-medium text-foreground">
