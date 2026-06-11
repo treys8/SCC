@@ -66,7 +66,9 @@ function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+        // min-h-11 keeps the tap target >=44px on phones; sm:min-h-0 returns it
+        // to the compact chip height on desktop.
+        "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
         active
           ? "border-primary bg-primary text-white"
           : "border-border bg-surface text-muted hover:border-primary hover:text-primary",

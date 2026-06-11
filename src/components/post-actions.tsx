@@ -63,7 +63,7 @@ export function PostActions({
         aria-label="Post options"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none text-muted hover:bg-background disabled:opacity-50"
+        className="flex h-11 w-11 items-center justify-center rounded-full text-lg leading-none text-muted hover:bg-background disabled:opacity-50 sm:h-9 sm:w-9"
       >
         ⋯
       </button>

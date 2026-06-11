@@ -98,7 +98,7 @@ function DetailsCard({
           <p className="text-sm text-muted">No rows yet — add one below.</p>
         )}
         {rows.map((row) => (
-          <div key={row.id} className="flex gap-2">
+          <div key={row.id} className="flex items-center gap-2">
             <input
               value={row.label}
               onChange={(e) => update(row.id, { label: e.target.value })}

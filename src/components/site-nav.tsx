@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Crest } from "@/components/crest";
+import { MobileNav } from "@/components/mobile-nav";
 import { NavLinks, type NavLink } from "@/components/nav-links";
 import { NotificationBell } from "@/components/notification-bell";
 import { signOut } from "@/lib/actions/auth";
@@ -32,6 +33,12 @@ export function SiteNav({
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+        <MobileNav
+          links={links}
+          fullName={profile.full_name}
+          roleLabel={ROLE_LABEL[profile.role]}
+        />
+
         <Link href="/" className="flex items-center gap-2.5">
           <Crest className="h-9 w-9" />
           <span className="hidden font-serif text-lg font-semibold leading-tight text-primary sm:block">
@@ -45,7 +52,7 @@ export function SiteNav({
           <NotificationBell count={unreadCount} />
           <Link
             href="/profile"
-            className="flex items-center gap-2 rounded-md px-2 py-1 text-right hover:bg-background"
+            className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1 text-right hover:bg-background sm:min-h-0"
           >
             <span className="hidden leading-tight sm:block">
               <span className="block text-sm font-medium text-foreground">
@@ -62,7 +69,7 @@ export function SiteNav({
               {initials(profile.full_name)}
             </span>
           </Link>
-          <form action={signOut}>
+          <form action={signOut} className="hidden md:block">
             <button type="submit" className="btn btn-outline btn-sm">
               Sign out
             </button>

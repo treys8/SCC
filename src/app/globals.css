@@ -98,6 +98,49 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
   }
+
+  /* ── Accessible focus ─────────────────────────────────────────────────────
+     One rule gives every interactive element (links, buttons, nav, pills,
+     cards-as-links, the bell, the avatar trigger…) a consistent brand-green
+     focus ring — but only for keyboard/programmatic focus, never on mouse
+     click. `outline` is used over a Tailwind `ring` so it auto-follows each
+     element's shape and needs no per-element offset colour. Elements that want
+     a bespoke focus style (text inputs, via `.input` `outline-none` + green
+     `focus:ring`) opt out simply by setting their own outline. */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 2px; /* softens the outline on square-cornered elements */
+  }
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   Honour the OS "reduce motion" setting everywhere at once: transitions, the
+   skeleton pulse, the bell badge pop, button/FAB tap-scale, and smooth
+   scrolling all collapse to effectively instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* One-time pop for the notification bell's unread badge (see notification-bell).
+   Disabled automatically by the reduced-motion block above. */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 body {
@@ -155,7 +198,10 @@ h3,
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+    /* min-h-11 (44px) gives a comfortable touch target on phones; sm:min-h-0
+       restores the intrinsic ~36px height on desktop, where pointers are precise
+       and dense toolbars read better compact. */
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:min-h-0;
   }
   .btn-primary {
     @apply bg-primary text-white hover:bg-primary-700;
@@ -173,7 +219,9 @@ h3,
     @apply bg-danger text-white hover:opacity-90;
   }
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    /* Inherits the 44px phone floor from .btn; sm:min-h-0 returns it to its
+       compact ~28px in dense desktop tables and toolbars. */
+    @apply px-3 py-1.5 text-xs sm:min-h-0;
   }
 
   .card {
@@ -207,5 +255,28 @@ h3,
 
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .animate-badge-pop {
+    animation: badge-pop 0.2s ease-out;
+  }
+}
+
+/* Mobile nav drawer enter animations (mobile-nav.tsx). Enter-only — the drawer
+   unmounts on close, like the lightbox. Guarded by motion-reduce at the usage. */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
