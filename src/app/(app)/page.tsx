@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
+import { FeaturedCard } from "@/components/today/featured-card";
 import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
@@ -52,6 +53,13 @@ export default async function TodayPage() {
     ]);
 
   const todaysEvents = todaysEventsRes.data ?? [];
+  // The soonest event staff flagged as today's highlight gets the featured card;
+  // todaysEvents is already ordered by start_time, so the first match is soonest.
+  const featured = todaysEvents.find((e) => e.is_highlight) ?? null;
+  // The featured event shows in the hero card, so drop it from the list below.
+  const otherEvents = featured
+    ? todaysEvents.filter((e) => e.id !== featured.id)
+    : todaysEvents;
   const buffet = buffetRes.data;
   const firstName = (profile && memberFirstName(profile)) || "Member";
 
@@ -76,6 +84,7 @@ export default async function TodayPage() {
         summary={summary}
         weather={weather}
       />
+      {featured && <FeaturedCard event={featured} />}
       {canManage ? (
         <section className="space-y-3">
           <div className="flex items-baseline justify-between gap-3">
@@ -93,7 +102,11 @@ export default async function TodayPage() {
         <ConditionsGrid facilities={facilities} />
       )}
       {buffet?.active && <BuffetCard buffet={buffet} dateISO={today} />}
-      <TodayEvents events={todaysEvents} />
+      {/* Show the events list unless the day's only event is the featured one —
+          then a "nothing on the calendar" empty state under the hero would lie. */}
+      {(otherEvents.length > 0 || !featured) && (
+        <TodayEvents events={otherEvents} />
+      )}
       <DinnerNote settings={settings} diningOpen={diningOpen} />
     </div>
   );

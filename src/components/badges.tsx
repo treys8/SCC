@@ -33,6 +33,25 @@ export function DepartmentBadge({
   );
 }
 
+/**
+ * Solid department hue + matching text colour for the feed's category-led club
+ * posts (the 3px left accent bar, the header dot, and the uppercase label).
+ * Same hues as the DEPT_STYLES badge tints above, at full strength.
+ */
+export const DEPARTMENT_ACCENT: Record<
+  DepartmentType,
+  { bar: string; text: string }
+> = {
+  golf: { bar: "bg-success", text: "text-success" },
+  dining: { bar: "bg-accent", text: "text-accent-600" },
+  tennis: { bar: "bg-primary", text: "text-primary" },
+  general: { bar: "bg-muted", text: "text-muted" },
+  pool: { bar: "bg-info", text: "text-info-strong" },
+  social: { bar: "bg-violet", text: "text-violet-strong" },
+  pro_shop: { bar: "bg-warning", text: "text-warning-strong" },
+  membership: { bar: "bg-neutral", text: "text-neutral-strong" },
+};
+
 const STATUS_STYLES: Record<ReservationStatus, string> = {
   pending: "bg-accent/10 text-accent-600",
   confirmed: "bg-success/10 text-success",

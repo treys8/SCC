@@ -1,46 +1,131 @@
 import { AttachmentList } from "@/components/attachment-list";
-import { DepartmentBadge } from "@/components/badges";
-import { Crest } from "@/components/crest";
+import { DepartmentBadge, DEPARTMENT_ACCENT } from "@/components/badges";
 import { PostActions } from "@/components/post-actions";
 import { PostGallery } from "@/components/post-gallery";
 import { cn } from "@/lib/cn";
-import { CLUB_NAME } from "@/lib/constants";
+import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { sortedAttachments } from "@/lib/feed";
 import { formatRelativeTime, formatTimestamp } from "@/lib/format";
 import type { FeedPost } from "@/lib/database.types";
 
+/**
+ * A feed post. Club-voice posts are category-led: a department-coloured left
+ * accent bar (gold when pinned) and an uppercase department header, no crest or
+ * club byline. Member posts keep their avatar + name byline. Post actions show
+ * for the author (edit/delete) and for staff (pin any post); `canManageAny` is
+ * the viewer's staff flag.
+ */
 export function PostCard({
   post,
   currentUserId,
+  canManageAny,
 }: {
   post: FeedPost;
   currentUserId: string;
+  canManageAny: boolean;
 }) {
-  const canManage = post.author_id === currentUserId;
-  // A club-voice post is the club speaking, not the staffer who published it:
-  // show the club's name + crest. A member post shows that member's own byline.
+  const isAuthor = post.author_id === currentUserId;
+  const showMenu = isAuthor || canManageAny;
   const isClub = post.author_type === "club";
-  const authorName = isClub ? CLUB_NAME : post.author?.full_name ?? "Member";
-  const avatarUrl = post.author?.avatar_url ?? null;
 
   const attachments = sortedAttachments(post);
   const images = attachments.filter((a) => a.kind === "image");
   const files = attachments.filter((a) => a.kind === "file");
 
+  const actions = showMenu ? (
+    <PostActions
+      id={post.id}
+      isPinned={post.is_pinned}
+      isAuthor={isAuthor}
+      canPin={canManageAny}
+    />
+  ) : null;
+
+  const body = (
+    <>
+      {post.title && (
+        <h3 className="mt-3 text-h2 tracking-tight text-foreground">
+          {post.title}
+        </h3>
+      )}
+      {post.content && (
+        <p className="mt-2.5 whitespace-pre-wrap break-words text-body text-foreground/90">
+          {post.content}
+        </p>
+      )}
+      {images.length > 0 && <PostGallery images={images} />}
+      {files.length > 0 && <AttachmentList files={files} />}
+    </>
+  );
+
+  if (isClub) {
+    const accent = DEPARTMENT_ACCENT[post.department];
+    // Pinned club posts take a gold bar; otherwise the department's own hue.
+    const barColor = post.is_pinned ? "bg-accent" : accent.bar;
+    return (
+      <article
+        className={cn(
+          "card relative overflow-hidden p-4 pl-5 sm:p-5 sm:pl-6",
+          post.is_pinned && "bg-accent/[0.04]",
+        )}
+      >
+        <span
+          className={cn("absolute inset-y-0 left-0 w-[3px]", barColor)}
+          aria-hidden
+        />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={cn("h-2 w-2 shrink-0 rounded-full", barColor)}
+              aria-hidden
+            />
+            <span
+              className={cn(
+                "truncate text-caption font-semibold uppercase tracking-wide",
+                accent.text,
+              )}
+            >
+              {DEPARTMENT_LABEL[post.department]}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {post.is_pinned && (
+              <>
+                <span className="sr-only">Pinned</span>
+                <span aria-hidden title="Pinned" className="text-accent-600">
+                  📌
+                </span>
+              </>
+            )}
+            <time
+              dateTime={post.created_at}
+              title={formatTimestamp(post.created_at)}
+              suppressHydrationWarning
+              className="text-caption text-muted"
+            >
+              {formatRelativeTime(post.created_at)}
+            </time>
+            {actions && <div className="-mr-1 -mt-1">{actions}</div>}
+          </div>
+        </div>
+        {body}
+      </article>
+    );
+  }
+
+  // Member post — that member's own avatar + name byline.
+  const authorName = post.author?.full_name ?? "Member";
+  const avatarUrl = post.author?.avatar_url ?? null;
   return (
     <article
       className={cn(
         "card overflow-hidden p-4 sm:p-5",
-        // Pinned posts get a subtle gold left edge + warm tint to stand apart.
+        // Pinned member posts get a subtle gold left edge + warm tint.
         post.is_pinned && "border-l-2 border-l-accent bg-accent/[0.05]",
       )}
     >
       <div className="flex items-start gap-3">
-        {isClub ? (
-          <Crest className="h-10 w-10 shrink-0" />
-        ) : (
-          <Avatar name={authorName} url={avatarUrl} />
-        )}
+        <Avatar name={authorName} url={avatarUrl} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -70,26 +155,10 @@ export function PostCard({
           </div>
         </div>
 
-        {canManage && (
-          <div className="-mr-1 -mt-1 shrink-0">
-            <PostActions id={post.id} isPinned={post.is_pinned} />
-          </div>
-        )}
+        {actions && <div className="-mr-1 -mt-1 shrink-0">{actions}</div>}
       </div>
 
-      {post.title && (
-        <h3 className="mt-3 text-h2 tracking-tight text-foreground">
-          {post.title}
-        </h3>
-      )}
-      {post.content && (
-        <p className="mt-2.5 whitespace-pre-wrap break-words text-body text-foreground/90">
-          {post.content}
-        </p>
-      )}
-
-      {images.length > 0 && <PostGallery images={images} />}
-      {files.length > 0 && <AttachmentList files={files} />}
+      {body}
     </article>
   );
 }

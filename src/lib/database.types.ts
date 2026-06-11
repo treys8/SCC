@@ -30,7 +30,7 @@ export type ReservationStatus =
 export type AttachmentKind = "image" | "file";
 /** Whose voice a feed post is in: the club ("official") or an individual member. */
 export type PostAuthorType = "club" | "member";
-export type FacilityType = "golf" | "pool" | "tennis";
+export type FacilityType = "golf" | "pool" | "tennis" | "driving_range";
 export type FacilityStatusType =
   | "open"
   | "closed"
@@ -246,6 +246,7 @@ export interface Database {
           registration_url: string | null;
           fee: string | null;
           cover_image_url: string | null;
+          is_highlight: boolean;
           created_by: string | null;
           created_at: string;
         };
@@ -261,6 +262,7 @@ export interface Database {
           registration_url?: string | null;
           fee?: string | null;
           cover_image_url?: string | null;
+          is_highlight?: boolean;
           created_by?: string | null;
           created_at?: string;
         };
@@ -276,6 +278,7 @@ export interface Database {
           registration_url?: string | null;
           fee?: string | null;
           cover_image_url?: string | null;
+          is_highlight?: boolean;
           created_by?: string | null;
           created_at?: string;
         };

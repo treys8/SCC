@@ -47,6 +47,7 @@ export function EventForm({
     event?.registration_url ?? "",
   );
   const [fee, setFee] = useState(event?.fee ?? "");
+  const [isHighlight, setIsHighlight] = useState(event?.is_highlight ?? false);
 
   // Cover photo uploads browser-direct on selection (Server Action bodies are
   // too small for photos); the form only submits the resulting public URL.
@@ -278,6 +279,25 @@ export function EventForm({
         )}
         {uploadError && <p className="mt-1 text-sm text-danger">{uploadError}</p>}
       </div>
+
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          name="is_highlight"
+          checked={isHighlight}
+          onChange={(e) => setIsHighlight(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+        />
+        <span className="text-sm">
+          <span className="font-medium text-foreground">
+            Show as Today highlight
+          </span>
+          <span className="mt-0.5 block text-muted">
+            Features this event in a cover card on the member home page, on its
+            date.
+          </span>
+        </span>
+      </label>
 
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
 

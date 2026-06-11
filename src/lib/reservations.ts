@@ -6,11 +6,19 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Reservation } from "@/lib/database.types";
-import { formatTime } from "@/lib/format";
+import { clubTodayISO, formatTime } from "@/lib/format";
 
 type DB = SupabaseClient<Database>;
 
 export type SlotOption = { value: string; label: string };
+
+/** One selectable day pill: the ISO date plus its display parts. */
+export type DayOption = {
+  iso: string;
+  weekday: string;
+  day: number;
+  label: string;
+};
 
 export type BookingSettings = {
   slot_minutes: number;
@@ -47,6 +55,34 @@ function toMinutes(t: string): number {
   return h * 60 + (m || 0);
 }
 const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * The next `count` calendar days starting today, computed in the club's timezone
+ * so the pills don't drift to the server's TZ. Wall-clock date math (Date with
+ * local components) rolls month/year boundaries correctly. Built server-side and
+ * passed to the form so server and client agree on "today".
+ */
+export function buildUpcomingDays(count: number): DayOption[] {
+  const [y, m, d] = clubTodayISO().split("-").map(Number);
+  const days: DayOption[] = [];
+  for (let i = 0; i < count; i++) {
+    const dt = new Date(y, m - 1, d + i);
+    const iso = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(
+      dt.getDate(),
+    )}`;
+    days.push({
+      iso,
+      weekday: dt.toLocaleDateString("en-US", { weekday: "short" }),
+      day: dt.getDate(),
+      label: dt.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+    });
+  }
+  return days;
+}
 
 /** Bookable times: [service_start, service_end) stepped by slot_minutes. */
 export function generateSlots(settings: BookingSettings): SlotOption[] {
