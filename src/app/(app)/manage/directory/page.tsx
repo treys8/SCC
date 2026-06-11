@@ -17,7 +17,7 @@ export default async function ManageDirectoryPage() {
     <div className="space-y-6">
       <PageHeader
         title="Staff directory"
-        description="Names, titles, and contact info shown on the member Directory page. Lower sort order shows first."
+        description="Names, titles, and contact info shown on the Directory page (staff-only for now). Lower sort order shows first."
       />
       <StaffDirectoryEditor initial={staff ?? []} />
     </div>

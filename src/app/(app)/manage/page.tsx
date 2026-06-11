@@ -29,6 +29,12 @@ const TILES: Tile[] = [
     icon: <FlagIcon />,
   },
   {
+    href: "/manage/messages",
+    title: "Messages",
+    description: "Member questions and requests sent from the Contact page.",
+    icon: <MailIcon />,
+  },
+  {
     href: "/posts/new",
     title: "Post an update",
     description: "Announce news to the member feed, with photos or files.",
@@ -55,13 +61,13 @@ const TILES: Tile[] = [
   {
     href: "/manage/directory",
     title: "Staff directory",
-    description: "Names, titles, and contact info members can reach.",
+    description: "Names, titles, and contact info on the Directory page.",
     icon: <PeopleIcon />,
   },
   {
     href: "/manage/club-info",
     title: "Club info",
-    description: "Address, phone, and mailing details shown on Directory.",
+    description: "Address and phone shown on Directory and the Contact page.",
     icon: <PinIcon />,
   },
   {
@@ -139,6 +145,15 @@ function FlagIcon({ className }: IconProps) {
   return (
     <svg {...base(className)}>
       <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+    </svg>
+  );
+}
+
+function MailIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
     </svg>
   );
 }
