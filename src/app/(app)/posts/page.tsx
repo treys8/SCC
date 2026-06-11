@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { Feed } from "@/components/feed";
 import { FeedFilter } from "@/components/feed-filter";
+import { LiveConditionsGrid } from "@/components/live-conditions-grid";
 import { PageHeader } from "@/components/page-header";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { DEPARTMENTS } from "@/lib/constants";
@@ -62,7 +62,10 @@ export default async function FeedPage({
       />
 
       {facilities.length > 0 && (
-        <FacilityStatusWidget initial={facilities} />
+        <LiveConditionsGrid
+          facilities={facilities}
+          canManage={isStaff(profile.role)}
+        />
       )}
 
       <FeedFilter active={depts} />

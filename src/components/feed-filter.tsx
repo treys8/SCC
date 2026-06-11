@@ -32,8 +32,8 @@ export function FeedFilter({ active }: { active: DepartmentType[] }) {
   }
 
   return (
-    <div className="sticky top-0 z-10 -mx-4 border-b border-border bg-background/85 px-4 py-2 backdrop-blur">
-      <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="sticky top-0 z-10 -mx-4 border-b border-border bg-background/85 px-4 py-2.5 backdrop-blur">
+      <div className="flex gap-2 overflow-x-auto scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Chip active={active.length === 0} onClick={() => navigate([])}>
           All
         </Chip>
@@ -68,10 +68,10 @@ function Chip({
       className={cn(
         // min-h-11 keeps the tap target >=44px on phones; sm:min-h-0 returns it
         // to the compact chip height on desktop.
-        "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
+        "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition active:scale-[0.98] sm:min-h-0",
         active
-          ? "border-primary bg-primary text-white"
-          : "border-border bg-surface text-muted hover:border-primary hover:text-primary",
+          ? "border-primary bg-primary font-semibold text-white shadow-sm"
+          : "border-border bg-surface text-foreground/70 hover:bg-surface-2 hover:text-foreground",
       )}
     >
       {children}
