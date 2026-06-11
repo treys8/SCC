@@ -40,10 +40,16 @@ export function BottomNav() {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-2 text-2xs font-medium transition-colors",
-                  active ? "text-primary" : "text-muted",
+                  "relative flex flex-col items-center gap-0.5 py-2 text-2xs font-medium transition-colors",
+                  active ? "text-primary" : "text-muted hover:text-foreground",
                 )}
               >
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-primary"
+                  />
+                )}
                 <Icon className="h-6 w-6" />
                 {tab.label}
               </Link>

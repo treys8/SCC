@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { removeMember, setMemberRole } from "@/app/(app)/members/actions";
+import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/cn";
 import { ROLE_LABEL, ROLES } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
@@ -65,6 +66,15 @@ export function MembersTable({
           </option>
         ))}
       </select>
+    );
+  }
+
+  if (members.length === 0) {
+    return (
+      <EmptyState
+        title="No members yet"
+        description="Invited members will appear here once they're added."
+      />
     );
   }
 
