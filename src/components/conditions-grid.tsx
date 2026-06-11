@@ -1,36 +1,37 @@
+"use client";
+
 import Link from "next/link";
+import { FacilityStatusBadge } from "@/components/badges";
+import { FacilityIcon } from "@/components/facility-icon";
 import { cn } from "@/lib/cn";
-import { FACILITY_LABEL, FACILITY_STATUS_LABEL } from "@/lib/constants";
+import { FACILITY_LABEL } from "@/lib/constants";
 import { formatRelativeTime } from "@/lib/format";
-import type {
-  FacilityStatus,
-  FacilityStatusType,
-} from "@/lib/database.types";
+import { useLiveFacilityStatus } from "@/lib/use-live-facility-status";
+import type { FacilityStatus } from "@/lib/database.types";
 
 /**
- * "Course & pool conditions" — the page's centrepiece. Two cards, Golf and
- * Pool, each with a real open/closed badge, an optional staff message, and a
- * list of labelled detail rows. All staff-set from the /facility console:
- * status + message + the detail rows (facility_status.details) are live data.
+ * Member "Conditions" — one compact card with a row per facility:
+ * [icon · name · one-line summary · status badge · chevron], each row a link
+ * into that facility's detail page. Seeded from the server-fetched rows and kept
+ * live via `useLiveFacilityStatus`, so a staff status change lands without a
+ * reload. Staff get the editable FacilityStatusWidget instead (see the Today
+ * page's `canManage` branch).
+ *
+ * There's no single "summary" field — `details` is an array plus an optional
+ * `message`. The summary line uses `message` when set, else the first detail
+ * row; the full rows live on the detail page.
  */
-
-const BADGE: Record<FacilityStatusType, string> = {
-  open: "bg-success/10 text-success",
-  closed: "bg-danger/10 text-danger",
-  frost_delay: "bg-info-soft text-info-strong",
-  rain_delay: "bg-neutral-soft text-neutral-strong",
-  lightning_hold: "bg-warning-soft text-warning-strong",
-};
-
 export function ConditionsGrid({
   facilities,
-  canManage = false,
 }: {
   facilities: FacilityStatus[];
-  canManage?: boolean;
 }) {
+  const [rows] = useLiveFacilityStatus(facilities);
+
+  if (rows.length === 0) return null;
+
   // The most-recent staff update across the facilities drives the stamp.
-  const lastUpdated = facilities
+  const lastUpdated = rows
     .map((f) => f.updated_at)
     .sort()
     .at(-1);
@@ -39,62 +40,73 @@ export function ConditionsGrid({
     <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-h2 text-foreground">Conditions</h2>
-        <span className="shrink-0 text-sm text-accent-600">
-          {lastUpdated && `Updated ${formatRelativeTime(lastUpdated)}`}
-          {canManage && (
-            <>
-              {lastUpdated && " · "}
-              <Link href="/manage/conditions" className="font-medium">
-                Manage →
-              </Link>
-            </>
-          )}
-        </span>
+        {lastUpdated && (
+          <time
+            dateTime={lastUpdated}
+            suppressHydrationWarning
+            className="shrink-0 text-sm text-accent-600"
+          >
+            Updated {formatRelativeTime(lastUpdated)}
+          </time>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-        {facilities.map((f) => (
-          <ConditionCard key={f.facility} facility={f} />
+      <div className="card overflow-hidden">
+        {rows.map((f, i) => (
+          <ConditionRow key={f.facility} facility={f} divided={i > 0} />
         ))}
       </div>
     </section>
   );
 }
 
-function ConditionCard({ facility }: { facility: FacilityStatus }) {
+/** The one-line glance under the name: the staff note, else the first detail. */
+function summaryLine(facility: FacilityStatus): string | null {
+  if (facility.message) return facility.message;
+  const first = facility.details[0];
+  return first ? `${first.label} · ${first.value}` : null;
+}
+
+function ConditionRow({
+  facility,
+  divided,
+}: {
+  facility: FacilityStatus;
+  divided: boolean;
+}) {
+  const summary = summaryLine(facility);
   return (
-    <div className="card p-5 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-h2 text-foreground">
+    <Link
+      href={`/facility/${facility.facility}`}
+      className={cn(
+        "flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface-2 sm:px-5",
+        divided && "border-t border-border/60",
+      )}
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <FacilityIcon facility={facility.facility} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-foreground">
           {FACILITY_LABEL[facility.facility]}
-        </h3>
-        <span className={cn("badge", BADGE[facility.status])}>
-          {FACILITY_STATUS_LABEL[facility.status]}
-        </span>
+        </p>
+        {summary && (
+          <p className="mt-0.5 truncate text-sm text-muted">{summary}</p>
+        )}
       </div>
-
-      {facility.message && (
-        <p className="mt-2 text-sm text-muted">{facility.message}</p>
-      )}
-
-      {facility.details.length > 0 && (
-        <dl className="mt-4">
-          {facility.details.map((row, i) => (
-            <div
-              key={`${row.label}-${i}`}
-              className={cn(
-                "flex items-baseline gap-3 py-2 text-sm",
-                i > 0 && "border-t border-border/60",
-              )}
-            >
-              <dt className="w-20 shrink-0 font-medium text-foreground">
-                {row.label}
-              </dt>
-              <dd className="text-muted">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </div>
+      <FacilityStatusBadge status={facility.status} />
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        className="h-4 w-4 shrink-0 text-muted"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </Link>
   );
 }

@@ -162,6 +162,7 @@ export function Feed({
               key={post.id}
               post={post}
               currentUserId={currentUserId}
+              canManageAny={canPost}
             />
           ))}
           {posts.map((post) => (
@@ -169,6 +170,7 @@ export function Feed({
               key={post.id}
               post={post}
               currentUserId={currentUserId}
+              canManageAny={canPost}
             />
           ))}
 

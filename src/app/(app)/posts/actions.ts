@@ -239,7 +239,9 @@ export async function togglePin(id: string, isPinned: boolean) {
     .select("id");
   if (error) throw new Error(error.message);
   if (!updated || updated.length === 0) {
-    throw new Error("You can only pin your own posts.");
+    // Staff may pin any post (RLS: posts_update_staff), so a 0-row result here
+    // means the post is gone, not a permission problem.
+    throw new Error("That post no longer exists.");
   }
   revalidatePath("/posts");
   revalidatePath("/");

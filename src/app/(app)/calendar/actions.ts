@@ -64,6 +64,7 @@ function parseEvent(formData: FormData) {
       registration_url: registration.url,
       fee: String(formData.get("fee") ?? "").trim() || null,
       cover_image_url: postsPublicUrl(String(formData.get("cover_image_url") ?? "")),
+      is_highlight: formData.get("is_highlight") === "on",
     },
   };
 }

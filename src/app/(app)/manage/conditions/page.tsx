@@ -11,7 +11,9 @@ export const metadata: Metadata = { title: "Conditions" };
 /**
  * Conditions console: the one-tap status/note editor (also surfaced on the Today
  * home for quick mobile access) plus the per-facility detail-row editor. Gated by
- * the /manage layout. Golf, pool, and tennis render automatically from FACILITIES.
+ * the /manage layout. Golf, driving range, pool, and tennis render automatically
+ * from FACILITIES — e.g. state tennis court availability in its note/detail rows
+ * ("3 of 4 courts open"), which reads through to the member Today + detail page.
  */
 export default async function ManageConditionsPage() {
   const supabase = await createClient();
@@ -21,7 +23,7 @@ export default async function ManageConditionsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Conditions"
-        description="Set golf, pool, and tennis status, notes, and the detail rows members see."
+        description="Set golf, driving range, pool, and tennis status, notes, and the detail rows members see."
       />
       {facilities.length > 0 ? (
         <>
@@ -31,7 +33,7 @@ export default async function ManageConditionsPage() {
       ) : (
         <EmptyState
           title="No facilities configured"
-          description="Golf, pool, and tennis status rows haven't been set up yet."
+          description="Golf, driving range, pool, and tennis status rows haven't been set up yet."
         />
       )}
     </div>

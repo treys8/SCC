@@ -12,6 +12,7 @@ import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  DepartmentType,
   FacilityDetail,
   FacilityStatusType,
   FacilityType,
@@ -19,6 +20,19 @@ import type {
 
 const VALID_FACILITY = new Set<string>(FACILITIES);
 const VALID_STATUS = new Set<string>(Object.keys(FACILITY_STATUS_LABEL));
+
+/**
+ * The opt-in department a facility's alerts fan out to. Golf/pool/tennis each
+ * own a department; the driving range has none of its own (the enum is
+ * golf/dining/tennis/general/…), so it rides the golf opt-in — the range is
+ * golf-adjacent, and a member who wants golf alerts wants range alerts too.
+ */
+const FACILITY_DEPARTMENT: Record<FacilityType, DepartmentType> = {
+  golf: "golf",
+  driving_range: "golf",
+  pool: "pool",
+  tennis: "tennis",
+};
 
 const MESSAGE_MAX = 120;
 
@@ -120,9 +134,12 @@ async function notifyFacilityChange(
     const { data } = await admin.from("profiles").select("id");
     targetIds = (data ?? []).map((r) => r.id);
   } else {
-    // FacilityType ('golf' | 'pool') is a subset of DepartmentType. Default-on:
-    // reaches everyone who hasn't explicitly opted out of this department.
-    targetIds = await getUsersForDepartmentDefaultOn(admin, facility);
+    // Map the facility to its alert department (driving range → golf). Default-on:
+    // reaches everyone who hasn't explicitly opted out of that department.
+    targetIds = await getUsersForDepartmentDefaultOn(
+      admin,
+      FACILITY_DEPARTMENT[facility],
+    );
   }
   if (targetIds.length === 0) return;
 

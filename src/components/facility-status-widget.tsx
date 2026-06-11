@@ -20,7 +20,7 @@ import type {
  * preset controls and a note input per row. Realtime-backed via
  * `useLiveFacilityStatus`, so a staffer's change lands immediately and is
  * reconciled with the authoritative row. The read-only member-facing card is a
- * separate, shared component (ConditionsGrid / LiveConditionsGrid).
+ * separate component (ConditionsGrid), which is itself realtime.
  */
 export function FacilityStatusWidget({
   initial,

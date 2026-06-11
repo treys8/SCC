@@ -9,8 +9,9 @@ import { StaffReservationsTable } from "@/components/staff-reservations-table";
 import { cn } from "@/lib/cn";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { RESERVATION_STATUSES, STATUS_LABEL } from "@/lib/constants";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 import {
+  buildUpcomingDays,
   fetchReservationSettings,
   generateSlots,
   serviceWindowNote,
@@ -47,6 +48,7 @@ async function MemberView() {
   ]);
   const reservations = data ?? [];
   const slots = generateSlots(settings);
+  const days = buildUpcomingDays(7);
 
   return (
     <div className="space-y-6">
@@ -56,6 +58,7 @@ async function MemberView() {
       />
       <NewReservationForm
         slots={slots}
+        days={days}
         windowNote={serviceWindowNote(settings)}
       />
 
@@ -75,29 +78,32 @@ async function MemberView() {
               <div
                 key={r.id}
                 className={cn(
-                  "flex flex-wrap items-start justify-between gap-3 p-4",
+                  "flex items-start gap-4 p-4",
                   r.status === "cancelled" && "opacity-60",
                 )}
               >
-                <div>
-                  <p className="font-medium text-foreground">
-                    {formatDate(r.reservation_date)} at{" "}
-                    {formatTime(r.reservation_time)}
-                  </p>
-                  <p className="text-sm text-muted">
-                    Party of {r.party_size}
-                    {r.special_requests ? ` · ${r.special_requests}` : ""}
-                  </p>
+                <DateBlock iso={r.reservation_date} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">
+                      {formatTime(r.reservation_time)} · Party of {r.party_size}
+                    </p>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  {r.special_requests && (
+                    <p className="mt-1 text-sm text-muted">
+                      {r.special_requests}
+                    </p>
+                  )}
                   {r.status === "declined" && r.staff_note && (
                     <p className="mt-1 text-sm text-danger">
                       Reason: {r.staff_note}
                     </p>
                   )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={r.status} />
                   {(r.status === "pending" || r.status === "confirmed") && (
-                    <CancelReservationButton id={r.id} />
+                    <div className="mt-2">
+                      <CancelReservationButton id={r.id} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -195,6 +201,24 @@ function FilterChip({
     >
       {label}
     </Link>
+  );
+}
+
+/** The left date chip on a reservation row: gold month over a serif day. */
+function DateBlock({ iso }: { iso: string }) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const month = new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "short",
+  });
+  return (
+    <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-accent/10 py-2">
+      <span className="text-2xs font-semibold uppercase tracking-wide text-accent-600">
+        {month}
+      </span>
+      <span className="font-serif text-xl font-semibold leading-none text-foreground">
+        {d}
+      </span>
+    </div>
   );
 }
 

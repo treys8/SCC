@@ -5,13 +5,21 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deletePost, togglePin } from "@/app/(app)/posts/actions";
 
-/** Author-only kebab menu: pin/unpin, edit, delete. */
+/**
+ * Post kebab menu. Pin/unpin shows for staff (`canPin` — staff may pin any
+ * post); edit and delete show for the author only (`isAuthor`). The parent only
+ * renders this when at least one applies.
+ */
 export function PostActions({
   id,
   isPinned,
+  isAuthor,
+  canPin,
 }: {
   id: string;
   isPinned: boolean;
+  isAuthor: boolean;
+  canPin: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -73,30 +81,36 @@ export function PostActions({
           role="menu"
           className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-md"
         >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={pin}
-            className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-surface-2"
-          >
-            {isPinned ? "Unpin" : "Pin to top"}
-          </button>
-          <Link
-            role="menuitem"
-            href={`/posts/${id}/edit`}
-            className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-surface-2"
-            onClick={() => setOpen(false)}
-          >
-            Edit
-          </Link>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={remove}
-            className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-danger/10"
-          >
-            Delete
-          </button>
+          {canPin && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={pin}
+              className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-surface-2"
+            >
+              {isPinned ? "Unpin" : "Pin to top"}
+            </button>
+          )}
+          {isAuthor && (
+            <Link
+              role="menuitem"
+              href={`/posts/${id}/edit`}
+              className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-surface-2"
+              onClick={() => setOpen(false)}
+            >
+              Edit
+            </Link>
+          )}
+          {isAuthor && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={remove}
+              className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-danger/10"
+            >
+              Delete
+            </button>
+          )}
         </div>
       )}
     </div>

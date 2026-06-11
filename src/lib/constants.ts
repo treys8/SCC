@@ -79,11 +79,17 @@ export const CLUB_TZ = "America/Chicago";
 /** The club's name, shown as the byline on official (club-voice) feed posts. */
 export const CLUB_NAME = "Starkville Country Club";
 
-/** Facilities with a member-facing operational status (golf / pool / tennis). */
-export const FACILITIES: FacilityType[] = ["golf", "pool", "tennis"];
+/** Facilities with a member-facing operational status, in display order. */
+export const FACILITIES: FacilityType[] = [
+  "golf",
+  "driving_range",
+  "pool",
+  "tennis",
+];
 
 export const FACILITY_LABEL: Record<FacilityType, string> = {
   golf: "Golf Course",
+  driving_range: "Driving Range",
   pool: "Pool",
   tennis: "Tennis Courts",
 };
