@@ -18,7 +18,7 @@ export default async function ManageClubInfoPage() {
     <div className="space-y-6">
       <PageHeader
         title="Club info"
-        description="Address, phone, and mailing details shown on the member Directory page."
+        description="Address, phone, and mailing details shown on the Directory page and the member Contact page."
       />
       {club ? (
         <ClubInfoEditor initial={club} />

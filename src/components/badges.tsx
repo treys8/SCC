@@ -67,3 +67,16 @@ export function FacilityStatusBadge({
     </span>
   );
 }
+
+export function ContactStatusBadge({ resolved }: { resolved: boolean }) {
+  return (
+    <span
+      className={cn(
+        "badge",
+        resolved ? "bg-success/10 text-success" : "bg-accent/10 text-accent-600",
+      )}
+    >
+      {resolved ? "Resolved" : "Open"}
+    </span>
+  );
+}

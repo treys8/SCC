@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { DepartmentBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
-import { requireProfile } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import type { ClubInfo, StaffMember } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -11,13 +11,14 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Directory" };
 
 /**
- * Member-facing club directory: the administrative staff (who to contact) plus
- * the club's address, phone, and mailing details. Both read from staff-editable
- * tables (staff_directory, club_info) so the page updates without a deploy.
- * Readable by any signed-in member — no role gate.
+ * Club directory: the administrative staff (who to contact) plus the club's
+ * address, phone, and mailing details. Both read from staff-editable tables
+ * (staff_directory, club_info) so the page updates without a deploy.
+ * Staff-only for now — hidden from members until the member-facing version
+ * is ready (no nav link, and this gate blocks direct URL access).
  */
 export default async function DirectoryPage() {
-  await requireProfile();
+  await requireRole("staff", "admin");
   const supabase = await createClient();
 
   const [{ data: staff }, { data: club }] = await Promise.all([

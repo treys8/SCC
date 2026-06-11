@@ -21,11 +21,16 @@ export function SiteNav({
     { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
-    { href: "/directory", label: "Directory" },
     { href: "/documents", label: "Menus" },
   ];
-  // Staff get the management console; admins additionally get Members.
+  // Members reach the front office via Contact; staff have the inbox instead
+  // (and don't need to message themselves), so it's member-only.
+  if (!isStaff(profile.role)) {
+    links.push({ href: "/contact", label: "Contact" });
+  }
+  // Staff get the directory and management console; admins additionally get Members.
   if (isStaff(profile.role)) {
+    links.push({ href: "/directory", label: "Directory" });
     links.push({ href: "/manage", label: "Manage" });
   }
   if (isAdmin(profile.role)) {

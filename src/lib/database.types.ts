@@ -688,6 +688,52 @@ export interface Database {
           },
         ];
       };
+      contact_messages: {
+        Row: {
+          id: string;
+          member_id: string;
+          subject: string;
+          message: string;
+          is_resolved: boolean;
+          resolved_by: string | null;
+          resolved_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          subject: string;
+          message: string;
+          is_resolved?: boolean;
+          resolved_by?: string | null;
+          resolved_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          member_id?: string;
+          subject?: string;
+          message?: string;
+          is_resolved?: boolean;
+          resolved_by?: string | null;
+          resolved_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_messages_member_id_fkey";
+            columns: ["member_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_messages_resolved_by_fkey";
+            columns: ["resolved_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       /** Name + avatar only, readable by any member (see security_hardening migration). */
@@ -743,6 +789,13 @@ export type StaffMember =
   Database["public"]["Tables"]["staff_directory"]["Row"];
 export type ClubInfo = Database["public"]["Tables"]["club_info"]["Row"];
 export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
+export type ContactMessage =
+  Database["public"]["Tables"]["contact_messages"]["Row"];
+
+/** A contact message with the sender's name + email joined for the staff inbox. */
+export type ContactMessageWithMember = ContactMessage & {
+  member: Pick<Profile, "full_name" | "email"> | null;
+};
 
 /** Just the author fields the feed renders. */
 export type PostAuthor = Pick<Profile, "full_name" | "avatar_url">;
