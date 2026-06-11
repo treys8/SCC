@@ -14,7 +14,10 @@ export function EmptyState({
   return (
     <div className="card flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
       {icon && (
-        <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-muted">
+        <div
+          aria-hidden
+          className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-muted"
+        >
           {icon}
         </div>
       )}

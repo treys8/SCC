@@ -128,7 +128,9 @@ export function CalendarView({
               href={href(month, f.value)}
               scroll={false}
               className={cn(
-                "shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+                // min-h-11 keeps the tap target >=44px on phones; sm:min-h-0
+                // returns it to the compact chip height on desktop.
+                "inline-flex min-h-11 shrink-0 items-center rounded-full border px-3.5 py-1.5 text-sm transition-colors sm:min-h-0",
                 active
                   ? "border-primary bg-primary text-white"
                   : "border-border bg-surface text-foreground hover:bg-surface-2",
@@ -293,7 +295,7 @@ function NavButton({
       href={to}
       scroll={false}
       aria-label={label}
-      className="flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-surface-2"
+      className="flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-surface-2 sm:h-9 sm:w-9"
     >
       {children}
     </Link>

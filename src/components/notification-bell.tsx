@@ -6,7 +6,7 @@ export function NotificationBell({ count }: { count: number }) {
     <Link
       href="/notifications"
       aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}
-      className="relative flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-background hover:text-foreground"
+      className="relative flex h-11 w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-background hover:text-foreground sm:h-9 sm:w-9"
     >
       <svg
         viewBox="0 0 24 24"
