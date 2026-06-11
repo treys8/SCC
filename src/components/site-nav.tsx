@@ -21,10 +21,12 @@ export function SiteNav({
     { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
+    { href: "/directory", label: "Directory" },
+    { href: "/documents", label: "Menus" },
   ];
-  // Staff get the facility-status console; admins additionally get Members.
+  // Staff get the management console; admins additionally get Members.
   if (isStaff(profile.role)) {
-    links.push({ href: "/facility", label: "Facility" });
+    links.push({ href: "/manage", label: "Manage" });
   }
   if (isAdmin(profile.role)) {
     links.push({ href: "/members", label: "Members" });

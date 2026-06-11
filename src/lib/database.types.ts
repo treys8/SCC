@@ -30,7 +30,7 @@ export type ReservationStatus =
 export type AttachmentKind = "image" | "file";
 /** Whose voice a feed post is in: the club ("official") or an individual member. */
 export type PostAuthorType = "club" | "member";
-export type FacilityType = "golf" | "pool";
+export type FacilityType = "golf" | "pool" | "tennis";
 export type FacilityStatusType =
   | "open"
   | "closed"
@@ -39,6 +39,13 @@ export type FacilityStatusType =
   | "lightning_hold";
 /** One labelled row in a facility's conditions list (stored as jsonb). */
 export type FacilityDetail = { label: string; value: string };
+/** Document-library grouping (text + CHECK in the DB, not a PG enum). */
+export type DocumentCategory =
+  | "menu"
+  | "pool"
+  | "newsletter"
+  | "form"
+  | "general";
 
 export interface Database {
   public: {
@@ -538,6 +545,149 @@ export interface Database {
           },
         ];
       };
+      staff_directory: {
+        Row: {
+          id: string;
+          full_name: string;
+          title: string;
+          email: string | null;
+          phone: string | null;
+          department: DepartmentType | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          full_name: string;
+          title: string;
+          email?: string | null;
+          phone?: string | null;
+          department?: DepartmentType | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string;
+          title?: string;
+          email?: string | null;
+          phone?: string | null;
+          department?: DepartmentType | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      club_info: {
+        Row: {
+          id: boolean;
+          street_address: string | null;
+          city: string | null;
+          state: string | null;
+          postal_code: string | null;
+          mailing_address: string | null;
+          phone: string | null;
+          email: string | null;
+          website: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          street_address?: string | null;
+          city?: string | null;
+          state?: string | null;
+          postal_code?: string | null;
+          mailing_address?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          website?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          street_address?: string | null;
+          city?: string | null;
+          state?: string | null;
+          postal_code?: string | null;
+          mailing_address?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          website?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "club_info_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      documents: {
+        Row: {
+          id: string;
+          title: string;
+          category: DocumentCategory;
+          file_url: string;
+          storage_path: string;
+          file_name: string | null;
+          mime_type: string | null;
+          size_bytes: number | null;
+          cover_image_url: string | null;
+          is_published: boolean;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          category?: DocumentCategory;
+          file_url: string;
+          storage_path: string;
+          file_name?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          cover_image_url?: string | null;
+          is_published?: boolean;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          category?: DocumentCategory;
+          file_url?: string;
+          storage_path?: string;
+          file_name?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          cover_image_url?: string | null;
+          is_published?: boolean;
+          sort_order?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "documents_created_by_fkey";
+            columns: ["created_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       /** Name + avatar only, readable by any member (see security_hardening migration). */
@@ -589,6 +739,10 @@ export type MemberDepartmentPreference =
   Database["public"]["Tables"]["member_department_preferences"]["Row"];
 export type PushSubscriptionRow =
   Database["public"]["Tables"]["push_subscriptions"]["Row"];
+export type StaffMember =
+  Database["public"]["Tables"]["staff_directory"]["Row"];
+export type ClubInfo = Database["public"]["Tables"]["club_info"]["Row"];
+export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
 
 /** Just the author fields the feed renders. */
 export type PostAuthor = Pick<Profile, "full_name" | "avatar_url">;

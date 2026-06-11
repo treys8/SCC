@@ -173,9 +173,9 @@ function probeImageSize(
 export async function uploadPostFile(
   file: File,
   userId: string,
-  opts: { probe?: boolean } = {},
+  opts: { probe?: boolean; bucket?: string } = {},
 ): Promise<NewAttachmentMeta> {
-  const { probe = true } = opts;
+  const { probe = true, bucket = BUCKET } = opts;
   const validationError = validateFile(file);
   if (validationError) throw new Error(validationError);
 
@@ -184,13 +184,13 @@ export async function uploadPostFile(
   const e = ext(file.name) || (kind === "image" ? "jpg" : "bin");
   const path = `${userId}/${crypto.randomUUID()}.${e}`;
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
     contentType: contentTypeFor(file),
     upsert: false,
   });
   if (error) throw new Error(`Couldn't upload ${file.name}: ${error.message}`);
 
-  const url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const url = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 
   let width: number | null = null;
   let height: number | null = null;
@@ -247,4 +247,16 @@ export async function uploadEventCover(
   }
   const meta = await uploadPostFile(file, userId, { probe: false });
   return meta.url;
+}
+
+/**
+ * Upload a document-library file (PDF, image, or office doc) to the `documents`
+ * bucket and return its attachment metadata. Reuses the post-upload pipeline
+ * (same validation, per-uid folder, public URL) with the bucket swapped.
+ */
+export async function uploadDocumentFile(
+  file: File,
+  userId: string,
+): Promise<NewAttachmentMeta> {
+  return uploadPostFile(file, userId, { bucket: "documents" });
 }

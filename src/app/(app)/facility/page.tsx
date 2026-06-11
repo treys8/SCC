@@ -1,52 +1,11 @@
-import type { Metadata } from "next";
-import { BuffetEditor } from "@/components/buffet-editor";
-import { EmptyState } from "@/components/empty-state";
-import { FacilityDetailsEditor } from "@/components/facility-details-editor";
-import { FacilityStatusWidget } from "@/components/facility-status-widget";
-import { PageHeader } from "@/components/page-header";
-import { requireRole } from "@/lib/auth";
-import { fetchFacilityStatus } from "@/lib/facility";
-import { createClient } from "@/lib/supabase/server";
-
-export const metadata: Metadata = { title: "Facility" };
+import { redirect } from "next/navigation";
 
 /**
- * Staff-only operations surface for facility status. The Today strip and the
- * Feed card both render the same data read-only; this is the one place Golf and
- * Pool status, notes, and weather holds are *set*. Gated to staff/admin the way
- * /members is gated to admins — members who reach it are redirected home.
+ * The facility console moved into the unified staff console. Keep this route as
+ * a redirect so old links/bookmarks (and the realtime widgets that still import
+ * facility/actions.ts) keep working. Conditions live at /manage/conditions; the
+ * lunch buffet moved to /manage/dining.
  */
-export default async function FacilityPage() {
-  await requireRole("staff", "admin");
-
-  const supabase = await createClient();
-  const [facilities, buffetRes] = await Promise.all([
-    fetchFacilityStatus(supabase),
-    supabase.from("dining_buffet").select("*").maybeSingle(),
-  ]);
-  const buffet = buffetRes.data;
-
-  return (
-    <div className="space-y-10">
-      <div className="space-y-6">
-        <PageHeader
-          title="Facility status"
-          description="Set the course and pool status members see across the club."
-        />
-        {facilities.length > 0 ? (
-          <FacilityStatusWidget initial={facilities} canManage />
-        ) : (
-          <EmptyState
-            title="No facilities configured"
-            description="Golf and pool status rows haven't been set up yet."
-          />
-        )}
-      </div>
-
-      {facilities.length > 0 && (
-        <FacilityDetailsEditor facilities={facilities} />
-      )}
-      {buffet && <BuffetEditor initial={buffet} />}
-    </div>
-  );
+export default function FacilityPage() {
+  redirect("/manage/conditions");
 }

@@ -90,3 +90,22 @@ export function postsObjectUrl(storagePath: string | null | undefined): string |
   if (!base) return null;
   return `${base}/storage/v1/object/public/posts/${path}`;
 }
+
+/** Same-origin guard as `postsPublicUrl`, for the `documents` bucket. */
+export function documentsPublicUrl(raw: string | null | undefined): string | null {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return null;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  if (!base) return trimmed;
+  const prefix = `${base}/storage/v1/object/public/documents/`;
+  return trimmed.startsWith(prefix) ? trimmed : null;
+}
+
+/** Re-derive a canonical `documents` object URL from its storage path. */
+export function documentsObjectUrl(storagePath: string | null | undefined): string | null {
+  const path = (storagePath ?? "").trim().replace(/^\/+/, "");
+  if (!path) return null;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  if (!base) return null;
+  return `${base}/storage/v1/object/public/documents/${path}`;
+}
