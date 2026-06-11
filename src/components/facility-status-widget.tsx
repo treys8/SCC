@@ -37,7 +37,7 @@ export function FacilityStatusWidget({
     <section className="card overflow-hidden">
       <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
         <h2 className="text-h2 text-foreground">
-          Course &amp; Pool
+          Conditions
         </h2>
         <span className="text-caption font-medium uppercase tracking-wide text-muted">
           Live status

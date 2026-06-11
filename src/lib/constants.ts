@@ -1,5 +1,6 @@
 import type {
   DepartmentType,
+  DocumentCategory,
   FacilityStatusType,
   FacilityType,
   ReservationStatus,
@@ -26,6 +27,23 @@ export const DEPARTMENT_LABEL: Record<DepartmentType, string> = {
   social: "Social & Events",
   pro_shop: "Pro Shop",
   membership: "Membership",
+};
+
+/** Document-library categories, in display order, with member-facing labels. */
+export const DOCUMENT_CATEGORIES: { value: DocumentCategory; label: string }[] = [
+  { value: "menu", label: "Menus" },
+  { value: "pool", label: "Pool" },
+  { value: "newsletter", label: "Newsletters" },
+  { value: "form", label: "Forms" },
+  { value: "general", label: "General" },
+];
+
+export const DOCUMENT_CATEGORY_LABEL: Record<DocumentCategory, string> = {
+  menu: "Menus",
+  pool: "Pool",
+  newsletter: "Newsletters",
+  form: "Forms",
+  general: "General",
 };
 
 export const ROLE_LABEL: Record<UserRole, string> = {
@@ -61,12 +79,13 @@ export const CLUB_TZ = "America/Chicago";
 /** The club's name, shown as the byline on official (club-voice) feed posts. */
 export const CLUB_NAME = "Starkville Country Club";
 
-/** Facilities with a member-facing operational status (golf / pool). */
-export const FACILITIES: FacilityType[] = ["golf", "pool"];
+/** Facilities with a member-facing operational status (golf / pool / tennis). */
+export const FACILITIES: FacilityType[] = ["golf", "pool", "tennis"];
 
 export const FACILITY_LABEL: Record<FacilityType, string> = {
   golf: "Golf Course",
   pool: "Pool",
+  tennis: "Tennis Courts",
 };
 
 export const FACILITY_STATUS_LABEL: Record<FacilityStatusType, string> = {

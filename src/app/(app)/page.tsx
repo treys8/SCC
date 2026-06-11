@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
+import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
@@ -62,6 +63,9 @@ export default async function TodayPage() {
     settings.service_end,
   );
   const summary = conciergeSummary(reservation, weather, buffet);
+  // Staff get the live, one-tap conditions editor right on the home screen
+  // (quick on mobile); members see the read-only conditions cards.
+  const canManage = profile ? isStaff(profile.role) : false;
 
   return (
     <div className="space-y-8 sm:space-y-10">
@@ -72,10 +76,22 @@ export default async function TodayPage() {
         summary={summary}
         weather={weather}
       />
-      <ConditionsGrid
-        facilities={facilities}
-        canManage={profile ? isStaff(profile.role) : false}
-      />
+      {canManage ? (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-h2 text-foreground">Conditions</h2>
+            <Link
+              href="/manage/conditions"
+              className="shrink-0 text-sm font-medium text-accent-600"
+            >
+              Edit details →
+            </Link>
+          </div>
+          <FacilityStatusWidget initial={facilities} canManage />
+        </section>
+      ) : (
+        <ConditionsGrid facilities={facilities} />
+      )}
       {buffet?.active && <BuffetCard buffet={buffet} dateISO={today} />}
       <TodayEvents events={todaysEvents} />
       <DinnerNote settings={settings} diningOpen={diningOpen} />

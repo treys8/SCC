@@ -38,13 +38,13 @@ export function ConditionsGrid({
   return (
     <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-h2 text-foreground">Course &amp; pool conditions</h2>
+        <h2 className="text-h2 text-foreground">Conditions</h2>
         <span className="shrink-0 text-sm text-accent-600">
           {lastUpdated && `Updated ${formatRelativeTime(lastUpdated)}`}
           {canManage && (
             <>
               {lastUpdated && " · "}
-              <Link href="/facility" className="font-medium">
+              <Link href="/manage/conditions" className="font-medium">
                 Manage →
               </Link>
             </>
