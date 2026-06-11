@@ -2,24 +2,13 @@ import { formatTimeRange } from "@/lib/format";
 import type { DiningBuffet } from "@/lib/database.types";
 
 /**
- * "Today's lunch buffet" — a compact horizontal card (gold utensils thumbnail +
- * details) driven by the staff-editable `dining_buffet` row. The page only
- * renders this when the buffet is active, so this component can assume there's
- * something to show. The weekday in the tag tracks the real date; everything
- * else is live data.
+ * "Today's buffet" — a compact horizontal card (solid-gold utensils thumbnail +
+ * details) driven by the staff-editable `dining_buffet` row. Like the featured
+ * "Tonight" card, it's a heading-less hero card: the gold "Today's buffet"
+ * eyebrow labels it, so there's no outer section heading. The page only renders
+ * it when the buffet is active, so it can assume there's something to show.
  */
-export function BuffetCard({
-  buffet,
-  dateISO,
-}: {
-  buffet: DiningBuffet;
-  dateISO: string;
-}) {
-  const [y, m, d] = dateISO.split("-").map(Number);
-  const weekday = new Date(y, m - 1, d).toLocaleDateString("en-US", {
-    weekday: "long",
-  });
-
+export function BuffetCard({ buffet }: { buffet: DiningBuffet }) {
   const meta = [
     buffet.start_time && formatTimeRange(buffet.start_time, buffet.end_time),
     buffet.location,
@@ -29,35 +18,31 @@ export function BuffetCard({
     .join(" · ");
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-h2 text-foreground">Today&apos;s lunch buffet</h2>
-
-      <div className="card flex gap-4 overflow-hidden p-3 sm:p-4">
-        <div
-          className="flex w-20 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent-600 sm:w-24"
-          aria-hidden
-        >
-          <UtensilsGlyph />
-        </div>
-        <div className="min-w-0 flex-1 py-0.5">
-          <span className="badge bg-accent/10 uppercase tracking-wide text-accent-600">
-            {weekday} · Dining
-          </span>
-          <h3 className="mt-1.5 text-h2 text-foreground">{buffet.title}</h3>
-          {meta && <p className="mt-0.5 text-sm text-muted">{meta}</p>}
-          {buffet.description && (
-            <p className="mt-1 line-clamp-2 text-sm text-muted">
-              {buffet.description}
-            </p>
-          )}
-          {buffet.walk_in && (
-            <p className="mt-1.5 text-sm font-medium text-success">
-              ✓ Walk-in — no reservation needed
-            </p>
-          )}
-        </div>
+    <div className="card flex gap-4 overflow-hidden p-3 sm:p-4">
+      <div
+        className="flex w-20 shrink-0 items-center justify-center rounded-lg bg-accent text-white sm:w-24"
+        aria-hidden
+      >
+        <UtensilsGlyph />
       </div>
-    </section>
+      <div className="min-w-0 flex-1 py-0.5">
+        <p className="text-caption font-semibold uppercase tracking-wide text-accent-600">
+          Today&apos;s buffet
+        </p>
+        <h3 className="mt-1 text-h2 text-foreground">{buffet.title}</h3>
+        {meta && <p className="mt-0.5 text-sm text-muted">{meta}</p>}
+        {buffet.description && (
+          <p className="mt-1 line-clamp-2 text-sm text-muted">
+            {buffet.description}
+          </p>
+        )}
+        {buffet.walk_in && (
+          <p className="mt-1.5 text-sm font-medium text-success">
+            ✓ Walk-in — no reservation needed
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

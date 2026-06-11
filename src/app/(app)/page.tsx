@@ -101,7 +101,7 @@ export default async function TodayPage() {
       ) : (
         <ConditionsGrid facilities={facilities} />
       )}
-      {buffet?.active && <BuffetCard buffet={buffet} dateISO={today} />}
+      {buffet?.active && <BuffetCard buffet={buffet} />}
       {/* Show the events list unless the day's only event is the featured one —
           then a "nothing on the calendar" empty state under the hero would lie. */}
       {(otherEvents.length > 0 || !featured) && (
