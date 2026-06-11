@@ -10,7 +10,11 @@ import {
 } from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
 import { postsObjectUrl, postsPublicUrl } from "@/lib/url";
-import type { DepartmentType, FeedPost } from "@/lib/database.types";
+import type {
+  DepartmentType,
+  FeedPost,
+  PostAuthorType,
+} from "@/lib/database.types";
 
 const BUCKET = "posts";
 
@@ -30,6 +34,7 @@ export type AttachmentInput = {
 
 export type CreatePostInput = {
   department: DepartmentType;
+  authorType: PostAuthorType;
   title: string;
   content: string;
   isPinned: boolean;
@@ -44,6 +49,10 @@ export type UpdatePostInput = CreatePostInput & {
 function sanitizeText(input: CreatePostInput) {
   return {
     department: input.department,
+    // Anything but an explicit 'member' is the club's voice (the safe default).
+    authorType: (input.authorType === "member"
+      ? "member"
+      : "club") as PostAuthorType,
     title: (input.title ?? "").trim(),
     content: (input.content ?? "").trim(),
     isPinned: !!input.isPinned,
@@ -80,7 +89,7 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<PostActionResult> {
   const profile = await requireRole("staff", "admin");
-  const { department, title, content, isPinned, attachments } =
+  const { department, authorType, title, content, isPinned, attachments } =
     sanitizeText(input);
 
   if (!title && !content && attachments.length === 0) {
@@ -93,6 +102,7 @@ export async function createPost(
     .from("posts")
     .insert({
       author_id: profile.id,
+      author_type: authorType,
       department,
       title: title || null,
       content,
@@ -125,7 +135,7 @@ export async function updatePost(
   input: UpdatePostInput,
 ): Promise<PostActionResult> {
   const profile = await requireRole("staff", "admin");
-  const { department, title, content, isPinned, attachments } =
+  const { department, authorType, title, content, isPinned, attachments } =
     sanitizeText(input);
   const removedIds = (input.removedAttachmentIds ?? []).filter(Boolean);
 
@@ -154,7 +164,13 @@ export async function updatePost(
 
   const { error: upError } = await supabase
     .from("posts")
-    .update({ department, title: title || null, content, is_pinned: isPinned })
+    .update({
+      department,
+      author_type: authorType,
+      title: title || null,
+      content,
+      is_pinned: isPinned,
+    })
     .eq("id", id);
   if (upError) return { error: upError.message };
 

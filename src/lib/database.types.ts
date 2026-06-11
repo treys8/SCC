@@ -28,6 +28,8 @@ export type ReservationStatus =
   | "declined"
   | "cancelled";
 export type AttachmentKind = "image" | "file";
+/** Whose voice a feed post is in: the club ("official") or an individual member. */
+export type PostAuthorType = "club" | "member";
 export type FacilityType = "golf" | "pool";
 export type FacilityStatusType =
   | "open"
@@ -46,6 +48,7 @@ export interface Database {
           id: string;
           email: string;
           full_name: string;
+          display_name: string | null;
           role: UserRole;
           avatar_url: string | null;
           phone: string | null;
@@ -56,6 +59,7 @@ export interface Database {
           id: string;
           email: string;
           full_name: string;
+          display_name?: string | null;
           role?: UserRole;
           avatar_url?: string | null;
           phone?: string | null;
@@ -66,6 +70,7 @@ export interface Database {
           id?: string;
           email?: string;
           full_name?: string;
+          display_name?: string | null;
           role?: UserRole;
           avatar_url?: string | null;
           phone?: string | null;
@@ -78,6 +83,7 @@ export interface Database {
         Row: {
           id: string;
           author_id: string;
+          author_type: PostAuthorType;
           department: DepartmentType;
           title: string | null;
           content: string;
@@ -90,6 +96,7 @@ export interface Database {
         Insert: {
           id?: string;
           author_id: string;
+          author_type?: PostAuthorType;
           department: DepartmentType;
           title?: string | null;
           content: string;
@@ -102,6 +109,7 @@ export interface Database {
         Update: {
           id?: string;
           author_id?: string;
+          author_type?: PostAuthorType;
           department?: DepartmentType;
           title?: string | null;
           content?: string;
@@ -553,6 +561,7 @@ export interface Database {
       user_role: UserRole;
       department_type: DepartmentType;
       attachment_kind: AttachmentKind;
+      post_author_type: PostAuthorType;
     };
     CompositeTypes: Record<never, never>;
   };
