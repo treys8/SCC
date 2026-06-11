@@ -32,7 +32,6 @@ export function NewReservationForm({
       </h2>
       <p className="mt-1 text-sm text-muted">
         Staff will confirm your reservation shortly.
-        {windowNote ? ` ${windowNote}` : ""}
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
@@ -69,6 +68,7 @@ export function NewReservationForm({
               </option>
             ))}
           </select>
+          {windowNote && <p className="field-hint">{windowNote}</p>}
         </div>
         <div>
           <label className="label" htmlFor="party_size">
@@ -99,8 +99,10 @@ export function NewReservationForm({
         />
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
-        <SubmitButton pendingText="Submitting…">Request reservation</SubmitButton>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SubmitButton className="w-full sm:w-auto" pendingText="Submitting…">
+          Request reservation
+        </SubmitButton>
         {state.success && (
           <span className="text-sm text-success">Reservation requested.</span>
         )}

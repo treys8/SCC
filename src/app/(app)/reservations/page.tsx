@@ -65,6 +65,7 @@ async function MemberView() {
         </h2>
         {reservations.length === 0 ? (
           <EmptyState
+            icon={<CalendarIcon />}
             title="No reservations yet"
             description="Use the form above to request your first reservation."
           />
@@ -73,7 +74,10 @@ async function MemberView() {
             {reservations.map((r) => (
               <div
                 key={r.id}
-                className="flex flex-wrap items-center justify-between gap-3 p-4"
+                className={cn(
+                  "flex flex-wrap items-start justify-between gap-3 p-4",
+                  r.status === "cancelled" && "opacity-60",
+                )}
               >
                 <div>
                   <p className="font-medium text-foreground">
@@ -187,5 +191,22 @@ function FilterChip({
     >
       {label}
     </Link>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path d="M7 3v3M17 3v3M4 9h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" />
+    </svg>
   );
 }
