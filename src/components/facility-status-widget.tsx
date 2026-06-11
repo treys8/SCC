@@ -9,20 +9,18 @@ import { FacilityStatusBadge } from "@/components/badges";
 import { cn } from "@/lib/cn";
 import { FACILITY_LABEL, FACILITY_PRESETS } from "@/lib/constants";
 import { formatRelativeTime, formatTimestamp } from "@/lib/format";
-import { createClient } from "@/lib/supabase/client";
+import { useLiveFacilityStatus } from "@/lib/use-live-facility-status";
 import type {
   FacilityStatus,
   FacilityStatusType,
 } from "@/lib/database.types";
 
 /**
- * Pinned, realtime facility status (golf / pool). Reusable: members get the
- * read-only view; staff pass `canManage` for one-tap preset controls. Built to
- * drop into Phase 4's "Today at the Club" home unchanged.
- *
- * Seeds from server-fetched rows, then merges live UPDATEs pushed when staff
- * change a status — the actor is NOT filtered out, so their own change lands
- * immediately on every surface.
+ * The /facility staff console: a list of facilities (golf / pool) with one-tap
+ * preset controls and a note input per row. Realtime-backed via
+ * `useLiveFacilityStatus`, so a staffer's change lands immediately and is
+ * reconciled with the authoritative row. The read-only member-facing card is a
+ * separate, shared component (ConditionsGrid / LiveConditionsGrid).
  */
 export function FacilityStatusWidget({
   initial,
@@ -31,49 +29,7 @@ export function FacilityStatusWidget({
   initial: FacilityStatus[];
   canManage?: boolean;
 }) {
-  const [rows, setRows] = useState(initial);
-
-  const mergeRow = (next: FacilityStatus) =>
-    setRows((prev) =>
-      prev.map((r) => (r.facility === next.facility ? next : r)),
-    );
-
-  // Realtime: facility_status is authenticated-read, so the socket is RLS-gated
-  // by the user's JWT — set it before subscribing (same pattern as the feed).
-  useEffect(() => {
-    const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let cancelled = false;
-
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (session) supabase.realtime.setAuth(session.access_token);
-
-      channel = supabase
-        .channel("facility-status")
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "facility_status" },
-          (payload) => {
-            // Realtime sends timestamptz in Postgres' raw text format
-            // ("2026-06-10 00:36:11.638+00"), which iOS Safari's Date parser
-            // rejects. The update just arrived, so stamp it with the client's
-            // own ISO receipt time for a parse-safe, accurate "Updated …".
-            const next = payload.new as FacilityStatus;
-            mergeRow({ ...next, updated_at: new Date().toISOString() });
-          },
-        )
-        .subscribe();
-    })();
-
-    return () => {
-      cancelled = true;
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, []);
+  const [rows, mergeRow] = useLiveFacilityStatus(initial);
 
   if (rows.length === 0) return null;
 

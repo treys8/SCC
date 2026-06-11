@@ -162,7 +162,11 @@ async function StaffView({
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState title="No reservations" description="Nothing to show here." />
+        <EmptyState
+          icon={<CalendarIcon />}
+          title="No reservations"
+          description="Nothing to show here."
+        />
       ) : (
         <StaffReservationsTable rows={rows} />
       )}

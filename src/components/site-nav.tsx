@@ -3,7 +3,7 @@ import { Crest } from "@/components/crest";
 import { MobileNav } from "@/components/mobile-nav";
 import { NavLinks, type NavLink } from "@/components/nav-links";
 import { NotificationBell } from "@/components/notification-bell";
-import { signOut } from "@/lib/actions/auth";
+import { UserMenu } from "@/components/user-menu";
 import { isAdmin, isStaff } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
@@ -50,18 +50,12 @@ export function SiteNav({
 
         <div className="ml-auto flex items-center gap-3">
           <NotificationBell count={unreadCount} />
+          {/* Phones: a direct profile shortcut (the drawer covers sign-out). */}
           <Link
             href="/profile"
-            className="flex min-h-11 items-center gap-2 rounded-md px-2 py-1 text-right hover:bg-background sm:min-h-0"
+            aria-label="My profile"
+            className="flex h-11 w-11 items-center justify-center rounded-md transition-colors hover:bg-background md:hidden"
           >
-            <span className="hidden leading-tight sm:block">
-              <span className="block text-sm font-medium text-foreground">
-                {profile.full_name}
-              </span>
-              <span className="block text-caption text-muted">
-                {ROLE_LABEL[profile.role]}
-              </span>
-            </span>
             <span
               aria-hidden
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white"
@@ -69,11 +63,13 @@ export function SiteNav({
               {initials(profile.full_name)}
             </span>
           </Link>
-          <form action={signOut} className="hidden md:block">
-            <button type="submit" className="btn btn-outline btn-sm">
-              Sign out
-            </button>
-          </form>
+          {/* Desktop: avatar dropdown (Profile, Notifications, Sign out). */}
+          <UserMenu
+            fullName={profile.full_name}
+            roleLabel={ROLE_LABEL[profile.role]}
+            unreadCount={unreadCount}
+            className="hidden md:block"
+          />
         </div>
       </div>
     </header>

@@ -106,11 +106,14 @@
      click. `outline` is used over a Tailwind `ring` so it auto-follows each
      element's shape and needs no per-element offset colour. Elements that want
      a bespoke focus style (text inputs, via `.input` `outline-none` + green
-     `focus:ring`) opt out simply by setting their own outline. */
+     `focus:ring`) opt out simply by setting their own outline.
+
+     No `border-radius` here on purpose: browsers already make `outline` hug the
+     element's own corners, so the ring stays round on pills/avatars/the bell.
+     Setting a radius here would instead reshape the element itself on focus. */
   :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
-    border-radius: 2px; /* softens the outline on square-cornered elements */
   }
 }
 

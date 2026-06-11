@@ -3,6 +3,7 @@ import { DepartmentBadge } from "@/components/badges";
 import { Crest } from "@/components/crest";
 import { PostActions } from "@/components/post-actions";
 import { PostGallery } from "@/components/post-gallery";
+import { cn } from "@/lib/cn";
 import { CLUB_NAME } from "@/lib/constants";
 import { sortedAttachments } from "@/lib/feed";
 import { formatRelativeTime, formatTimestamp } from "@/lib/format";
@@ -27,7 +28,13 @@ export function PostCard({
   const files = attachments.filter((a) => a.kind === "file");
 
   return (
-    <article className="card overflow-hidden p-4 sm:p-5">
+    <article
+      className={cn(
+        "card overflow-hidden p-4 sm:p-5",
+        // Pinned posts get a subtle gold left edge + warm tint to stand apart.
+        post.is_pinned && "border-l-2 border-l-accent bg-accent/[0.05]",
+      )}
+    >
       <div className="flex items-start gap-3">
         {isClub ? (
           <Crest className="h-10 w-10 shrink-0" />
@@ -37,7 +44,7 @@ export function PostCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-medium text-foreground">
+            <span className="truncate font-semibold text-foreground">
               {authorName}
             </span>
             <span aria-hidden className="text-muted">
@@ -55,8 +62,9 @@ export function PostCard({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <DepartmentBadge department={post.department} />
             {post.is_pinned && (
-              <span className="badge bg-accent/10 text-accent-600">
-                📌 Pinned
+              <span className="badge items-center gap-1 bg-accent/10 text-accent-600">
+                <span aria-hidden>📌</span>
+                Pinned
               </span>
             )}
           </div>
@@ -70,10 +78,12 @@ export function PostCard({
       </div>
 
       {post.title && (
-        <h3 className="mt-3 text-h2 text-foreground">{post.title}</h3>
+        <h3 className="mt-3 text-h2 tracking-tight text-foreground">
+          {post.title}
+        </h3>
       )}
       {post.content && (
-        <p className="mt-2 whitespace-pre-wrap break-words text-body text-foreground/90">
+        <p className="mt-2.5 whitespace-pre-wrap break-words text-body text-foreground/90">
           {post.content}
         </p>
       )}

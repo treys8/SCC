@@ -145,6 +145,7 @@ export function Feed({
 
       {isEmpty ? (
         <EmptyState
+          icon={<MegaphoneIcon />}
           title="Nothing here yet"
           description={
             canPost
@@ -194,6 +195,25 @@ export function Feed({
         </Link>
       )}
     </>
+  );
+}
+
+function MegaphoneIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <path d="m3 11 14-7v16l-14-7Z" />
+      <path d="M17 8a3 3 0 0 1 0 6" />
+      <path d="M6 12v5a2 2 0 0 0 2 2h1" />
+    </svg>
   );
 }
 

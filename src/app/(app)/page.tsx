@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
-import { ConditionsGrid } from "@/components/today/conditions-grid";
+import { ConditionsGrid } from "@/components/conditions-grid";
 import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
