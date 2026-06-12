@@ -16,12 +16,23 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const departments = await getDepartmentOptIns(supabase, profile.id);
 
+  let description = `Signed in as ${ROLE_LABEL[profile.role]}.`;
+  if (profile.account_number) {
+    description = `Account #${profile.account_number} — signed in as ${ROLE_LABEL[profile.role]}.`;
+  } else if (profile.title_id) {
+    const { data: title } = await supabase
+      .from("staff_titles")
+      .select("name")
+      .eq("id", profile.title_id)
+      .maybeSingle();
+    if (title) {
+      description = `Signed in as ${ROLE_LABEL[profile.role]} — ${title.name}.`;
+    }
+  }
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <PageHeader
-        title="My Profile"
-        description={`Signed in as ${ROLE_LABEL[profile.role]}.`}
-      />
+      <PageHeader title="My Profile" description={description} />
       <ProfileForm profile={profile} />
       <DepartmentPreferencesForm selected={departments} />
       <PushToggle />

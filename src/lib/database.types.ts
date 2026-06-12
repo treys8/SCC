@@ -59,6 +59,8 @@ export interface Database {
           role: UserRole;
           avatar_url: string | null;
           phone: string | null;
+          account_number: string | null;
+          title_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -70,6 +72,8 @@ export interface Database {
           role?: UserRole;
           avatar_url?: string | null;
           phone?: string | null;
+          account_number?: string | null;
+          title_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -81,8 +85,72 @@ export interface Database {
           role?: UserRole;
           avatar_url?: string | null;
           phone?: string | null;
+          account_number?: string | null;
+          title_id?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profiles_account_number_fkey";
+            columns: ["account_number"];
+            referencedRelation: "accounts";
+            referencedColumns: ["account_number"];
+          },
+          {
+            foreignKeyName: "profiles_title_id_fkey";
+            columns: ["title_id"];
+            referencedRelation: "staff_titles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      accounts: {
+        Row: {
+          account_number: string;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          account_number: string;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          account_number?: string;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "accounts_created_by_fkey";
+            columns: ["created_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      staff_titles: {
+        Row: {
+          id: string;
+          name: string;
+          department: DepartmentType;
+          max_holders: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          department: DepartmentType;
+          max_holders?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          department?: DepartmentType;
+          max_holders?: number | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -794,6 +862,18 @@ export type ClubInfo = Database["public"]["Tables"]["club_info"]["Row"];
 export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
 export type ContactMessage =
   Database["public"]["Tables"]["contact_messages"]["Row"];
+export type Account = Database["public"]["Tables"]["accounts"]["Row"];
+export type StaffTitle = Database["public"]["Tables"]["staff_titles"]["Row"];
+
+/** A profile with its staff title joined, as listed on the Members page. */
+export type MemberWithTitle = Profile & {
+  title: Pick<StaffTitle, "name"> | null;
+};
+
+/** An account plus who's on it — drives the invite form's typo-catching hint. */
+export type AccountSummary = Account & {
+  member_names: string[];
+};
 
 /** A contact message with the sender's name + email joined for the staff inbox. */
 export type ContactMessageWithMember = ContactMessage & {

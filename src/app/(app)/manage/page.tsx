@@ -73,9 +73,8 @@ const TILES: Tile[] = [
   {
     href: "/members",
     title: "Members",
-    description: "Invite members and manage roles.",
+    description: "Invite members and assign account numbers.",
     icon: <KeyIcon />,
-    adminOnly: true,
   },
 ];
 
