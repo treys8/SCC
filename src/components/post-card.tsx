@@ -1,19 +1,29 @@
+import Link from "next/link";
 import { AttachmentList } from "@/components/attachment-list";
 import { DepartmentBadge, DEPARTMENT_ACCENT } from "@/components/badges";
+import { DateChip } from "@/components/calendar/date-chip";
+import { RegisterLink } from "@/components/event-card";
 import { PostActions } from "@/components/post-actions";
 import { PostGallery } from "@/components/post-gallery";
 import { cn } from "@/lib/cn";
 import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { sortedAttachments } from "@/lib/feed";
-import { formatRelativeTime, formatTimestamp } from "@/lib/format";
-import type { FeedPost } from "@/lib/database.types";
+import {
+  formatDate,
+  formatRelativeTime,
+  formatTimeRange,
+  formatTimestamp,
+} from "@/lib/format";
+import type { CalendarEvent, FeedPost } from "@/lib/database.types";
 
 /**
  * A feed post. Club-voice posts are category-led: a department-coloured left
- * accent bar (gold when pinned) and an uppercase department header, no crest or
- * club byline. Member posts keep their avatar + name byline. Post actions show
- * for the author (edit/delete) and for staff (pin any post); `canManageAny` is
- * the viewer's staff flag.
+ * accent bar (gold when pinned) and an uppercase department header, with a
+ * "Posted by Name · Title" attribution line when the staff author resolves.
+ * Member posts keep their avatar + name byline (title appended for staff).
+ * A linked calendar event renders an inline card with its Register button.
+ * Post actions show for the author (edit/delete) and for staff (pin any post);
+ * `canManageAny` is the viewer's staff flag.
  */
 export function PostCard({
   post,
@@ -31,6 +41,14 @@ export function PostCard({
   const attachments = sortedAttachments(post);
   const images = attachments.filter((a) => a.kind === "image");
   const files = attachments.filter((a) => a.kind === "file");
+
+  // Official posts attribute the staff author: "Posted by Name · Title". Null
+  // for posts whose author has no resolvable display name.
+  const byline = post.author?.full_name
+    ? `Posted by ${post.author.full_name}${
+        post.author.title ? ` · ${post.author.title}` : ""
+      }`
+    : null;
 
   const actions = showMenu ? (
     <PostActions
@@ -55,6 +73,8 @@ export function PostCard({
       )}
       {images.length > 0 && <PostGallery images={images} />}
       {files.length > 0 && <AttachmentList files={files} />}
+      {post.event && <PostEventCard event={post.event} />}
+      {post.reservation_cta && <PostReservationCta />}
     </>
   );
 
@@ -108,6 +128,9 @@ export function PostCard({
             {actions && <div className="-mr-1 -mt-1">{actions}</div>}
           </div>
         </div>
+        {byline && (
+          <p className="mt-1 text-caption text-muted">{byline}</p>
+        )}
         {body}
       </article>
     );
@@ -132,6 +155,11 @@ export function PostCard({
             <span className="truncate font-semibold text-foreground">
               {authorName}
             </span>
+            {post.author?.title && (
+              <span className="shrink-0 text-caption text-muted">
+                · {post.author.title}
+              </span>
+            )}
             <span aria-hidden className="text-muted">
               ·
             </span>
@@ -160,6 +188,80 @@ export function PostCard({
 
       {body}
     </article>
+  );
+}
+
+/**
+ * A linked event embedded in a post: compact date/when card plus the event's
+ * Register button (deep-links out to GolfGenius etc.). Mirrors EventCard's
+ * structure — body links to the event detail, footer action stays separately
+ * tappable — so a feed announcement carries the same CTA as the calendar.
+ */
+function PostEventCard({ event }: { event: CalendarEvent }) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-lg border border-border">
+      <Link
+        href={`/calendar/${event.id}`}
+        className="flex gap-3 p-3 transition-colors hover:bg-surface-2"
+      >
+        <DateChip dateStr={event.event_date} />
+        <div className="min-w-0 flex-1">
+          <h4 className="truncate font-semibold text-foreground">
+            {event.title}
+          </h4>
+          <p className="mt-0.5 text-sm text-muted">
+            {formatDate(event.event_date)} ·{" "}
+            {formatTimeRange(event.start_time, event.end_time)}
+          </p>
+          {(event.location || event.fee) && (
+            <p className="mt-0.5 text-sm text-muted">
+              {[event.location, event.fee].filter(Boolean).join(" · ")}
+            </p>
+          )}
+        </div>
+      </Link>
+      {event.registration_url && (
+        <div className="flex justify-end border-t border-border px-3 py-2">
+          <RegisterLink href={event.registration_url} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A "Reserve a table" call-to-action on a post — the dining parallel to the
+ * event Register button. Internal link to the concierge reservation flow, so a
+ * dinner-special post hands off to in-app booking instead of an email in prose.
+ */
+function PostReservationCta() {
+  return (
+    <div className="mt-3">
+      <Link href="/reservations" className="btn btn-primary btn-sm">
+        Reserve a table <UtensilsIcon />
+      </Link>
+    </div>
+  );
+}
+
+// Same fork-and-knife glyph as the buffet card's UtensilsGlyph, sized for a
+// button so the dining cue is consistent across the app.
+function UtensilsIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 2v7c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2V2" />
+      <path d="M7 2v20" />
+      <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+    </svg>
   );
 }
 

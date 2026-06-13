@@ -16,14 +16,19 @@ import type {
 export const FEED_PAGE_SIZE = 10;
 
 /**
- * Post + its attachments. The author's name/avatar are resolved separately via
- * `member_cards` (see `attachAuthors`): the `profiles` table is readable only by
- * self + staff, so a member viewing a staff-authored post can't embed-join it.
+ * Post + its attachments + any referenced calendar event. The event embeds
+ * directly (calendar_events RLS is open to all members), but the author's
+ * name/avatar are resolved separately via `member_cards` (see `attachAuthors`):
+ * the `profiles` table is readable only by self + staff, so a member viewing a
+ * staff-authored post can't embed-join it.
  */
-export const FEED_SELECT = "*, post_attachments(*)";
+export const FEED_SELECT = "*, post_attachments(*), event:calendar_events(*)";
 
 type DB = SupabaseClient<Database>;
-type PostRow = Post & { post_attachments: FeedPost["post_attachments"] };
+type PostRow = Post & {
+  post_attachments: FeedPost["post_attachments"];
+  event: FeedPost["event"];
+};
 
 /**
  * Resolve each post's author display fields from the `member_cards` view (name +
@@ -38,11 +43,15 @@ async function attachAuthors(
   if (ids.length) {
     const { data: cards } = await supabase
       .from("member_cards")
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, avatar_url, title")
       .in("id", ids);
     for (const c of cards ?? []) {
       if (c.id && c.full_name != null) {
-        byId.set(c.id, { full_name: c.full_name, avatar_url: c.avatar_url });
+        byId.set(c.id, {
+          full_name: c.full_name,
+          avatar_url: c.avatar_url,
+          title: c.title,
+        });
       }
     }
   }

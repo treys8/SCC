@@ -38,6 +38,10 @@ export type CreatePostInput = {
   title: string;
   content: string;
   isPinned: boolean;
+  /** Optional calendar event this post links to (renders its Register button). */
+  eventId: string | null;
+  /** Show a "Reserve a table" button linking to the dining reservation flow. */
+  reservationCta: boolean;
   attachments: AttachmentInput[];
 };
 
@@ -56,6 +60,8 @@ function sanitizeText(input: CreatePostInput) {
     title: (input.title ?? "").trim(),
     content: (input.content ?? "").trim(),
     isPinned: !!input.isPinned,
+    eventId: input.eventId || null,
+    reservationCta: !!input.reservationCta,
     attachments: (input.attachments ?? []).filter(
       (a) =>
         (a.kind === "image" || a.kind === "file") && !!a.url && !!a.storage_path,
@@ -89,8 +95,16 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<PostActionResult> {
   const profile = await requireRole("staff", "admin");
-  const { department, authorType, title, content, isPinned, attachments } =
-    sanitizeText(input);
+  const {
+    department,
+    authorType,
+    title,
+    content,
+    isPinned,
+    eventId,
+    reservationCta,
+    attachments,
+  } = sanitizeText(input);
 
   if (!title && !content && attachments.length === 0) {
     return { error: "Add a title, some text, or at least one attachment." };
@@ -106,6 +120,8 @@ export async function createPost(
       department,
       title: title || null,
       content,
+      event_id: eventId,
+      reservation_cta: reservationCta,
       is_pinned: isPinned,
     })
     .select("id")
@@ -135,8 +151,16 @@ export async function updatePost(
   input: UpdatePostInput,
 ): Promise<PostActionResult> {
   const profile = await requireRole("staff", "admin");
-  const { department, authorType, title, content, isPinned, attachments } =
-    sanitizeText(input);
+  const {
+    department,
+    authorType,
+    title,
+    content,
+    isPinned,
+    eventId,
+    reservationCta,
+    attachments,
+  } = sanitizeText(input);
   const removedIds = (input.removedAttachmentIds ?? []).filter(Boolean);
 
   const supabase = await createClient();
@@ -169,6 +193,8 @@ export async function updatePost(
       author_type: authorType,
       title: title || null,
       content,
+      event_id: eventId,
+      reservation_cta: reservationCta,
       is_pinned: isPinned,
     })
     .eq("id", id);
