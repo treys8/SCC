@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/posts/actions";
 import { cn } from "@/lib/cn";
 import { CLUB_NAME, DEPARTMENTS } from "@/lib/constants";
+import { formatDateShort } from "@/lib/format";
 import {
   ACCEPT_ATTR,
   classifyFile,
@@ -29,8 +30,13 @@ type ExistingPost = {
   title: string | null;
   content: string;
   is_pinned: boolean;
+  event_id: string | null;
+  reservation_cta: boolean;
   attachments: PostAttachment[];
 };
+
+/** The events a post can link to, listed in the composer's selector. */
+export type EventOption = { id: string; title: string; event_date: string };
 
 type Draft = {
   localId: string;
@@ -42,9 +48,11 @@ type Draft = {
 export function PostComposer({
   userId,
   post,
+  events = [],
 }: {
   userId: string;
   post?: ExistingPost;
+  events?: EventOption[];
 }) {
   const isEdit = !!post;
 
@@ -54,6 +62,10 @@ export function PostComposer({
   const [title, setTitle] = useState(post?.title ?? "");
   const [content, setContent] = useState(post?.content ?? "");
   const [isPinned, setIsPinned] = useState(post?.is_pinned ?? false);
+  const [eventId, setEventId] = useState(post?.event_id ?? "");
+  const [reservationCta, setReservationCta] = useState(
+    post?.reservation_cta ?? false,
+  );
   // New posts speak for the club by default; staff can switch to a personal post.
   const [asClub, setAsClub] = useState(post ? post.author_type === "club" : true);
 
@@ -152,6 +164,8 @@ export function PostComposer({
       title: title.trim(),
       content: content.trim(),
       isPinned,
+      eventId: eventId || null,
+      reservationCta,
       attachments: uploaded,
     };
 
@@ -270,6 +284,46 @@ export function PostComposer({
             </ul>
           )}
         </div>
+      </div>
+
+      {events.length > 0 && (
+        <div>
+          <label className="label" htmlFor="event">
+            Link an event{" "}
+            <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <select
+            id="event"
+            className="select"
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+          >
+            <option value="">— None —</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.title} — {formatDateShort(ev.event_date)}
+              </option>
+            ))}
+          </select>
+          <p className="field-hint">
+            Adds the event&rsquo;s date and a Register button to this post.
+          </p>
+        </div>
+      )}
+
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={reservationCta}
+            onChange={(e) => setReservationCta(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          Add a &ldquo;Reserve a table&rdquo; button
+        </label>
+        <p className="field-hint">
+          Links members straight to the dining reservation form.
+        </p>
       </div>
 
       <div>

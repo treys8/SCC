@@ -166,6 +166,8 @@ export interface Database {
           content: string;
           image_url: string | null;
           pdf_url: string | null;
+          event_id: string | null;
+          reservation_cta: boolean;
           is_pinned: boolean;
           created_at: string;
           updated_at: string;
@@ -179,6 +181,8 @@ export interface Database {
           content: string;
           image_url?: string | null;
           pdf_url?: string | null;
+          event_id?: string | null;
+          reservation_cta?: boolean;
           is_pinned?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -192,6 +196,8 @@ export interface Database {
           content?: string;
           image_url?: string | null;
           pdf_url?: string | null;
+          event_id?: string | null;
+          reservation_cta?: boolean;
           is_pinned?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -201,6 +207,12 @@ export interface Database {
             foreignKeyName: "posts_author_id_fkey";
             columns: ["author_id"];
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "posts_event_id_fkey";
+            columns: ["event_id"];
+            referencedRelation: "calendar_events";
             referencedColumns: ["id"];
           },
         ];
@@ -907,6 +919,7 @@ export interface Database {
           id: string | null;
           full_name: string | null;
           avatar_url: string | null;
+          title: string | null;
         };
         Relationships: [];
       };
@@ -978,14 +991,24 @@ export type ContactMessageWithMember = ContactMessage & {
   member: Pick<Profile, "full_name" | "email"> | null;
 };
 
-/** Just the author fields the feed renders. */
-export type PostAuthor = Pick<Profile, "full_name" | "avatar_url">;
+/**
+ * Just the author fields the feed renders. `title` is the staff title name
+ * (from member_cards, joined to staff_titles) — null for members and titleless
+ * staff. Not a Pick of Profile since Profile has no title column.
+ */
+export type PostAuthor = {
+  full_name: string;
+  avatar_url: string | null;
+  title: string | null;
+};
 
 /**
- * A post as rendered in the feed: its attachments (ordered by `position`) and
- * the author's display fields, joined in a single Supabase query.
+ * A post as rendered in the feed: its attachments (ordered by `position`), the
+ * author's display fields, and an optional referenced calendar event (its
+ * Register button renders inline) — all joined in a single Supabase query.
  */
 export type FeedPost = Post & {
   post_attachments: PostAttachment[];
   author: PostAuthor | null;
+  event: CalendarEvent | null;
 };
