@@ -46,6 +46,8 @@ export type DocumentCategory =
   | "newsletter"
   | "form"
   | "general";
+/** A golf-log entry is either a logged accomplishment or a trackable issue. */
+export type GolfLogKind = "done" | "issue";
 
 export interface Database {
   public: {
@@ -266,6 +268,8 @@ export interface Database {
           status: ReservationStatus;
           table_id: string | null;
           staff_note: string | null;
+          proposed_date: string | null;
+          proposed_time: string | null;
           created_at: string;
         };
         Insert: {
@@ -278,6 +282,8 @@ export interface Database {
           status?: ReservationStatus;
           table_id?: string | null;
           staff_note?: string | null;
+          proposed_date?: string | null;
+          proposed_time?: string | null;
           created_at?: string;
         };
         Update: {
@@ -290,6 +296,8 @@ export interface Database {
           status?: ReservationStatus;
           table_id?: string | null;
           staff_note?: string | null;
+          proposed_date?: string | null;
+          proposed_time?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -805,6 +813,92 @@ export interface Database {
           },
         ];
       };
+      golf_log_entries: {
+        Row: {
+          id: string;
+          author_id: string;
+          entry_date: string;
+          kind: GolfLogKind;
+          area: string | null;
+          note: string;
+          photo_url: string | null;
+          resolved: boolean;
+          resolved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          entry_date?: string;
+          kind: GolfLogKind;
+          area?: string | null;
+          note: string;
+          photo_url?: string | null;
+          resolved?: boolean;
+          resolved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          author_id?: string;
+          entry_date?: string;
+          kind?: GolfLogKind;
+          area?: string | null;
+          note?: string;
+          photo_url?: string | null;
+          resolved?: boolean;
+          resolved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "golf_log_entries_author_id_fkey";
+            columns: ["author_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      golf_log_comments: {
+        Row: {
+          id: string;
+          entry_id: string;
+          author_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entry_id: string;
+          author_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entry_id?: string;
+          author_id?: string;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "golf_log_comments_entry_id_fkey";
+            columns: ["entry_id"];
+            referencedRelation: "golf_log_entries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "golf_log_comments_author_id_fkey";
+            columns: ["author_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       /** Name + avatar only, readable by any member (see security_hardening migration). */
@@ -864,6 +958,10 @@ export type ContactMessage =
   Database["public"]["Tables"]["contact_messages"]["Row"];
 export type Account = Database["public"]["Tables"]["accounts"]["Row"];
 export type StaffTitle = Database["public"]["Tables"]["staff_titles"]["Row"];
+export type GolfLogEntry =
+  Database["public"]["Tables"]["golf_log_entries"]["Row"];
+export type GolfLogComment =
+  Database["public"]["Tables"]["golf_log_comments"]["Row"];
 
 /** A profile with its staff title joined, as listed on the Members page. */
 export type MemberWithTitle = Profile & {

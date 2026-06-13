@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/page-header";
-import { isAdmin, requireRole } from "@/lib/auth";
+import { getTitleName, isAdmin, requireRole } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Manage" };
 
@@ -19,6 +19,8 @@ type Tile = {
   description: string;
   icon: ReactNode;
   adminOnly?: boolean;
+  /** If set, only staff holding one of these titles (or admins) see the tile. */
+  titles?: string[];
 };
 
 const TILES: Tile[] = [
@@ -33,6 +35,19 @@ const TILES: Tile[] = [
     title: "Messages",
     description: "Member questions and requests sent from the Contact page.",
     icon: <MailIcon />,
+  },
+  {
+    href: "/reservations",
+    title: "Reservations",
+    description: "Tonight's seating chart and the requests to confirm or decline.",
+    icon: <ClipboardIcon />,
+  },
+  {
+    href: "/manage/golf-log",
+    title: "Golf course log",
+    description: "Log course work and issues; share with the GM and Director of Golf.",
+    icon: <JournalIcon />,
+    titles: ["Golf Course Superintendent", "General Manager", "Director of Golf"],
   },
   {
     href: "/posts/new",
@@ -81,7 +96,14 @@ const TILES: Tile[] = [
 export default async function ManagePage() {
   const profile = await requireRole("staff", "admin");
   const admin = isAdmin(profile.role);
-  const tiles = TILES.filter((t) => !t.adminOnly || admin);
+  const title = await getTitleName();
+  const tiles = TILES.filter((t) => {
+    if (t.adminOnly && !admin) return false;
+    // Title-scoped tiles: admins always see them; otherwise the viewer must hold
+    // one of the listed titles.
+    if (t.titles && !admin && !(title && t.titles.includes(title))) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -217,6 +239,24 @@ function KeyIcon({ className }: IconProps) {
     <svg {...base(className)}>
       <circle cx="8" cy="8" r="4" />
       <path d="m11 11 8 8M16 16l2-2M19 19l2-2" />
+    </svg>
+  );
+}
+
+function ClipboardIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1H9V4ZM9 11h6M9 15h6" />
+    </svg>
+  );
+}
+
+function JournalIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <path d="M5 4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1Z" />
+      <path d="M9 7h5M9 11h5M9 15h3" />
     </svg>
   );
 }

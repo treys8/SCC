@@ -1,0 +1,195 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireTitle } from "@/lib/auth";
+import { clubTodayISO } from "@/lib/format";
+import { sendPushToUsers } from "@/lib/push";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { postsPublicUrl } from "@/lib/url";
+import type { GolfLogKind } from "@/lib/database.types";
+
+const SUPERINTENDENT = "Golf Course Superintendent";
+const LEADERSHIP_TITLES = ["General Manager", "Director of Golf"];
+// Everyone who can see / comment on the log.
+const LOG_TITLES = [SUPERINTENDENT, ...LEADERSHIP_TITLES];
+
+const NOTE_MAX = 2000;
+
+function snippet(text: string, max = 120): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/**
+ * The superintendent (or an admin) logs a "done" item or an "issue". The entry is
+ * shared with course leadership (GM + Director of Golf) via an in-app
+ * notification + push, best-effort.
+ */
+export async function createLogEntry(input: {
+  kind: GolfLogKind;
+  area: string | null;
+  note: string;
+  photoUrl: string | null;
+}): Promise<void> {
+  const profile = await requireTitle(SUPERINTENDENT);
+  const note = input.note.trim();
+  if (!note) throw new Error("Add a note.");
+  if (input.kind !== "done" && input.kind !== "issue") {
+    throw new Error("Choose Done or Issue.");
+  }
+
+  // A client-supplied URL is only trusted when it points at our posts bucket
+  // (where uploadEventCover writes) — never an arbitrary off-origin link.
+  const photoUrl = input.photoUrl ? postsPublicUrl(input.photoUrl) : null;
+
+  const supabase = await createClient();
+  const { data: entry, error } = await supabase
+    .from("golf_log_entries")
+    .insert({
+      author_id: profile.id,
+      entry_date: clubTodayISO(),
+      kind: input.kind,
+      area: input.area?.trim() || null,
+      note: note.slice(0, NOTE_MAX),
+      photo_url: photoUrl,
+    })
+    .select("id, kind, note")
+    .single();
+  if (error) throw new Error(error.message);
+
+  try {
+    await notifyLeadership(profile.full_name, entry.kind, entry.note);
+  } catch (e) {
+    console.error("golf log notification failed:", e);
+  }
+
+  revalidatePath("/manage/golf-log");
+}
+
+/** Author (or admin) marks an issue resolved / reopens it. */
+export async function setIssueResolved(
+  id: string,
+  resolved: boolean,
+): Promise<void> {
+  await requireTitle(SUPERINTENDENT);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("golf_log_entries")
+    .update({
+      resolved,
+      resolved_at: resolved ? new Date().toISOString() : null,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/manage/golf-log");
+}
+
+/**
+ * Course leadership (or the entry's author) comments on an entry. Notifies the
+ * entry author of a reply, unless they wrote the comment themselves.
+ */
+export async function addLogComment(
+  entryId: string,
+  body: string,
+): Promise<void> {
+  const profile = await requireTitle(...LOG_TITLES);
+  const text = body.trim();
+  if (!text) throw new Error("Write a comment.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("golf_log_comments").insert({
+    entry_id: entryId,
+    author_id: profile.id,
+    body: text.slice(0, NOTE_MAX),
+  });
+  if (error) throw new Error(error.message);
+
+  try {
+    await notifyEntryAuthor(entryId, profile.id, profile.full_name, text);
+  } catch (e) {
+    console.error("golf log comment notification failed:", e);
+  }
+
+  revalidatePath("/manage/golf-log");
+}
+
+/** Resolve GM + Director of Golf profile ids and alert them to a new entry. */
+async function notifyLeadership(
+  authorName: string,
+  kind: GolfLogKind,
+  note: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const ids = await profileIdsForTitles(admin, LEADERSHIP_TITLES);
+  if (!ids.length) return;
+
+  const title =
+    kind === "issue" ? "New course issue logged" : "Course log updated";
+  const body = `${authorName}: ${snippet(note)}`;
+
+  await admin.from("notifications").insert(
+    ids.map((id) => ({
+      user_id: id,
+      type: "golf_log",
+      title,
+      body,
+      link: "/manage/golf-log",
+    })),
+  );
+  await sendPushToUsers(ids, {
+    title,
+    body,
+    url: "/manage/golf-log",
+    tag: "golf-log",
+  });
+}
+
+async function notifyEntryAuthor(
+  entryId: string,
+  commenterId: string,
+  commenterName: string,
+  text: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: entry } = await admin
+    .from("golf_log_entries")
+    .select("author_id")
+    .eq("id", entryId)
+    .single();
+  if (!entry || entry.author_id === commenterId) return;
+
+  const title = "New comment on your log";
+  const body = `${commenterName}: ${snippet(text)}`;
+  await admin.from("notifications").insert({
+    user_id: entry.author_id,
+    type: "golf_log",
+    title,
+    body,
+    link: "/manage/golf-log",
+  });
+  await sendPushToUsers([entry.author_id], {
+    title,
+    body,
+    url: "/manage/golf-log",
+    tag: `golf-log-${entryId}`,
+  });
+}
+
+/** Profile ids holding any of the given staff titles (service-role read). */
+async function profileIdsForTitles(
+  admin: ReturnType<typeof createAdminClient>,
+  titleNames: string[],
+): Promise<string[]> {
+  const { data: titles } = await admin
+    .from("staff_titles")
+    .select("id")
+    .in("name", titleNames);
+  const titleIds = (titles ?? []).map((t) => t.id);
+  if (!titleIds.length) return [];
+
+  const { data: people } = await admin
+    .from("profiles")
+    .select("id")
+    .in("title_id", titleIds);
+  return (people ?? []).map((p) => p.id);
+}
