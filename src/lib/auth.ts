@@ -39,6 +39,37 @@ export async function requireRole(...roles: UserRole[]): Promise<Profile> {
   return profile;
 }
 
+/**
+ * The signed-in staff member's title name (e.g. "Director of Golf"), or null for
+ * members and titleless staff. Memoized per request. Resolves `profiles.title_id`
+ * against the `staff_titles` lookup — the same join the Members/Profile pages use.
+ */
+export const getTitleName = cache(async (): Promise<string | null> => {
+  const profile = await getProfile();
+  if (!profile?.title_id) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("staff_titles")
+    .select("name")
+    .eq("id", profile.title_id)
+    .single();
+  return data?.name ?? null;
+});
+
+/**
+ * Require the signed-in user to hold one of the given staff titles; redirect home
+ * otherwise. Admins always pass (the catch-all operator). Use to gate
+ * title-specific surfaces like the golf-course log. This is a navigation guard —
+ * the security boundary is RLS on the underlying tables.
+ */
+export async function requireTitle(...names: string[]): Promise<Profile> {
+  const profile = await requireProfile();
+  if (profile.role === "admin") return profile;
+  const title = await getTitleName();
+  if (!title || !names.includes(title)) redirect("/");
+  return profile;
+}
+
 export function isStaff(role: UserRole): boolean {
   return role === "staff" || role === "admin";
 }

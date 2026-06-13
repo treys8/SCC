@@ -54,7 +54,7 @@ tissue for reservations *and* later push.
   One tap + lifecycle (All clear reverts).
 - Pinned, realtime-updated status widget.
 
-### Phase 4 — "Today at the Club" member home  ← START HERE
+### Phase 4 — "Today at the Club" member home  ✅ DONE (2026-06-11)
 - Build the member home (today members are redirected straight to `/posts`).
 - Glanceable **Today page**, not a second feed: fixed sections, no infinite scroll,
   empty sections collapse. Feed stays its own tab — Today answers "what's happening
@@ -68,23 +68,28 @@ tissue for reservations *and* later push.
      not a forecast page; pairs with facility status ("87° and sunny / Pool: Open").
   5. **Latest 2–3 posts** teaser with "View all" → `/posts`.
 
-### Phase 5 — More intuitive feed
-- Add `post_type` (announcement / menu / event / …) for differentiated rendering.
-- Menu card (image already supported) + optional **Reserve** CTA.
-- Typed rendering in `post-card`; collapse long posts (read-more).
+### Phase 5 — More intuitive feed  ⏭️ SKIPPED
+Superseded by the Feed redesign (see "Beyond the original plan" below): the feed went
+**category-led** with staff-pin-any instead of a typed `post_type` system. Revisit only
+if structured menu/event post rendering is still wanted.
+- ~~Add `post_type` (announcement / menu / event / …) for differentiated rendering.~~
+- ~~Menu card (image already supported) + optional **Reserve** CTA.~~
+- ~~Typed rendering in `post-card`; collapse long posts (read-more).~~
 
-### Phase 6 — Member department preferences
-- `member_department_preferences` table + profile UI to opt into categories.
-- Foundation for per-department push targeting.
+### Phase 6 — Member department preferences  ✅ DONE (2026-06-11)
+- ✅ `member_department_preferences` table + profile UI to opt into categories.
+  *(Stored as **opt-out**: absence of a row = subscribed to all.)*
+- ✅ Foundation for per-department push targeting.
 
-### Phase 7 — Push backend (web-first)
-- Service worker + Web Push (VAPID); store subscriptions in Supabase.
-- Send via Supabase edge function / Vercel function.
-- **Alerts = facility status change + push**; per-department opt-in + **safety override**
+### Phase 7 — Push backend (web-first)  ✅ DONE (2026-06-11) — ⚠️ VAPID env still pending
+- ✅ Service worker + Web Push (VAPID); store subscriptions in Supabase.
+- ✅ Send via Supabase edge function / Vercel function.
+- ✅ **Alerts = facility status change + push**; per-department opt-in + **safety override**
   (lightning/closures force-send regardless of prefs).
-- iOS "Add to Home Screen" onboarding prompt.
+- ✅ iOS "Add to Home Screen" onboarding prompt.
+- ⚠️ **Blocker before push works in prod:** VAPID keys not yet set as env vars.
 
-### Phase 8 — Capacitor wrap (separate branch, after web v1 is stable)
+### Phase 8 — Capacitor wrap (separate branch, after web v1 is stable)  ⬜ NOT STARTED
 - Add Capacitor; WebView loads the live Vercel deployment (preserves SSR / server actions).
 - Native push plugin → APNs (iOS) + FCM (Android); **reuse the Phase 7 backend, swap transport.**
 - Validate Supabase session/cookies in the WebView, safe areas, deep links.
@@ -92,10 +97,44 @@ tissue for reservations *and* later push.
 
 ---
 
+## Beyond the original plan (built, not in the phased plan above)
+These shipped to `main` on top of the phased work:
+- **Staff operations console (`/manage`)** — conditions, posts, documents, dining, directory,
+  club-info, and member editors in one place.
+- **Member accounts & membership model** — staff-assigned account numbers (one account ↔ many
+  logins), staff titles lookup w/ singleton GM, and a **staff invite flow**.
+- **Member contact form** → `contact_messages` table → staff inbox at `/manage/messages`
+  (notifies staff via in-app notifications + push).
+- **Today / Feed / Reservations redesign** — category-led feed (staff-pin-any), "Tonight"
+  featured card on Today, concierge reservations form.
+- **Driving range** added as a 4th facility, plus a member `/facility/[type]` detail page
+  with a live compact conditions card.
+- **Tennis** added as a 3rd facility; **document library** (menus as PDFs).
+- **Security hardening** pass on RLS / schema.
+- **FOH reservations workflow** (2026-06-13) — a per-night **nightly chart** (date-scoped
+  confirmed list + running cover count, printable) on the staff reservations page, and a
+  **counter-offer flow**: declining can propose an alternate slot the member one-tap accepts
+  (capacity re-checked on accept — the slot trigger now fires on UPDATE too). Available to all
+  staff; surfaced as a console tile.
+- **Golf Course Superintendent daily log** (2026-06-13) — `/manage/golf-log`: dated **done** items
+  and **issues** (open issues carry forward until resolved), optional photo, from phone or web.
+  Private to course leadership — the **GM + Director of Golf** read and comment; new entries notify
+  them, their comments notify the superintendent. Gated by title via new `requireTitle` /
+  `private.current_user_title()`; RLS on `golf_log_entries` / `golf_log_comments`.
+
+## Still open (TODOs)
+- ⚠️ **VAPID env vars** — set keys in prod so Phase 7 push actually sends.
+- **Email alerts** for reservations + contact messages (in-app + push exist; email is TODO).
+- **Roster import** + **household visibility** (follow-ups from the accounts model).
+- **Member-facing Dining/Pool pages** — decided these must be DB-backed + staff-editable
+  (not hardcoded); reference `menu.pdf` / `pool.pdf` on Desktop.
+
+---
+
 ## Sequencing notes
-- **Phases 1–5 are independent of Capacitor** — pure web work, build now.
-- **Build Phase 4 (Today page) after Phases 2–3** — it composes event cards and the
-  facility-status widget; building it first means a page of placeholders.
-- **Phase 7 (push)** reuses Phase 1 (notifications) + Phase 6 (prefs).
+- **Phases 1–7 are independent of Capacitor** — pure web work, all done.
+- ~~Build Phase 4 (Today page) after Phases 2–3~~ — done; it composes the event cards and
+  facility-status widget.
+- **Phase 7 (push)** reuses Phase 1 (notifications) + Phase 6 (prefs) — built, pending VAPID env.
 - **Phase 8 is last and isolated** to its own branch. Wrap only when the v1 web features
-  are complete and stable as a PWA.
+  are complete and stable as a PWA. *(Web v1 is feature-complete modulo the open TODOs above.)*

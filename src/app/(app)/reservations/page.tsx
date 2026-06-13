@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { StatusBadge } from "@/components/badges";
 import { CancelReservationButton } from "@/components/cancel-reservation-button";
+import { ChartDateNav } from "@/components/chart-date-nav";
 import { EmptyState } from "@/components/empty-state";
 import { NewReservationForm } from "@/components/new-reservation-form";
 import { PageHeader } from "@/components/page-header";
+import { ReservationProposalActions } from "@/components/reservation-proposal-actions";
 import { StaffReservationsTable } from "@/components/staff-reservations-table";
 import { cn } from "@/lib/cn";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { RESERVATION_STATUSES, STATUS_LABEL } from "@/lib/constants";
-import { formatTime } from "@/lib/format";
+import { clubTodayISO, formatDate, formatLongDate, formatTime } from "@/lib/format";
 import {
   buildUpcomingDays,
   fetchReservationSettings,
@@ -24,7 +26,7 @@ export const metadata: Metadata = { title: "Reservations" };
 export default async function ReservationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; date?: string }>;
 }) {
   const profile = await requireProfile();
   if (isStaff(profile.role)) {
@@ -95,10 +97,26 @@ async function MemberView() {
                       {r.special_requests}
                     </p>
                   )}
-                  {r.status === "declined" && r.staff_note && (
-                    <p className="mt-1 text-sm text-danger">
-                      Reason: {r.staff_note}
-                    </p>
+                  {r.status === "declined" &&
+                  r.proposed_date &&
+                  r.proposed_time ? (
+                    <div className="mt-2 rounded-lg border border-accent/30 bg-accent/5 p-3">
+                      {r.staff_note && (
+                        <p className="text-sm text-muted">{r.staff_note}</p>
+                      )}
+                      <p className="text-sm font-medium text-foreground">
+                        We can offer {formatDate(r.proposed_date)} at{" "}
+                        {formatTime(r.proposed_time)}.
+                      </p>
+                      <ReservationProposalActions id={r.id} />
+                    </div>
+                  ) : (
+                    r.status === "declined" &&
+                    r.staff_note && (
+                      <p className="mt-1 text-sm text-danger">
+                        Reason: {r.staff_note}
+                      </p>
+                    )
                   )}
                   {(r.status === "pending" || r.status === "confirmed") && (
                     <div className="mt-2">
@@ -118,64 +136,154 @@ async function MemberView() {
 async function StaffView({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; date?: string }>;
 }) {
   const sp = await searchParams;
   const status =
     sp.status && (RESERVATION_STATUSES as string[]).includes(sp.status)
       ? (sp.status as ReservationStatus)
       : null;
+  const today = clubTodayISO();
+  const chartDate =
+    sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
   const supabase = await createClient();
-  let query = supabase
+
+  // The working queue (optionally status-filtered) and the nightly chart (just
+  // the confirmed parties for the chosen date) are independent reads.
+  let queueQuery = supabase
     .from("reservations")
     .select("*")
     .order("reservation_date", { ascending: true })
     .order("reservation_time", { ascending: true });
-  if (status) query = query.eq("status", status);
+  if (status) queueQuery = queueQuery.eq("status", status);
 
-  const { data } = await query;
-  const reservations = data ?? [];
+  const [{ data: queueData }, { data: chartData }, settings] = await Promise.all(
+    [
+      queueQuery,
+      supabase
+        .from("reservations")
+        .select("*")
+        .eq("reservation_date", chartDate)
+        .eq("status", "confirmed")
+        .order("reservation_time", { ascending: true }),
+      fetchReservationSettings(supabase),
+    ],
+  );
+  const reservations = queueData ?? [];
+  const chartReservations = chartData ?? [];
 
-  const memberIds = [...new Set(reservations.map((r) => r.member_id))];
+  // One name lookup covering both sets.
+  const memberIds = [
+    ...new Set([...reservations, ...chartReservations].map((r) => r.member_id)),
+  ];
   const { data: members } = memberIds.length
     ? await supabase.from("profiles").select("id, full_name").in("id", memberIds)
     : { data: [] };
   const nameById = new Map((members ?? []).map((m) => [m.id, m.full_name]));
-
-  const rows = reservations.map((r) => ({
+  const withName = (r: (typeof reservations)[number]) => ({
     ...r,
     memberName: nameById.get(r.member_id) ?? "Member",
-  }));
+  });
+
+  const rows = reservations.map(withName);
+  const chartRows = chartReservations.map(withName);
+  const covers = chartReservations.reduce((sum, r) => sum + r.party_size, 0);
+
+  const slots = generateSlots(settings);
+  const days = buildUpcomingDays(7);
+
+  // Filter chips keep the chart's date (when it isn't today) so the two controls
+  // don't reset each other.
+  const queueHref = (s?: string) => {
+    const params = new URLSearchParams();
+    if (s) params.set("status", s);
+    if (chartDate !== today) params.set("date", chartDate);
+    const qs = params.toString();
+    return qs ? `/reservations?${qs}` : "/reservations";
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Reservations"
-        description="Confirm or cancel member reservations."
+        description="Tonight's seating chart, plus the requests to confirm or decline."
       />
 
-      <div className="flex flex-wrap gap-2">
-        <FilterChip href="/reservations" label="All" active={!status} />
-        {RESERVATION_STATUSES.map((s) => (
-          <FilterChip
-            key={s}
-            href={`/reservations?status=${s}`}
-            label={STATUS_LABEL[s]}
-            active={status === s}
-          />
-        ))}
-      </div>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-h2 text-foreground">Nightly chart</h2>
+          <ChartDateNav date={chartDate} status={status} />
+        </div>
+        <div className="card overflow-hidden">
+          <div className="flex items-baseline justify-between border-b border-border bg-surface-2 px-4 py-3">
+            <p className="font-serif text-lg font-semibold text-foreground">
+              {formatLongDate(chartDate)}
+            </p>
+            <p className="text-sm text-muted">
+              {covers} {covers === 1 ? "cover" : "covers"} · {chartRows.length}{" "}
+              {chartRows.length === 1 ? "table" : "tables"}
+            </p>
+          </div>
+          {chartRows.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted">
+              No confirmed reservations for this date yet — they appear here as
+              you confirm requests.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {chartRows.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex items-baseline gap-4 px-4 py-3"
+                >
+                  <span className="w-20 shrink-0 font-medium text-foreground">
+                    {formatTime(r.reservation_time)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium text-foreground">
+                      {r.memberName}
+                    </span>
+                    {r.special_requests && (
+                      <span className="mt-0.5 block text-sm text-muted">
+                        {r.special_requests}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-sm text-muted">
+                    party of {r.party_size}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
-      {rows.length === 0 ? (
-        <EmptyState
-          icon={<CalendarIcon />}
-          title="No reservations"
-          description="Nothing to show here."
-        />
-      ) : (
-        <StaffReservationsTable rows={rows} />
-      )}
+      <section className="space-y-3">
+        <h2 className="text-h2 text-foreground">Requests</h2>
+        <div className="flex flex-wrap gap-2">
+          <FilterChip href={queueHref()} label="All" active={!status} />
+          {RESERVATION_STATUSES.map((s) => (
+            <FilterChip
+              key={s}
+              href={queueHref(s)}
+              label={STATUS_LABEL[s]}
+              active={status === s}
+            />
+          ))}
+        </div>
+
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={<CalendarIcon />}
+            title="No reservations"
+            description="Nothing to show here."
+          />
+        ) : (
+          <StaffReservationsTable rows={rows} days={days} slots={slots} />
+        )}
+      </section>
     </div>
   );
 }
