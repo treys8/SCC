@@ -8,7 +8,9 @@ import {
 import { FacilityStatusBadge } from "@/components/badges";
 import { cn } from "@/lib/cn";
 import { FACILITY_LABEL, FACILITY_PRESETS } from "@/lib/constants";
+import { isConditionsStale } from "@/lib/facility";
 import { formatRelativeTime, formatTimestamp } from "@/lib/format";
+import { useHydrated } from "@/lib/use-hydrated";
 import { useLiveFacilityStatus } from "@/lib/use-live-facility-status";
 import type {
   FacilityStatus,
@@ -30,6 +32,9 @@ export function FacilityStatusWidget({
   canManage?: boolean;
 }) {
   const [rows, mergeRow] = useLiveFacilityStatus(initial);
+  // "Needs refresh" depends on the current clock, so only judge it after hydration:
+  // the server HTML and first client render agree (no pill), then it appears.
+  const hydrated = useHydrated();
 
   if (rows.length === 0) return null;
 
@@ -49,6 +54,7 @@ export function FacilityStatusWidget({
             key={row.facility}
             row={row}
             canManage={canManage}
+            hydrated={hydrated}
             onOptimistic={mergeRow}
           />
         ))}
@@ -60,10 +66,12 @@ export function FacilityStatusWidget({
 function FacilityRow({
   row,
   canManage,
+  hydrated,
   onOptimistic,
 }: {
   row: FacilityStatus;
   canManage: boolean;
+  hydrated: boolean;
   onOptimistic: (next: FacilityStatus) => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -120,6 +128,11 @@ function FacilityRow({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <FacilityStatusBadge status={row.status} />
+          {hydrated && canManage && isConditionsStale(row.updated_at) && (
+            <span className="rounded-full bg-warning-soft px-2 py-0.5 text-caption font-medium text-warning-strong">
+              Needs refresh
+            </span>
+          )}
           <time
             dateTime={row.updated_at}
             title={formatTimestamp(row.updated_at)}

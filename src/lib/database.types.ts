@@ -721,6 +721,34 @@ export interface Database {
           },
         ];
       };
+      club_settings: {
+        Row: {
+          id: boolean;
+          conditions_reminder_enabled: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          conditions_reminder_enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          conditions_reminder_enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "club_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       documents: {
         Row: {
           id: string;
@@ -966,6 +994,8 @@ export type PushSubscriptionRow =
 export type StaffMember =
   Database["public"]["Tables"]["staff_directory"]["Row"];
 export type ClubInfo = Database["public"]["Tables"]["club_info"]["Row"];
+export type ClubSettings =
+  Database["public"]["Tables"]["club_settings"]["Row"];
 export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
 export type ContactMessage =
   Database["public"]["Tables"]["contact_messages"]["Row"];

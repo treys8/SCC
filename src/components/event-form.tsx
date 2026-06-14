@@ -48,6 +48,8 @@ export function EventForm({
   );
   const [fee, setFee] = useState(event?.fee ?? "");
   const [isHighlight, setIsHighlight] = useState(event?.is_highlight ?? false);
+  // Create-only: optionally fan a linked announcement out to the Feed.
+  const [alsoPostToFeed, setAlsoPostToFeed] = useState(false);
 
   // Cover photo uploads browser-direct on selection (Server Action bodies are
   // too small for photos); the form only submits the resulting public URL.
@@ -298,6 +300,27 @@ export function EventForm({
           </span>
         </span>
       </label>
+
+      {!event && (
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            name="also_post_to_feed"
+            checked={alsoPostToFeed}
+            onChange={(e) => setAlsoPostToFeed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+          />
+          <span className="text-sm">
+            <span className="font-medium text-foreground">
+              Also post this to the Feed
+            </span>
+            <span className="mt-0.5 block text-muted">
+              Adds a linked announcement to the member Feed, with this event&apos;s
+              Register button. No push notification is sent.
+            </span>
+          </span>
+        </label>
+      )}
 
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
 

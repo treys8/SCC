@@ -3,6 +3,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/page-header";
 import { getTitleName, isAdmin, requireRole } from "@/lib/auth";
+import { anyConditionsStale, fetchFacilityStatus } from "@/lib/facility";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Manage" };
 
@@ -105,6 +107,13 @@ export default async function ManagePage() {
     return true;
   });
 
+  // Flag the Conditions tile when any facility has gone stale, so staff see the
+  // nudge from the console home without opening the editor.
+  const supabase = await createClient();
+  const conditionsStale = anyConditionsStale(
+    await fetchFacilityStatus(supabase),
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -127,6 +136,11 @@ export default async function ManagePage() {
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 font-serif text-lg font-semibold text-foreground">
                 {tile.title}
+                {tile.href === "/manage/conditions" && conditionsStale && (
+                  <span className="rounded-full bg-warning-soft px-2 py-0.5 font-sans text-caption font-medium text-warning-strong">
+                    Needs refresh
+                  </span>
+                )}
                 <span
                   aria-hidden
                   className="text-muted transition-transform group-hover:translate-x-0.5"
