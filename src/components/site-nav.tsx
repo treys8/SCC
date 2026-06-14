@@ -21,7 +21,9 @@ export function SiteNav({
     { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
-    { href: "/documents", label: "Menus" },
+    { href: "/menu", label: "Menus" },
+    // Pool info, newsletters, and forms still live in the document library.
+    { href: "/documents", label: "Documents" },
   ];
   // Members reach the front office via Contact; staff have the inbox instead
   // (and don't need to message themselves), so it's member-only.

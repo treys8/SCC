@@ -7,7 +7,7 @@ import { formatFileSize } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { DocumentRow } from "@/lib/database.types";
 
-export const metadata: Metadata = { title: "Menus & Docs" };
+export const metadata: Metadata = { title: "Documents" };
 
 /**
  * Member-facing document library — menus, pool info, and newsletters published
@@ -28,8 +28,8 @@ export default async function DocumentsPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Menus & Documents"
-        description="Club menus, pool info, and newsletters to view or download."
+        title="Documents"
+        description="Pool info, newsletters, forms, and menu PDFs to view or download."
       />
       {docs.length === 0 ? (
         <EmptyState
