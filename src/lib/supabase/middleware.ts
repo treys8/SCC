@@ -6,6 +6,9 @@ import type { Database } from "@/lib/database.types";
  * Paths reachable without an authenticated session. Includes the PWA metadata
  * routes (manifest + apple-touch-icon) — the browser fetches these without
  * cookies, and they must not redirect to /login or the app can't be installed.
+ * `/api/cron` is called server-to-server by Vercel Cron with no session cookie;
+ * it must not redirect to /login (it would never run) — those routes enforce
+ * their own `CRON_SECRET` bearer auth instead.
  */
 const PUBLIC_PREFIXES = [
   "/login",
@@ -13,6 +16,7 @@ const PUBLIC_PREFIXES = [
   "/set-password",
   "/manifest.webmanifest",
   "/apple-icon",
+  "/api/cron",
 ];
 
 function isPublicPath(pathname: string) {
