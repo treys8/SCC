@@ -81,13 +81,40 @@ export async function createEvent(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: created, error } = await supabase
     .from("calendar_events")
-    .insert({ ...fields, created_by: profile.id });
-  if (error) return { error: error.message };
+    .insert({ ...fields, created_by: profile.id })
+    .select("id")
+    .single();
+  if (error || !created) {
+    return { error: error?.message ?? "Could not create the event." };
+  }
+
+  // Optional: fan a linked announcement out to the Feed. Best-effort — the event
+  // is already saved, so a feed hiccup must never surface as a failed create.
+  // Silent like every other post (no push); members see it on the Feed.
+  let postedToFeed = false;
+  if (formData.get("also_post_to_feed") === "on") {
+    const { error: postError } = await supabase.from("posts").insert({
+      author_id: profile.id,
+      author_type: "club",
+      department: fields.department ?? "general",
+      title: fields.title,
+      content: fields.description ?? "",
+      event_id: created.id,
+      reservation_cta: false,
+      is_pinned: false,
+    });
+    if (postError) {
+      console.error("event feed post failed:", postError.message);
+    } else {
+      postedToFeed = true;
+    }
+  }
 
   revalidatePath("/calendar");
   revalidatePath("/");
+  if (postedToFeed) revalidatePath("/posts");
   redirect("/calendar");
 }
 

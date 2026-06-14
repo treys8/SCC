@@ -16,8 +16,14 @@ import {
   fetchTodaysReservation,
 } from "@/lib/reservations";
 import { createClient } from "@/lib/supabase/server";
-import { fetchWeather, type Weather, type WeatherIcon } from "@/lib/weather";
-import type { DiningBuffet, Reservation } from "@/lib/database.types";
+import { fetchWeather, type Weather } from "@/lib/weather";
+import type {
+  CalendarEvent,
+  DiningBuffet,
+  FacilityStatus,
+  FacilityStatusType,
+  Reservation,
+} from "@/lib/database.types";
 
 /**
  * "Today at the Club" — a conditions-first front door, distinct from the Feed.
@@ -70,7 +76,15 @@ export default async function TodayPage() {
     settings.service_start,
     settings.service_end,
   );
-  const summary = conciergeSummary(reservation, weather, buffet);
+  const summary = conciergeSummary(
+    reservation,
+    weather,
+    buffet,
+    facilities,
+    featured,
+    today,
+    hour * 60 + minute,
+  );
   // Staff get the live, one-tap conditions editor right on the home screen
   // (quick on mobile); members see the read-only conditions cards.
   const canManage = profile ? isStaff(profile.role) : false;
@@ -173,47 +187,128 @@ function isWithinService(
 }
 
 /**
- * One warm line for the hero — the member's reservation first, otherwise a
- * weather-led opener with a live nod to the buffet when one's on today. The
- * buffet clause reads from the real row (time + active), so it can't contradict
- * the card below it.
+ * One warm line for the hero. Priority: the member's reservation, then the
+ * lead (a golf hold trumps a generic weather line so we never call it "a fine
+ * day for the course" while the course is held), then one trailing clause —
+ * today's buffet (time-sensitive) ahead of a nod to the day's featured event.
+ * Buffet/event clauses read from the real rows, so they can't contradict the
+ * cards below.
  */
 function conciergeSummary(
   reservation: Reservation | null,
   weather: Weather | null,
   buffet: DiningBuffet | null,
+  facilities: FacilityStatus[],
+  featuredEvent: CalendarEvent | null,
+  todayISO: string,
+  nowMinutes: number,
 ): string {
   if (reservation) {
     return reservation.status === "confirmed"
       ? "You've a table reserved for this evening — we'll see you tonight."
       : "Your table request for this evening is in — we'll confirm it shortly.";
   }
-  const lead = weather ? weatherLead(weather.icon) : "A fine day at the club.";
+
+  const golf = facilities.find((f) => f.facility === "golf");
+  const lead =
+    (golf && GOLF_HOLD_LEAD[golf.status]) ??
+    (weather ? weatherLead(weather, todayISO) : "A fine day at the club.");
+
   if (buffet?.active && buffet.end_time) {
     return `${lead} The ${buffet.title.toLowerCase()} runs 'til ${formatTime(
       buffet.end_time,
     )}.`;
   }
+  // Only nudge toward the featured event while it's still ahead — the hero shows
+  // all day, so "Don't miss …" mustn't point at something that already happened.
+  if (featuredEvent && startMinutes(featuredEvent) >= nowMinutes) {
+    const when = featuredEvent.start_time
+      ? ` at ${formatTime(featuredEvent.start_time)}`
+      : "";
+    return `${lead} Don't miss ${featuredEvent.title}${when}.`;
+  }
   return lead;
 }
 
-/** A conditions-led opener keyed off the coarse weather glyph. */
-function weatherLead(icon: WeatherIcon): string {
-  switch (icon) {
+/** An event's start as minutes since midnight; -∞-ish guard if it's unset. */
+function startMinutes(event: CalendarEvent): number {
+  if (!event.start_time) return -1;
+  const [h, m] = event.start_time.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+/** Honest opener when golf isn't open — it outranks the weather line. */
+const GOLF_HOLD_LEAD: Partial<Record<FacilityStatusType, string>> = {
+  frost_delay: "Frost on the greens — the course is on a brief hold for now.",
+  rain_delay: "Rain's moving through — the course is on a hold for now.",
+  lightning_hold: "Lightning in the area — play is on hold. Best stay in for now.",
+  closed: "The course is closed today — but the rest of the club is open.",
+};
+
+/**
+ * A conditions-led opener keyed off the coarse weather glyph, with 2–3 variants
+ * per mood so the hero doesn't read identically every clear day. The variant is
+ * picked deterministically from the club's date (see `dailyIndex`) — stable
+ * through the day, different tomorrow. A clear-but-cold day gets its own bucket
+ * so we don't promise "warming up" at 40°.
+ */
+function weatherLead(weather: Weather, todayISO: string): string {
+  let bucket: keyof typeof WEATHER_LINES;
+  switch (weather.icon) {
     case "sun":
     case "partly":
-      return "Clear and warming up — a fine day for the course or the pool.";
+      bucket = weather.tempF < 55 ? "fairCool" : "fair";
+      break;
     case "cloud":
     case "fog":
-      return "Soft and overcast — an easy day on the grounds.";
+      bucket = "grey";
+      break;
     case "drizzle":
     case "rain":
     case "storm":
-      return "Wet out there — best check conditions before you head over.";
+      bucket = "wet";
+      break;
     case "snow":
-      return "Cold and crisp — bundle up if you're coming by.";
+      bucket = "snow";
+      break;
     default:
       // A future WeatherIcon shouldn't blank the hero line.
       return "A fine day at the club.";
   }
+  const lines = WEATHER_LINES[bucket];
+  return lines[dailyIndex(todayISO, lines.length)];
+}
+
+const WEATHER_LINES = {
+  fair: [
+    "Clear and warming up — a fine day for the course or the pool.",
+    "Sunshine all day — the course and the pool are calling.",
+    "Bright and mild — hard to beat for a round or a few laps.",
+  ],
+  fairCool: [
+    "Clear but cool — a crisp one for the course; the pool can wait.",
+    "Bright and brisk — worth a layer for the course this morning.",
+  ],
+  grey: [
+    "Soft and overcast — an easy day on the grounds.",
+    "Grey and calm — a quiet one around the club.",
+  ],
+  wet: [
+    "Wet out there — best check conditions before you head over.",
+    "Rain in the mix — worth a look at conditions before you come by.",
+  ],
+  snow: ["Cold and crisp — bundle up if you're coming by."],
+} as const;
+
+/**
+ * Deterministic index in [0, n) seeded by the club's ISO date. Server-rendered,
+ * so Math.random() is out (it'd differ per request and fight caching); hashing
+ * the date keeps the pick stable through the day but varies it day to day.
+ */
+function dailyIndex(todayISO: string, n: number): number {
+  let h = 0;
+  for (let i = 0; i < todayISO.length; i++) {
+    h = (h * 31 + todayISO.charCodeAt(i)) >>> 0;
+  }
+  return h % n;
 }

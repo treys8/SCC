@@ -87,6 +87,13 @@ export const FACILITIES: FacilityType[] = [
   "tennis",
 ];
 
+/**
+ * How long a facility's conditions can sit untouched before staff are nudged to
+ * refresh them (tile badge, per-row "Needs refresh" pill, and the morning cron).
+ * Members never see this — their "Updated …" stamp stays honest.
+ */
+export const CONDITIONS_STALE_HOURS = 24;
+
 export const FACILITY_LABEL: Record<FacilityType, string> = {
   golf: "Golf Course",
   driving_range: "Driving Range",

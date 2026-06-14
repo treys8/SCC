@@ -197,8 +197,10 @@ const MAX_DETAILS = 6;
  * Staff/admin set a facility's conditions detail rows — the labelled list shown
  * under its status on the Today page (Carts / Greens / Tee sheet, etc.). The
  * whole list is replaced on save; rows missing a label or value are dropped, and
- * the count + lengths are capped server-side so the card can't be overrun. These
- * rows are NOT realtime — members pick them up on their next page load.
+ * the count + lengths are capped server-side so the card can't be overrun. Like a
+ * status change, this is an UPDATE on facility_status, so it streams to any open
+ * member surface via realtime (the subscription carries every column); a reload
+ * isn't required. Unlike a status change, it sends no push notification.
  */
 export async function setFacilityDetails(
   facility: FacilityType,
@@ -232,6 +234,26 @@ export async function setFacilityDetails(
   if (error) throw new Error(error.message);
 
   revalidateFacilityViews();
+}
+
+/**
+ * Staff/admin toggle the club-wide morning reminder that nudges staff to refresh
+ * stale conditions. Updates the seeded club_settings singleton by id = true
+ * (mirrors setBuffet); the cron reads this flag and stays quiet when it's off.
+ */
+export async function setConditionsReminderEnabled(enabled: boolean) {
+  const profile = await requireRole("staff", "admin");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("club_settings")
+    .update({ conditions_reminder_enabled: enabled, updated_by: profile.id })
+    .eq("id", true)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Club settings row is missing.");
+
+  revalidatePath("/manage/conditions");
 }
 
 const trimOrNull = (s: string | null, max: number) =>

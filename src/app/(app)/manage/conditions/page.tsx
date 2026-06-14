@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { ConditionsReminderToggle } from "@/components/conditions-reminder-toggle";
 import { EmptyState } from "@/components/empty-state";
 import { FacilityDetailsEditor } from "@/components/facility-details-editor";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { PageHeader } from "@/components/page-header";
-import { fetchFacilityStatus } from "@/lib/facility";
+import { fetchClubSettings, fetchFacilityStatus } from "@/lib/facility";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Conditions" };
@@ -17,7 +18,10 @@ export const metadata: Metadata = { title: "Conditions" };
  */
 export default async function ManageConditionsPage() {
   const supabase = await createClient();
-  const facilities = await fetchFacilityStatus(supabase);
+  const [facilities, settings] = await Promise.all([
+    fetchFacilityStatus(supabase),
+    fetchClubSettings(supabase),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -36,6 +40,9 @@ export default async function ManageConditionsPage() {
           description="Golf, driving range, pool, and tennis status rows haven't been set up yet."
         />
       )}
+      <ConditionsReminderToggle
+        initialEnabled={settings.conditions_reminder_enabled}
+      />
     </div>
   );
 }
