@@ -212,6 +212,7 @@ export function PostComposer({
           className="textarea min-h-32"
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          maxLength={5000}
           placeholder="Share news, photos, or a document with members…"
         />
       </div>
@@ -226,6 +227,7 @@ export function PostComposer({
           className="input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          maxLength={160}
           placeholder="e.g. Summer tournament sign-ups open"
         />
       </div>

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth";
-import { sendPushToUsers } from "@/lib/push";
+import { STAFF_ROLES } from "@/lib/constants";
+import { notifyUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,26 +61,15 @@ async function notifyStaffOfMessage(fromName: string, subject: string) {
   const { data: staff } = await admin
     .from("profiles")
     .select("id")
-    .in("role", ["staff", "admin"]);
+    .in("role", STAFF_ROLES);
   const staffIds = (staff ?? []).map((s) => s.id);
   if (staffIds.length === 0) return;
 
-  const title = "New member message";
-  const body = `${fromName}: ${subject}`;
-  await admin.from("notifications").insert(
-    staffIds.map((id) => ({
-      user_id: id,
-      type: "contact",
-      title,
-      body,
-      link: "/manage/messages",
-    })),
-  );
-
-  await sendPushToUsers(staffIds, {
-    title,
-    body,
-    url: "/manage/messages",
+  await notifyUsers(staffIds, {
+    type: "contact",
+    title: "New member message",
+    body: `${fromName}: ${subject}`,
+    link: "/manage/messages",
     tag: "contact-message",
   });
 }

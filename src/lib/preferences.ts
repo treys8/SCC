@@ -48,6 +48,11 @@ export async function getDepartmentOptIns(
 /**
  * Audience for a department alert: every member who hasn't opted out of it.
  * Call with the service-role admin client so the fan-out sees every member.
+ *
+ * Reads the full member list and computes the set-difference in JS. Fine at
+ * club scale (hundreds of members) on this human-paced path; if `profiles` ever
+ * grows large, push the anti-join into a SECURITY DEFINER RPC (precedent:
+ * set_member_department_preferences) that returns only the recipients.
  */
 export async function getUsersForDepartmentDefaultOn(
   supabase: DB,

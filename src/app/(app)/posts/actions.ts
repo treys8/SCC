@@ -18,6 +18,11 @@ import type {
 
 const BUCKET = "posts";
 
+/** Length caps so a pasted document can't bloat the feed (the action is the real
+ * boundary; the composer mirrors these as maxLength for live feedback). */
+const TITLE_MAX = 160;
+const CONTENT_MAX = 5000;
+
 export type PostActionResult = { error?: string };
 
 /** Attachment metadata produced by the browser uploader (see lib/upload.ts). */
@@ -57,8 +62,8 @@ function sanitizeText(input: CreatePostInput) {
     authorType: (input.authorType === "member"
       ? "member"
       : "club") as PostAuthorType,
-    title: (input.title ?? "").trim(),
-    content: (input.content ?? "").trim(),
+    title: (input.title ?? "").trim().slice(0, TITLE_MAX),
+    content: (input.content ?? "").trim().slice(0, CONTENT_MAX),
     isPinned: !!input.isPinned,
     eventId: input.eventId || null,
     reservationCta: !!input.reservationCta,

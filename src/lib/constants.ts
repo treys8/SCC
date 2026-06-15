@@ -54,6 +54,10 @@ export const ROLE_LABEL: Record<UserRole, string> = {
 
 export const ROLES: UserRole[] = ["member", "staff", "admin"];
 
+/** Roles with staff privileges — use for `.in("role", STAFF_ROLES)` queries so
+ * the staff-audience filter has a single source of truth (see isStaff()). */
+export const STAFF_ROLES: UserRole[] = ["staff", "admin"];
+
 export const RESERVATION_STATUSES: ReservationStatus[] = [
   "pending",
   "confirmed",

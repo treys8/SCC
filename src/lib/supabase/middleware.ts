@@ -8,7 +8,9 @@ import type { Database } from "@/lib/database.types";
  * cookies, and they must not redirect to /login or the app can't be installed.
  * `/api/cron` is called server-to-server by Vercel Cron with no session cookie;
  * it must not redirect to /login (it would never run) — those routes enforce
- * their own `CRON_SECRET` bearer auth instead.
+ * their own `CRON_SECRET` bearer auth instead. `/sw.js` is the service worker,
+ * fetched by the browser without cookies (and on SW update checks) — it must be
+ * served as JS, never a /login redirect; it exposes no privileged data.
  */
 const PUBLIC_PREFIXES = [
   "/login",
@@ -16,6 +18,7 @@ const PUBLIC_PREFIXES = [
   "/set-password",
   "/manifest.webmanifest",
   "/apple-icon",
+  "/sw.js",
   "/api/cron",
 ];
 

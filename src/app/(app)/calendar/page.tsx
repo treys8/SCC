@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { gridRange, parseMonth } from "@/lib/calendar";
 import { DEPARTMENTS } from "@/lib/constants";
-import { todayISO } from "@/lib/format";
+import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { DepartmentType } from "@/lib/database.types";
 
@@ -58,7 +58,7 @@ export default async function CalendarPage({
         events={data ?? []}
         month={month}
         dept={dept}
-        todayIso={todayISO()}
+        todayIso={clubTodayISO()}
       />
     </div>
   );

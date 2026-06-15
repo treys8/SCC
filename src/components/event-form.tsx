@@ -5,7 +5,7 @@ import { useActionState, useRef, useState } from "react";
 import type { EventFormState } from "@/app/(app)/calendar/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { DEPARTMENTS } from "@/lib/constants";
-import { todayISO } from "@/lib/format";
+import { clubTodayISO } from "@/lib/format";
 import { uploadEventCover } from "@/lib/upload";
 import type { CalendarEvent } from "@/lib/database.types";
 
@@ -133,7 +133,7 @@ export function EventForm({
             name="event_date"
             type="date"
             required
-            min={todayISO()}
+            min={clubTodayISO()}
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
             className="input"
