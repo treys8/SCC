@@ -171,6 +171,7 @@ export function NewReservationForm({
           id="special_requests"
           name="special_requests"
           className="textarea"
+          maxLength={500}
           placeholder="Window table, high chair, dietary needs…"
         />
       </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireProfile } from "@/lib/auth";
 import { DEPARTMENTS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import type { DepartmentType } from "@/lib/database.types";
@@ -17,16 +18,12 @@ export async function updateProfile(
 
   if (!fullName) return { error: "Name is required." };
 
+  const profile = await requireProfile();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "You are not signed in." };
-
   const { error } = await supabase
     .from("profiles")
     .update({ full_name: fullName, display_name: displayName, phone })
-    .eq("id", user.id);
+    .eq("id", profile.id);
 
   if (error) return { error: error.message };
 
@@ -48,11 +45,8 @@ export async function updateDepartmentPreferences(
   _prev: ProfileState,
   formData: FormData,
 ): Promise<ProfileState> {
+  await requireProfile();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "You are not signed in." };
 
   const selected = formData
     .getAll("department")

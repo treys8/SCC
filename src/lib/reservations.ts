@@ -6,9 +6,15 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Reservation } from "@/lib/database.types";
-import { clubTodayISO, formatTime } from "@/lib/format";
+import { clubDatePlusDaysISO, clubTodayISO, formatTime } from "@/lib/format";
 
 type DB = SupabaseClient<Database>;
+
+/** How far out a reservation may be booked. The member form offers 7 days; this
+ * gives headroom while rejecting past/absurd-future dates from crafted requests. */
+export const MAX_BOOKING_DAYS = 14;
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type SlotOption = { value: string; label: string };
 
@@ -82,6 +88,32 @@ export function buildUpcomingDays(count: number): DayOption[] {
     });
   }
   return days;
+}
+
+/**
+ * Validate a supplied booking date + time against the same window the UI offers:
+ * a canonical ISO date that isn't in the past, within MAX_BOOKING_DAYS, on a real
+ * slot boundary. Returns an error message, or null if acceptable. The DB trigger
+ * remains the final authority on capacity/alignment; this is a server-side guard
+ * that gives a clear message and stops hand-crafted POSTs (bypassing the picker)
+ * from persisting nonsense like "2026-6-7", "9999-01-01", or an off-slot time.
+ */
+export function validateBookingSlot(
+  settings: BookingSettings,
+  date: string,
+  time: string,
+): string | null {
+  if (!ISO_DATE.test(date)) return "Choose a valid date.";
+  if (date < clubTodayISO()) {
+    return "Choose a date that hasn't already passed.";
+  }
+  if (date > clubDatePlusDaysISO(MAX_BOOKING_DAYS)) {
+    return `Reservations can only be made up to ${MAX_BOOKING_DAYS} days out.`;
+  }
+  if (!generateSlots(settings).some((s) => s.value === time)) {
+    return "Choose an available seating time.";
+  }
+  return null;
 }
 
 /** Bookable times: [service_start, service_end) stepped by slot_minutes. */

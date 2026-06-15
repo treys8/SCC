@@ -30,7 +30,9 @@ export function Feed({
   const [posts, setPosts] = useState(initialPosts);
   const [cursor, setCursor] = useState(initialCursor);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
   const [newCount, setNewCount] = useState(0);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -45,6 +47,7 @@ export function Feed({
   const loadMore = useCallback(async () => {
     if (loadingMore || cursor === null) return;
     setLoadingMore(true);
+    setLoadError(false);
     try {
       const page = await loadMorePosts(depts, cursor);
       setPosts((prev) => {
@@ -52,15 +55,20 @@ export function Feed({
         return [...prev, ...page.posts.filter((p) => !seen.has(p.id))];
       });
       setCursor(page.nextCursor);
+    } catch {
+      // Surface a retry affordance instead of silently stopping the scroll.
+      setLoadError(true);
     } finally {
       setLoadingMore(false);
     }
   }, [loadingMore, cursor, depts]);
 
   // Infinite scroll: load the next page as the sentinel nears the viewport.
+  // While an error is showing, leave the observer disarmed so it doesn't retry
+  // in a tight loop behind the error UI — the user re-arms it via the retry tap.
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) return;
+    if (!el || loadError) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) loadMore();
@@ -69,7 +77,7 @@ export function Feed({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore]);
+  }, [loadMore, loadError]);
 
   // Realtime: count new posts from other members matching the current filter.
   // postgres_changes is RLS-gated by the socket's JWT — without it the socket is
@@ -116,6 +124,7 @@ export function Feed({
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setRefreshError(false);
     try {
       const { pinned: freshPinned, page } = await refreshFeed(depts);
       setPinned(freshPinned);
@@ -123,6 +132,9 @@ export function Feed({
       setCursor(page.nextCursor);
       setNewCount(0);
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      // Keep newCount so the pill stays — tapping it retries the refresh.
+      setRefreshError(true);
     } finally {
       setRefreshing(false);
     }
@@ -141,6 +153,15 @@ export function Feed({
         >
           ↑ {newCount} new {newCount === 1 ? "post" : "posts"}
         </button>
+      )}
+
+      {refreshError && (
+        <p
+          role="alert"
+          className="fixed left-1/2 top-32 z-30 -translate-x-1/2 rounded-full bg-surface px-3 py-1 text-xs text-danger shadow"
+        >
+          Couldn&rsquo;t refresh — tap the pill to try again.
+        </p>
       )}
 
       {isEmpty ? (
@@ -176,7 +197,17 @@ export function Feed({
 
           {cursor !== null && (
             <div ref={sentinelRef} className="py-2">
-              <PostSkeleton />
+              {loadError ? (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="mx-auto block rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-primary hover:text-foreground"
+                >
+                  Couldn&rsquo;t load more — tap to retry
+                </button>
+              ) : (
+                <PostSkeleton />
+              )}
             </div>
           )}
           {cursor === null && posts.length > 0 && (

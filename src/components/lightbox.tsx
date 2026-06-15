@@ -19,7 +19,17 @@ export function Lightbox({
   onClose: () => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const [index, setIndex] = useState(initialIndex);
+
+  // Move focus into the dialog on open and restore it to the trigger on close,
+  // so keyboard/screen-reader users aren't dropped behind the overlay.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => opener?.focus();
+  }, []);
 
   const scrollTo = useCallback((i: number) => {
     const track = trackRef.current;
@@ -41,8 +51,32 @@ export function Lightbox({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") scrollTo(Math.min(index + 1, images.length - 1));
-      if (e.key === "ArrowLeft") scrollTo(Math.max(index - 1, 0));
+      else if (e.key === "ArrowRight")
+        scrollTo(Math.min(index + 1, images.length - 1));
+      else if (e.key === "ArrowLeft") scrollTo(Math.max(index - 1, 0));
+      else if (e.key === "Tab") {
+        // Trap Tab within the dialog's visible controls so focus can't walk out
+        // to the inert page behind the overlay.
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const focusable = Array.from(
+          dialog.querySelectorAll<HTMLElement>("button:not([disabled])"),
+        ).filter((el) => el.offsetParent !== null);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        } else if (!dialog.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -58,15 +92,18 @@ export function Lightbox({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex flex-col bg-black/95"
       role="dialog"
       aria-modal="true"
+      aria-label="Image viewer"
     >
       <div className="flex items-center justify-between px-4 py-3 text-white">
         <span className="text-sm tabular-nums text-white/80">
           {many ? `${index + 1} / ${images.length}` : ""}
         </span>
         <button
+          ref={closeRef}
           type="button"
           onClick={onClose}
           aria-label="Close"

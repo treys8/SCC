@@ -1,5 +1,10 @@
-import { CONDITIONS_STALE_HOURS, FACILITY_LABEL } from "@/lib/constants";
-import { sendPushToUsers } from "@/lib/push";
+import { timingSafeEqual } from "node:crypto";
+import {
+  CONDITIONS_STALE_HOURS,
+  FACILITY_LABEL,
+  STAFF_ROLES,
+} from "@/lib/constants";
+import { notifyUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { FacilityType } from "@/lib/database.types";
 
@@ -8,6 +13,14 @@ import type { FacilityType } from "@/lib/database.types";
 export const dynamic = "force-dynamic";
 
 const STALE_MS = CONDITIONS_STALE_HOURS * 60 * 60 * 1000;
+
+/** Constant-time bearer check (avoids a timing side-channel on the secret). */
+function authorized(authHeader: string | null, secret: string): boolean {
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(authHeader ?? "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /**
  * Morning reminder: if the club-wide toggle is on and any facility's conditions
@@ -18,8 +31,8 @@ const STALE_MS = CONDITIONS_STALE_HOURS * 60 * 60 * 1000;
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  const auth = request.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
+  // Fail closed if the secret is unset, then compare in constant time.
+  if (!secret || !authorized(request.headers.get("authorization"), secret)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -48,7 +61,7 @@ export async function GET(request: Request) {
   const { data: staff } = await admin
     .from("profiles")
     .select("id")
-    .in("role", ["staff", "admin"]);
+    .in("role", STAFF_ROLES);
   const staffIds = (staff ?? []).map((s) => s.id);
   if (staffIds.length === 0) {
     return Response.json({ notified: 0, stale: stale.length });
@@ -63,20 +76,11 @@ export async function GET(request: Request) {
       ? `${names} hasn't been updated in over a day. Tap to refresh it.`
       : `Some conditions haven't been updated in over a day: ${names}.`;
 
-  await admin.from("notifications").insert(
-    staffIds.map((id) => ({
-      user_id: id,
-      type: "conditions_reminder",
-      title,
-      body,
-      link: "/manage/conditions",
-    })),
-  );
-
-  await sendPushToUsers(staffIds, {
+  await notifyUsers(staffIds, {
+    type: "conditions_reminder",
     title,
     body,
-    url: "/manage/conditions",
+    link: "/manage/conditions",
     tag: "conditions-reminder",
   });
 

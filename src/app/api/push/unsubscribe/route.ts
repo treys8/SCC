@@ -29,7 +29,10 @@ export async function POST(request: Request) {
     .delete()
     .eq("endpoint", endpoint)
     .eq("user_id", user.id);
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("push unsubscribe failed:", error.message);
+    return new Response("Could not remove subscription", { status: 500 });
+  }
 
   return Response.json({ ok: true });
 }

@@ -5,10 +5,20 @@ import { requireProfile, requireRole } from "@/lib/auth";
 import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { clubTodayISO, formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
+import {
+  fetchReservationSettings,
+  validateBookingSlot,
+} from "@/lib/reservations";
 import type { ReservationStatus } from "@/lib/database.types";
 
 export type ReservationState = { error?: string; success?: boolean };
+
+/** Member-supplied free text is capped before storage (matches contact/golf). */
+const SPECIAL_REQUESTS_MAX = 500;
+/** Upper bound on party size; mirrors the form's stepper max. The DB cover-cap
+ * trigger is stricter per slot, but this gives a clear message first. */
+const MAX_PARTY_SIZE = 50;
 
 export async function createReservation(
   _prev: ReservationState,
@@ -20,18 +30,26 @@ export async function createReservation(
   const time = String(formData.get("reservation_time") ?? "");
   const partySize = Number(formData.get("party_size") ?? 0);
   const special =
-    String(formData.get("special_requests") ?? "").trim() || null;
+    String(formData.get("special_requests") ?? "")
+      .trim()
+      .slice(0, SPECIAL_REQUESTS_MAX) || null;
 
   if (!date || !time) return { error: "Choose a date and time." };
-  // The HTML `min` is only a hint; enforce no past dates server-side too.
-  if (date < clubTodayISO()) {
-    return { error: "Choose a date that hasn't already passed." };
-  }
   if (!Number.isInteger(partySize) || partySize < 1) {
     return { error: "Party size must be at least 1." };
   }
+  if (partySize > MAX_PARTY_SIZE) {
+    return { error: `Party size can be at most ${MAX_PARTY_SIZE}.` };
+  }
 
   const supabase = await createClient();
+  // The picker only offers valid slots, but the action is the real boundary:
+  // validate the date is canonical, not past, within the horizon, and on a slot
+  // (a crafted POST can send a non-canonical past date that beats a string compare).
+  const settings = await fetchReservationSettings(supabase);
+  const slotError = validateBookingSlot(settings, date, time);
+  if (slotError) return { error: slotError };
+
   const { error } = await supabase.from("reservations").insert({
     member_id: profile.id,
     reservation_date: date,
@@ -49,11 +67,15 @@ export async function createReservation(
 export async function cancelReservation(id: string) {
   await requireProfile();
   const supabase = await createClient();
-  const { error } = await supabase
+  // .select() so an RLS no-op (a non-owned or stale id matches 0 rows) surfaces
+  // as an error instead of a false success — matching deletePost/togglePin.
+  const { data, error } = await supabase
     .from("reservations")
     .update({ status: "cancelled" })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Reservation not found.");
   revalidatePath("/reservations");
 }
 
@@ -88,6 +110,14 @@ export async function setReservationStatus(
     const pDate = proposedDate?.trim() || null;
     const pTime = proposedTime?.trim() || null;
     const hasOffer = Boolean(pDate && pTime);
+    if (hasOffer) {
+      // Validate the offered slot now — the slot trigger doesn't fire on the
+      // proposed_* columns, so without this a member could be shown an offer
+      // that only fails (opaquely) when they tap Accept.
+      const settings = await fetchReservationSettings(supabase);
+      const offerError = validateBookingSlot(settings, pDate!, pTime!);
+      if (offerError) throw new Error(`Proposed time invalid: ${offerError}`);
+    }
     patch.proposed_date = hasOffer ? pDate : null;
     patch.proposed_time = hasOffer ? pTime : null;
   } else {

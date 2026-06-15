@@ -116,13 +116,6 @@ export function formatFileSize(bytes: number | null | undefined): string {
   return `${rounded} ${units[unit]}`;
 }
 
-/** Today as "YYYY-MM-DD" in local time (for date input min). */
-export function todayISO(): string {
-  const now = new Date();
-  const off = now.getTimezoneOffset();
-  return new Date(now.getTime() - off * 60_000).toISOString().slice(0, 10);
-}
-
 /**
  * Today as "YYYY-MM-DD" in club time. Use this for server-side date validation
  * (e.g. rejecting past reservations) so it doesn't drift to the server's TZ.
@@ -134,4 +127,16 @@ export function clubTodayISO(): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+/**
+ * Today + `days` as "YYYY-MM-DD" in club time, for booking-horizon checks. Built
+ * on clubTodayISO so it shares the same TZ anchor; wall-clock date math (Date
+ * with local components) rolls month/year boundaries correctly.
+ */
+export function clubDatePlusDaysISO(days: number): string {
+  const [y, m, d] = clubTodayISO().split("-").map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 }

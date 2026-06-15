@@ -148,3 +148,48 @@ export async function sendPushToUsers(
     console.error("sendPushToUsers failed:", e);
   }
 }
+
+export type NotifyOptions = {
+  type: string;
+  title: string;
+  body: string;
+  /** In-app link + push click-through URL (same destination). */
+  link: string;
+  /** Optional push tag (collapses repeats in the OS tray). */
+  tag?: string;
+};
+
+/**
+ * Fan out an in-app notification (one row per user) plus a best-effort Web Push
+ * to a set of members — the shared tail behind the contact / cron / etc. notify
+ * flows. Uses the service-role client because `notifications` has no insert RLS
+ * policy (server-trusted inserts only). De-dupes ids and no-ops on an empty set.
+ */
+export async function notifyUsers(
+  userIds: string[],
+  opts: NotifyOptions,
+): Promise<void> {
+  const ids = [...new Set(userIds)].filter(Boolean);
+  if (ids.length === 0) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("notifications").insert(
+    ids.map((id) => ({
+      user_id: id,
+      type: opts.type,
+      title: opts.title,
+      body: opts.body,
+      link: opts.link,
+    })),
+  );
+  if (error) {
+    console.error("notifyUsers: notifications insert failed:", error.message);
+  }
+
+  await sendPushToUsers(ids, {
+    title: opts.title,
+    body: opts.body,
+    url: opts.link,
+    tag: opts.tag,
+  });
+}

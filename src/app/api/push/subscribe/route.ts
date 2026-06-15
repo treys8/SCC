@@ -58,7 +58,10 @@ export async function POST(request: Request) {
     },
     { onConflict: "endpoint" },
   );
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("push subscribe failed:", error.message);
+    return new Response("Could not save subscription", { status: 500 });
+  }
 
   // Cap rows per member: drop the oldest beyond the limit (keeps newest browsers).
   const { data: rows } = await admin
