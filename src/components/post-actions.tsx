@@ -91,6 +91,16 @@ export function PostActions({
               {isPinned ? "Unpin" : "Pin to top"}
             </button>
           )}
+          {canPin && (
+            <Link
+              role="menuitem"
+              href={`/posts/new?from=${id}`}
+              className="block w-full px-4 py-2 text-left text-sm text-foreground hover:bg-surface-2"
+              onClick={() => setOpen(false)}
+            >
+              Use as template
+            </Link>
+          )}
           {isAuthor && (
             <Link
               role="menuitem"

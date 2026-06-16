@@ -8,7 +8,7 @@ import {
   type AttachmentInput,
 } from "@/app/(app)/posts/actions";
 import { cn } from "@/lib/cn";
-import { CLUB_NAME, DEPARTMENTS } from "@/lib/constants";
+import { CLUB_NAME, DEPARTMENTS, POST_TEMPLATES } from "@/lib/constants";
 import { formatDateShort } from "@/lib/format";
 import {
   ACCEPT_ATTR,
@@ -38,6 +38,15 @@ type ExistingPost = {
 /** The events a post can link to, listed in the composer's selector. */
 export type EventOption = { id: string; title: string; event_date: string };
 
+/** Seed values for a fresh post duplicated from an existing one ("use as
+ * template"). Text/category/voice only — attachments are not carried over. */
+export type InitialPost = {
+  department: DepartmentType;
+  title: string;
+  content: string;
+  asClub: boolean;
+};
+
 type Draft = {
   localId: string;
   file: File;
@@ -48,26 +57,41 @@ type Draft = {
 export function PostComposer({
   userId,
   post,
+  initial,
   events = [],
 }: {
   userId: string;
   post?: ExistingPost;
+  initial?: InitialPost;
   events?: EventOption[];
 }) {
   const isEdit = !!post;
 
+  // Field precedence: editing an existing post > duplicate seed > blank defaults.
   const [department, setDepartment] = useState<DepartmentType>(
-    post?.department ?? "general",
+    post?.department ?? initial?.department ?? "general",
   );
-  const [title, setTitle] = useState(post?.title ?? "");
-  const [content, setContent] = useState(post?.content ?? "");
+  const [title, setTitle] = useState(post?.title ?? initial?.title ?? "");
+  const [content, setContent] = useState(post?.content ?? initial?.content ?? "");
   const [isPinned, setIsPinned] = useState(post?.is_pinned ?? false);
   const [eventId, setEventId] = useState(post?.event_id ?? "");
   const [reservationCta, setReservationCta] = useState(
     post?.reservation_cta ?? false,
   );
   // New posts speak for the club by default; staff can switch to a personal post.
-  const [asClub, setAsClub] = useState(post ? post.author_type === "club" : true);
+  const [asClub, setAsClub] = useState(
+    post ? post.author_type === "club" : initial?.asClub ?? true,
+  );
+
+  // Built-in starter templates (new posts only). Applying one overwrites the
+  // category, body, and voice; the author then fills in the blanks.
+  function applyTemplate(key: string) {
+    const tpl = POST_TEMPLATES.find((t) => t.key === key);
+    if (!tpl) return;
+    setDepartment(tpl.department);
+    setContent(tpl.body);
+    setAsClub(tpl.asClub);
+  }
 
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
@@ -185,6 +209,34 @@ export function PostComposer({
 
   return (
     <form onSubmit={handleSubmit} className="card space-y-5 p-5 sm:p-6">
+      {!isEdit && POST_TEMPLATES.length > 0 && (
+        <div>
+          <label className="label" htmlFor="template">
+            Start from a template{" "}
+            <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <select
+            id="template"
+            className="select"
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) applyTemplate(e.target.value);
+              e.target.value = "";
+            }}
+          >
+            <option value="">Blank post</option>
+            {POST_TEMPLATES.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          <p className="field-hint">
+            Pre-fills the category and a starter message you can edit.
+          </p>
+        </div>
+      )}
+
       <div>
         <label className="label" htmlFor="department">
           Category
