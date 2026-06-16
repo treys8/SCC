@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DepartmentType,
+  DishKind,
   FacilityDetail,
   FacilityStatusType,
   FacilityType,
@@ -308,4 +309,151 @@ export async function setBuffet(input: BuffetInput) {
   if (!data) throw new Error("Buffet row is missing.");
 
   revalidateFacilityViews();
+}
+
+// ── Weekly buffet: dish catalog + recurring weekday plan ─────────────────────
+
+const DISH_NAME_MAX = 80;
+const DAY_NOTE_MAX = 120;
+const VALID_DISH_KIND = new Set<DishKind>(["main", "side"]);
+
+/** Also refresh the staff editor so a save lands without a manual reload. */
+function revalidateDiningViews() {
+  revalidateFacilityViews();
+  revalidatePath("/manage/dining");
+}
+
+type BuffetDayInput = {
+  mainDishId: string | null;
+  sideDishIds: string[];
+  note: string | null;
+  isClosed: boolean;
+};
+
+/**
+ * Staff/admin set one weekday's buffet: its main dish, its sides, a note, and
+ * whether the club is closed that day. The seven rows are seeded by migration,
+ * so the day itself is only ever updated; sides are replaced wholesale (clear
+ * then re-insert in order) since the set is small and editing is all-or-nothing.
+ */
+export async function setBuffetDay(weekday: number, input: BuffetDayInput) {
+  const profile = await requireRole("staff", "admin");
+  if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) {
+    throw new Error("Unknown weekday.");
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("buffet_week")
+    .update({
+      main_dish_id: input.mainDishId || null,
+      note: trimOrNull(input.note, DAY_NOTE_MAX),
+      is_closed: Boolean(input.isClosed),
+      updated_by: profile.id,
+    })
+    .eq("weekday", weekday)
+    .select("weekday")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Buffet day is missing.");
+
+  // Replace the day's sides. De-dupe and cap defensively; the picker only
+  // offers valid dish ids, and bad ids are rejected by the FK anyway.
+  const sideIds = [...new Set(input.sideDishIds.filter(Boolean))].slice(0, 12);
+
+  const { error: delError } = await supabase
+    .from("buffet_week_sides")
+    .delete()
+    .eq("weekday", weekday);
+  if (delError) throw new Error(delError.message);
+
+  if (sideIds.length > 0) {
+    const { error: insError } = await supabase
+      .from("buffet_week_sides")
+      .insert(
+        sideIds.map((dish_id, position) => ({ weekday, dish_id, position })),
+      );
+    if (insError) throw new Error(insError.message);
+  }
+
+  revalidateDiningViews();
+}
+
+/** Add one dish to the catalog. Duplicate (name, kind) is surfaced, not hidden. */
+export async function createDish(name: string, kind: DishKind) {
+  const profile = await requireRole("staff", "admin");
+  if (!VALID_DISH_KIND.has(kind)) throw new Error("Unknown dish kind.");
+  const clean = name.trim().slice(0, DISH_NAME_MAX);
+  if (!clean) throw new Error("A dish needs a name.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("dishes")
+    .insert({ name: clean, kind, created_by: profile.id });
+  if (error) {
+    // 23505 = unique_violation on (lower(name), kind).
+    if (error.code === "23505") throw new Error(`"${clean}" is already on the list.`);
+    throw new Error(error.message);
+  }
+
+  revalidateDiningViews();
+}
+
+/**
+ * Bulk-seed the catalog from a pasted list — one dish per line. Blank lines and
+ * within-paste duplicates are dropped, and names already in the catalog (of this
+ * kind, case-insensitive) are skipped before insert so the returned count is the
+ * number actually added. The unique index on (lower(name), kind) is the backstop.
+ */
+export async function bulkAddDishes(text: string, kind: DishKind): Promise<number> {
+  const profile = await requireRole("staff", "admin");
+  if (!VALID_DISH_KIND.has(kind)) throw new Error("Unknown dish kind.");
+
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const line of text.split("\n")) {
+    const clean = line.trim().slice(0, DISH_NAME_MAX);
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(clean);
+  }
+  if (names.length === 0) return 0;
+
+  const supabase = await createClient();
+
+  // Drop names already in the catalog (case-insensitive) so we don't trip the
+  // unique index and so the count reflects only new additions.
+  const { data: existing, error: existingError } = await supabase
+    .from("dishes")
+    .select("name")
+    .eq("kind", kind);
+  if (existingError) throw new Error(existingError.message);
+  const have = new Set((existing ?? []).map((d) => d.name.toLowerCase()));
+  const fresh = names.filter((n) => !have.has(n.toLowerCase()));
+  if (fresh.length === 0) return 0;
+
+  const { data, error } = await supabase
+    .from("dishes")
+    .insert(fresh.map((name) => ({ name, kind, created_by: profile.id })))
+    .select("id");
+  if (error) throw new Error(error.message);
+
+  revalidateDiningViews();
+  return data?.length ?? 0;
+}
+
+/** Soft enable/disable a dish — kept out of the picker, but schedule refs survive. */
+export async function setDishActive(id: string, active: boolean) {
+  await requireRole("staff", "admin");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("dishes")
+    .update({ active: Boolean(active) })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidateDiningViews();
 }

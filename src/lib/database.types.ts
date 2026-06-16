@@ -48,6 +48,8 @@ export type DocumentCategory =
   | "general";
 /** A golf-log entry is either a logged accomplishment or a trackable issue. */
 export type GolfLogKind = "done" | "issue";
+/** A buffet dish is either a main or a side (text + CHECK in the DB). */
+export type DishKind = "main" | "side";
 
 export interface Database {
   public: {
@@ -571,6 +573,111 @@ export interface Database {
           },
         ];
       };
+      dishes: {
+        Row: {
+          id: string;
+          name: string;
+          kind: DishKind;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          kind: DishKind;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          kind?: DishKind;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dishes_created_by_fkey";
+            columns: ["created_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      buffet_week: {
+        Row: {
+          weekday: number;
+          main_dish_id: string | null;
+          note: string | null;
+          is_closed: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          weekday: number;
+          main_dish_id?: string | null;
+          note?: string | null;
+          is_closed?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          weekday?: number;
+          main_dish_id?: string | null;
+          note?: string | null;
+          is_closed?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "buffet_week_main_dish_id_fkey";
+            columns: ["main_dish_id"];
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "buffet_week_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      buffet_week_sides: {
+        Row: {
+          weekday: number;
+          dish_id: string;
+          position: number;
+        };
+        Insert: {
+          weekday: number;
+          dish_id: string;
+          position?: number;
+        };
+        Update: {
+          weekday?: number;
+          dish_id?: string;
+          position?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "buffet_week_sides_weekday_fkey";
+            columns: ["weekday"];
+            referencedRelation: "buffet_week";
+            referencedColumns: ["weekday"];
+          },
+          {
+            foreignKeyName: "buffet_week_sides_dish_id_fkey";
+            columns: ["dish_id"];
+            referencedRelation: "dishes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_department_preferences: {
         Row: {
           user_id: string;
@@ -987,6 +1094,9 @@ export type FacilityStatus =
   Database["public"]["Tables"]["facility_status"]["Row"];
 export type DiningBuffet =
   Database["public"]["Tables"]["dining_buffet"]["Row"];
+export type Dish = Database["public"]["Tables"]["dishes"]["Row"];
+export type BuffetWeekDay =
+  Database["public"]["Tables"]["buffet_week"]["Row"];
 export type MemberDepartmentPreference =
   Database["public"]["Tables"]["member_department_preferences"]["Row"];
 export type PushSubscriptionRow =

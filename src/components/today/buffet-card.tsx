@@ -3,12 +3,22 @@ import type { DiningBuffet } from "@/lib/database.types";
 
 /**
  * "Today's buffet" — a compact horizontal card (solid-gold utensils thumbnail +
- * details) driven by the staff-editable `dining_buffet` row. Like the featured
- * "Tonight" card, it's a heading-less hero card: the gold "Today's buffet"
- * eyebrow labels it, so there's no outer section heading. The page only renders
- * it when the buffet is active, so it can assume there's something to show.
+ * details) driven by the staff-editable `dining_buffet` row (shared title/hours)
+ * plus the chef's weekday plan (`main` + `sides`). Like the featured "Tonight"
+ * card, it's a heading-less hero card: the gold "Today's buffet" eyebrow labels
+ * it, so there's no outer section heading. The page only renders it when the
+ * buffet is active and the day isn't closed, so it assumes there's something to
+ * show. `main`/`sides` are omitted when the chef hasn't set them.
  */
-export function BuffetCard({ buffet }: { buffet: DiningBuffet }) {
+export function BuffetCard({
+  buffet,
+  main = null,
+  sides = [],
+}: {
+  buffet: DiningBuffet;
+  main?: string | null;
+  sides?: string[];
+}) {
   const meta = [
     buffet.start_time && formatTimeRange(buffet.start_time, buffet.end_time),
     buffet.location,
@@ -31,6 +41,12 @@ export function BuffetCard({ buffet }: { buffet: DiningBuffet }) {
         </p>
         <h3 className="mt-1 text-h2 text-foreground">{buffet.title}</h3>
         {meta && <p className="mt-0.5 text-sm text-muted">{meta}</p>}
+        {main && (
+          <p className="mt-1.5 text-sm font-medium text-foreground">{main}</p>
+        )}
+        {sides.length > 0 && (
+          <p className="mt-0.5 text-sm text-muted">{sides.join(" · ")}</p>
+        )}
         {buffet.description && (
           <p className="mt-1 line-clamp-2 text-sm text-muted">
             {buffet.description}
