@@ -40,10 +40,17 @@ export default async function TodayPage() {
   // server runs in UTC, which rolls to tomorrow at ~7 PM Central — right in the
   // middle of dinner service — so a server-local date would make tonight's
   // reservation vanish from the hero exactly when the member is sitting down.
-  const { hour, minute, today } = clubNow();
+  const { hour, minute, today, weekday } = clubNow();
 
-  const [facilities, reservation, settings, todaysEventsRes, buffetRes, weather] =
-    await Promise.all([
+  const [
+    facilities,
+    reservation,
+    settings,
+    todaysEventsRes,
+    buffetRes,
+    todayMenuRes,
+    weather,
+  ] = await Promise.all([
       fetchFacilityStatus(supabase),
       profile
         ? fetchTodaysReservation(supabase, profile.id, today)
@@ -55,6 +62,16 @@ export default async function TodayPage() {
         .eq("event_date", today)
         .order("start_time", { ascending: true }),
       supabase.from("dining_buffet").select("*").maybeSingle(),
+      supabase
+        .from("buffet_week")
+        // `main:dishes` needs the FK hint — the buffet_week_sides junction makes
+        // a second (m2m) buffet_week↔dishes relationship, so the bare name is
+        // ambiguous. `dish:dishes` under sides has one FK, so it's unambiguous.
+        .select(
+          "is_closed, main:dishes!buffet_week_main_dish_id_fkey(name), sides:buffet_week_sides(position, dish:dishes(name))",
+        )
+        .eq("weekday", weekday)
+        .maybeSingle(),
       fetchWeather(),
     ]);
 
@@ -67,6 +84,17 @@ export default async function TodayPage() {
     ? todaysEvents.filter((e) => e.id !== featured.id)
     : todaysEvents;
   const buffet = buffetRes.data;
+  // Today's weekday plan: the chef's main + sides for this day, and whether the
+  // club is closed (no buffet today). The seven rows are seeded, so a missing
+  // row just means "not closed, nothing chosen yet".
+  const todayMenu = todayMenuRes.data;
+  const buffetClosed = todayMenu?.is_closed ?? false;
+  const buffetMain = todayMenu?.main?.name ?? null;
+  const buffetSides = (todayMenu?.sides ?? [])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((s) => s.dish?.name)
+    .filter((n): n is string => Boolean(n));
   const firstName = (profile && memberFirstName(profile)) || "Member";
 
   const greeting =
@@ -115,7 +143,9 @@ export default async function TodayPage() {
       ) : (
         <ConditionsGrid facilities={facilities} />
       )}
-      {buffet?.active && <BuffetCard buffet={buffet} />}
+      {buffet?.active && !buffetClosed && (
+        <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
+      )}
       {/* Show the events list unless the day's only event is the featured one —
           then a "nothing on the calendar" empty state under the hero would lie. */}
       {(otherEvents.length > 0 || !featured) && (
@@ -153,7 +183,12 @@ function DinnerNote({
 }
 
 /** Wall-clock date + hour/minute in the club's timezone (not the server's). */
-function clubNow(): { hour: number; minute: number; today: string } {
+function clubNow(): {
+  hour: number;
+  minute: number;
+  today: string;
+  weekday: number;
+} {
   // en-CA renders the date as YYYY-MM-DD, matching how dates are stored.
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: CLUB_TZ,
@@ -165,11 +200,16 @@ function clubNow(): { hour: number; minute: number; today: string } {
     hour12: false,
   }).formatToParts(new Date());
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const today = `${get("year")}-${get("month")}-${get("day")}`;
+  // ISO weekday (1=Mon … 7=Sun) for the club's calendar day. Parse at noon UTC
+  // so the date never rolls across a boundary.
+  const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
   // hour12:false can report "24" at midnight in some runtimes; normalize to 0.
   return {
     hour: Number(get("hour")) % 24,
     minute: Number(get("minute")),
-    today: `${get("year")}-${get("month")}-${get("day")}`,
+    today,
+    weekday: ((dow + 6) % 7) + 1,
   };
 }
 
