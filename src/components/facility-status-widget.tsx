@@ -39,27 +39,17 @@ export function FacilityStatusWidget({
   if (rows.length === 0) return null;
 
   return (
-    <section className="card overflow-hidden">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
-        <h2 className="text-h2 text-foreground">
-          Conditions
-        </h2>
-        <span className="text-caption font-medium uppercase tracking-wide text-muted">
-          Live status
-        </span>
-      </header>
-      <ul className="divide-y divide-border">
-        {rows.map((row) => (
-          <FacilityRow
-            key={row.facility}
-            row={row}
-            canManage={canManage}
-            hydrated={hydrated}
-            onOptimistic={mergeRow}
-          />
-        ))}
-      </ul>
-    </section>
+    <ul className="grid gap-3 lg:grid-cols-2">
+      {rows.map((row) => (
+        <FacilityRow
+          key={row.facility}
+          row={row}
+          canManage={canManage}
+          hydrated={hydrated}
+          onOptimistic={mergeRow}
+        />
+      ))}
+    </ul>
   );
 }
 
@@ -116,7 +106,7 @@ function FacilityRow({
   };
 
   return (
-    <li className={cn("px-4 py-4 sm:px-5", isPending && "opacity-70")}>
+    <li className={cn("card p-4 sm:p-5", isPending && "opacity-70")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-foreground">
