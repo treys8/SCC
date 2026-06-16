@@ -18,6 +18,29 @@ export const DEPARTMENTS: { value: DepartmentType; label: string }[] = [
   { value: "membership", label: "Membership" },
 ];
 
+/**
+ * One-tap composer starters for recurring staff posts (e.g. the chef's weekly
+ * Blue Plate menu). Picking a template pre-fills the category, club voice, and a
+ * body skeleton the author fills in — no DB, edit here to add more.
+ */
+export type PostTemplate = {
+  key: string;
+  label: string;
+  department: DepartmentType;
+  asClub: boolean;
+  body: string;
+};
+
+export const POST_TEMPLATES: PostTemplate[] = [
+  {
+    key: "blue_plate",
+    label: "Weekly Blue Plate Menu",
+    department: "dining",
+    asClub: true,
+    body: "Good Morning!\n\nHere is your blue plate menu for the week:\n\nTuesday– \n\nWednesday– \n\nThursday– \n\nFriday– \n\nHave a great week!",
+  },
+];
+
 export const DEPARTMENT_LABEL: Record<DepartmentType, string> = {
   general: "General",
   golf: "Golf",
