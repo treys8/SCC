@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PostComposer } from "@/components/post-composer";
-import { requireRole } from "@/lib/auth";
+import { isStaff, requireRole } from "@/lib/auth";
 import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { PostAttachment } from "@/lib/database.types";
@@ -25,8 +25,10 @@ export default async function EditPostPage({
     .single();
 
   if (!post) notFound();
-  // Only the author may edit (RLS enforces this too).
-  if (post.author_id !== profile.id) redirect("/posts");
+  // Staff/admin may edit any post (the staff console links here); the author
+  // check is the fallback should that role gate ever be loosened. updatePost
+  // re-checks server-side.
+  if (!isStaff(profile.role) && post.author_id !== profile.id) redirect("/posts");
 
   const attachments = [...((post.post_attachments as PostAttachment[]) ?? [])].sort(
     (a, b) => a.position - b.position,
