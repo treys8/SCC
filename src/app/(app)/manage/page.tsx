@@ -58,6 +58,12 @@ const TILES: Tile[] = [
     icon: <MegaphoneIcon />,
   },
   {
+    href: "/manage/posts",
+    title: "Find a post",
+    description: "Search past announcements; edit or re-pin any post.",
+    icon: <SearchIcon />,
+  },
+  {
     href: "/manage/documents",
     title: "Documents",
     description: "Publish menus, pool info, and newsletters to download.",
@@ -198,6 +204,15 @@ function MegaphoneIcon({ className }: IconProps) {
     <svg {...base(className)}>
       <path d="M4 10v4a1 1 0 0 0 1 1h2l8 4V5L7 9H5a1 1 0 0 0-1 1Z" />
       <path d="M18 9a3 3 0 0 1 0 6" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
     </svg>
   );
 }

@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireProfile, requireRole } from "@/lib/auth";
+import { isStaff, requireProfile, requireRole } from "@/lib/auth";
 import {
   fetchFeedPage,
   fetchPinnedPosts,
+  searchPosts,
   type FeedPage,
+  type PostSearchFilters,
 } from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
 import { postsObjectUrl, postsPublicUrl } from "@/lib/url";
@@ -176,7 +178,9 @@ export async function updatePost(
     .eq("id", id)
     .single();
   if (!existing) return { error: "Announcement not found." };
-  if (existing.author_id !== profile.id) {
+  // Staff/admin may edit any post (RLS `posts_update_staff` allows the write);
+  // the author check is the fallback should that role gate ever be loosened.
+  if (!isStaff(profile.role) && existing.author_id !== profile.id) {
     return { error: "You can only edit your own posts." };
   }
 
@@ -286,6 +290,16 @@ export async function loadMorePosts(
   await requireProfile();
   const supabase = await createClient();
   return fetchFeedPage(supabase, { depts, before });
+}
+
+/** Next page of staff post-search results (keyset cursor). Staff/admin only. */
+export async function loadMoreSearchPosts(
+  filters: PostSearchFilters,
+  before: string,
+): Promise<FeedPage> {
+  await requireRole("staff", "admin");
+  const supabase = await createClient();
+  return searchPosts(supabase, { ...filters, before });
 }
 
 /** Reload the top of the feed (pinned + first page) — used by the "new posts" pill. */

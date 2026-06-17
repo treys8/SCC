@@ -5,6 +5,7 @@
  * query simple and independent of supabase-js embedded-ordering options.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clubDayEndExclusiveUTC, clubDayStartUTC } from "@/lib/format";
 import type {
   Database,
   DepartmentType,
@@ -97,6 +98,69 @@ export async function fetchFeedPage(
   if (before) q = q.lt("created_at", before);
 
   const { data } = await q.returns<PostRow[]>();
+  const rows = data ?? [];
+  const hasMore = rows.length > FEED_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
+  const nextCursor = hasMore ? pageRows[pageRows.length - 1].created_at : null;
+  const posts = await attachAuthors(supabase, pageRows);
+  return { posts, nextCursor };
+}
+
+/** Filters for the staff post search (shared by the page and load-more action). */
+export type PostSearchFilters = {
+  q?: string;
+  depts: DepartmentType[];
+  /** Inclusive created_at lower bound, "YYYY-MM-DD" or null. */
+  from?: string | null;
+  /** Inclusive created_at upper bound, "YYYY-MM-DD" or null (covers the whole day). */
+  to?: string | null;
+};
+
+/**
+ * Strip PostgREST-structural characters from a user search term so it can't
+ * corrupt or inject the `.or()` filter string (commas separate filters, parens
+ * group them, backslash escapes). The remainder is matched as a `%term%` ILIKE
+ * substring. `%` / `_` / `*` are intentionally left intact — they act as ILIKE
+ * wildcards inside the value (broadening the match), which is harmless for a
+ * search box and can't break out of the value.
+ */
+export function sanitizeSearch(raw: string): string {
+  return raw.replace(/[,()\\]/g, " ").trim();
+}
+
+/**
+ * Staff post search — all posts (pinned included, unlike the member feed),
+ * newest first, keyset-paginated by `created_at`. Composes an optional keyword
+ * (ILIKE over title + content), the department filter, and a created_at date
+ * range. Staff want every matching post, so this does not filter on `is_pinned`.
+ */
+export async function searchPosts(
+  supabase: DB,
+  {
+    q,
+    depts,
+    from,
+    to,
+    before,
+  }: PostSearchFilters & { before?: string | null },
+): Promise<FeedPage> {
+  let query = supabase
+    .from("posts")
+    .select(FEED_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(FEED_PAGE_SIZE + 1);
+
+  const term = sanitizeSearch(q ?? "");
+  if (term) query = query.or(`title.ilike.%${term}%,content.ilike.%${term}%`);
+  if (depts.length) query = query.in("department", depts);
+  // Translate the date-only bounds to UTC instants at club-time day boundaries
+  // (created_at is timestamptz) so the range matches the club's day, not the
+  // server's UTC day. `to` is an exclusive next-club-day start (no end gap).
+  if (from) query = query.gte("created_at", clubDayStartUTC(from));
+  if (to) query = query.lt("created_at", clubDayEndExclusiveUTC(to));
+  if (before) query = query.lt("created_at", before);
+
+  const { data } = await query.returns<PostRow[]>();
   const rows = data ?? [];
   const hasMore = rows.length > FEED_PAGE_SIZE;
   const pageRows = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;

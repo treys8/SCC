@@ -140,3 +140,53 @@ export function clubDatePlusDaysISO(days: number): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 }
+
+/** ms to add to a UTC instant to get club-local wall-clock (DST-aware). */
+function clubOffsetMs(utcMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CLUB_TZ,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(utcMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  // `hour` can read "24" at midnight in some engines; Date.UTC normalizes it.
+  const asLocal = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+  return asLocal - utcMs;
+}
+
+/**
+ * The UTC ISO instant of midnight *club time* on a "YYYY-MM-DD" calendar day.
+ * Use to turn a date-only filter into a `timestamptz` bound that matches the
+ * club's day rather than the server's UTC day. Club midnight never lands in the
+ * DST gap (Chicago shifts at 2 AM), so a single offset correction is exact.
+ */
+export function clubDayStartUTC(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const guess = Date.UTC(y, m - 1, d, 0, 0, 0);
+  return new Date(guess - clubOffsetMs(guess)).toISOString();
+}
+
+/**
+ * The UTC ISO instant of the *start of the next* club day after "YYYY-MM-DD" —
+ * an exclusive upper bound that covers the whole club day (no end-of-day gap).
+ */
+export function clubDayEndExclusiveUTC(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return clubDayStartUTC(
+    `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`,
+  );
+}
