@@ -14,6 +14,7 @@ import { RESERVATION_STATUSES, STATUS_LABEL } from "@/lib/constants";
 import { clubTodayISO, formatDate, formatLongDate, formatTime } from "@/lib/format";
 import {
   buildUpcomingDays,
+  fetchReservationRequiredDates,
   fetchReservationSettings,
   generateSlots,
   serviceWindowNote,
@@ -39,7 +40,10 @@ async function MemberView() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ data }, settings] = await Promise.all([
+  // The 7-day window is fixed up front so we can ask which of those dates a post
+  // has flagged "reservations required" (the exceptions to the Fri/Sat rule).
+  const baseDays = buildUpcomingDays(7);
+  const [{ data }, settings, requiredDates] = await Promise.all([
     supabase
       .from("reservations")
       .select("*")
@@ -47,10 +51,19 @@ async function MemberView() {
       .order("reservation_date", { ascending: false })
       .order("reservation_time", { ascending: false }),
     fetchReservationSettings(supabase),
+    fetchReservationRequiredDates(
+      supabase,
+      baseDays[0].iso,
+      baseDays[baseDays.length - 1].iso,
+    ),
   ]);
   const reservations = data ?? [];
   const slots = generateSlots(settings);
-  const days = buildUpcomingDays(7);
+  // Standing rule (baked into buildUpcomingDays) OR a staff-flagged exception.
+  const days = baseDays.map((d) => ({
+    ...d,
+    required: d.required || requiredDates.has(d.iso),
+  }));
 
   return (
     <div className="space-y-6">

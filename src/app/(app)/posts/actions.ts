@@ -25,6 +25,8 @@ const BUCKET = "posts";
 const TITLE_MAX = 160;
 const CONTENT_MAX = 5000;
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export type PostActionResult = { error?: string };
 
 /** Attachment metadata produced by the browser uploader (see lib/upload.ts). */
@@ -49,6 +51,9 @@ export type CreatePostInput = {
   eventId: string | null;
   /** Show a "Reserve a table" button linking to the dining reservation flow. */
   reservationCta: boolean;
+  /** When set (YYYY-MM-DD), declares reservations required for that club date —
+   * shows a badge on the post and flags the day on the booking form. */
+  reservationRequiredDate: string | null;
   attachments: AttachmentInput[];
 };
 
@@ -69,6 +74,12 @@ function sanitizeText(input: CreatePostInput) {
     isPinned: !!input.isPinned,
     eventId: input.eventId || null,
     reservationCta: !!input.reservationCta,
+    // Persist only a canonical YYYY-MM-DD; anything else becomes "no requirement".
+    reservationRequiredDate:
+      input.reservationRequiredDate &&
+      ISO_DATE.test(input.reservationRequiredDate)
+        ? input.reservationRequiredDate
+        : null,
     attachments: (input.attachments ?? []).filter(
       (a) =>
         (a.kind === "image" || a.kind === "file") && !!a.url && !!a.storage_path,
@@ -110,6 +121,7 @@ export async function createPost(
     isPinned,
     eventId,
     reservationCta,
+    reservationRequiredDate,
     attachments,
   } = sanitizeText(input);
 
@@ -129,6 +141,7 @@ export async function createPost(
       content,
       event_id: eventId,
       reservation_cta: reservationCta,
+      reservation_required_date: reservationRequiredDate,
       is_pinned: isPinned,
     })
     .select("id")
@@ -166,6 +179,7 @@ export async function updatePost(
     isPinned,
     eventId,
     reservationCta,
+    reservationRequiredDate,
     attachments,
   } = sanitizeText(input);
   const removedIds = (input.removedAttachmentIds ?? []).filter(Boolean);
@@ -204,6 +218,7 @@ export async function updatePost(
       content,
       event_id: eventId,
       reservation_cta: reservationCta,
+      reservation_required_date: reservationRequiredDate,
       is_pinned: isPinned,
     })
     .eq("id", id);

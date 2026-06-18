@@ -52,7 +52,9 @@ export function NewReservationForm({
 
   const ready = Boolean(date && time);
   const slotLabel = slots.find((s) => s.value === time)?.label;
-  const dayLabel = days.find((d) => d.iso === date)?.label;
+  const selectedDay = days.find((d) => d.iso === date);
+  const dayLabel = selectedDay?.label;
+  const selectedRequired = selectedDay?.required ?? false;
   const submitLabel = ready
     ? `Request — ${dayLabel} · ${slotLabel} · Party of ${party}`
     : "Choose a day and time";
@@ -98,10 +100,25 @@ export function NewReservationForm({
                 <span className="text-lg font-semibold leading-tight">
                   {d.day}
                 </span>
+                {d.required && (
+                  <span
+                    aria-hidden
+                    title="Reservations required"
+                    className={cn(
+                      "mt-1 h-1.5 w-1.5 rounded-full",
+                      active ? "bg-white/90" : "bg-accent",
+                    )}
+                  />
+                )}
               </button>
             );
           })}
         </div>
+        {selectedRequired && (
+          <p className="mt-2 text-sm font-medium text-accent-600">
+            Reservations required for {dayLabel}.
+          </p>
+        )}
       </fieldset>
 
       <fieldset className="mt-5">

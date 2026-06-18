@@ -74,7 +74,11 @@ export function PostCard({
       {images.length > 0 && <PostGallery images={images} />}
       {files.length > 0 && <AttachmentList files={files} />}
       {post.event && <PostEventCard event={post.event} />}
-      {post.reservation_cta && <PostReservationCta />}
+      {post.reservation_required_date ? (
+        <PostReservationRequired date={post.reservation_required_date} />
+      ) : (
+        post.reservation_cta && <PostReservationCta />
+      )}
     </>
   );
 
@@ -240,6 +244,26 @@ function PostReservationCta() {
       <Link href="/reservations" className="btn btn-primary btn-sm">
         Reserve a table <UtensilsIcon />
       </Link>
+    </div>
+  );
+}
+
+/**
+ * The firm version of the Reserve-a-table CTA: a staff-flagged night that needs
+ * a booking. Names the date and links straight to the form, so an announcement
+ * that a table is required can't be lost in the prose above.
+ */
+function PostReservationRequired({ date }: { date: string }) {
+  return (
+    <div className="mt-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
+      <p className="text-sm font-semibold text-foreground">
+        Reservations required · {formatDate(date)}
+      </p>
+      <div className="mt-2">
+        <Link href="/reservations" className="btn btn-primary btn-sm">
+          Reserve a table <UtensilsIcon />
+        </Link>
+      </div>
     </div>
   );
 }

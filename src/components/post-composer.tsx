@@ -9,7 +9,7 @@ import {
 } from "@/app/(app)/posts/actions";
 import { cn } from "@/lib/cn";
 import { CLUB_NAME, DEPARTMENTS, POST_TEMPLATES } from "@/lib/constants";
-import { formatDateShort } from "@/lib/format";
+import { clubTodayISO, formatDateShort } from "@/lib/format";
 import {
   ACCEPT_ATTR,
   classifyFile,
@@ -32,6 +32,7 @@ type ExistingPost = {
   is_pinned: boolean;
   event_id: string | null;
   reservation_cta: boolean;
+  reservation_required_date: string | null;
   attachments: PostAttachment[];
 };
 
@@ -77,6 +78,13 @@ export function PostComposer({
   const [eventId, setEventId] = useState(post?.event_id ?? "");
   const [reservationCta, setReservationCta] = useState(
     post?.reservation_cta ?? false,
+  );
+  // "Reservations required" exceptions: a checkbox that reveals the date field.
+  const [reservationRequired, setReservationRequired] = useState(
+    !!post?.reservation_required_date,
+  );
+  const [reservationRequiredDate, setReservationRequiredDate] = useState(
+    post?.reservation_required_date ?? "",
   );
   // New posts speak for the club by default; staff can switch to a personal post.
   const [asClub, setAsClub] = useState(
@@ -190,6 +198,10 @@ export function PostComposer({
       isPinned,
       eventId: eventId || null,
       reservationCta,
+      reservationRequiredDate:
+        reservationRequired && reservationRequiredDate
+          ? reservationRequiredDate
+          : null,
       attachments: uploaded,
     };
 
@@ -378,6 +390,32 @@ export function PostComposer({
         <p className="field-hint">
           Links members straight to the dining reservation form.
         </p>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={reservationRequired}
+            onChange={(e) => setReservationRequired(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          Reservations required
+        </label>
+        <p className="field-hint">
+          For a night that needs a booking (a special dinner, a Sunday lunch).
+          Friday &amp; Saturday dinner already show this automatically.
+        </p>
+        {reservationRequired && (
+          <input
+            type="date"
+            value={reservationRequiredDate}
+            min={clubTodayISO()}
+            onChange={(e) => setReservationRequiredDate(e.target.value)}
+            aria-label="Date reservations are required"
+            className="input mt-2 max-w-xs"
+          />
+        )}
       </div>
 
       <div>
