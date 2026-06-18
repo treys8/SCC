@@ -170,6 +170,7 @@ export interface Database {
           pdf_url: string | null;
           event_id: string | null;
           reservation_cta: boolean;
+          reservation_required_date: string | null;
           is_pinned: boolean;
           created_at: string;
           updated_at: string;
@@ -185,6 +186,7 @@ export interface Database {
           pdf_url?: string | null;
           event_id?: string | null;
           reservation_cta?: boolean;
+          reservation_required_date?: string | null;
           is_pinned?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -200,6 +202,7 @@ export interface Database {
           pdf_url?: string | null;
           event_id?: string | null;
           reservation_cta?: boolean;
+          reservation_required_date?: string | null;
           is_pinned?: boolean;
           created_at?: string;
           updated_at?: string;

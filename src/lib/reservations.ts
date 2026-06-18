@@ -24,6 +24,9 @@ export type DayOption = {
   weekday: string;
   day: number;
   label: string;
+  /** True when a reservation is required that day — the standing Fri/Sat rule,
+   * or a staff-flagged exception the page merges in. Drives the form's badge. */
+  required?: boolean;
 };
 
 export type BookingSettings = {
@@ -63,6 +66,19 @@ function toMinutes(t: string): number {
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
+ * The club's standing rule: dinner reservations are required Friday & Saturday.
+ * Pure day-of-week logic on the club-local calendar date — the ISO string is a
+ * wall-clock date, so `getDay()` on the local Date is the club's weekday. No
+ * storage, so it can never be forgotten. Sunday-lunch / special-occasion
+ * exceptions are layered on separately (see `fetchReservationRequiredDates`).
+ */
+export function isStandingReservationDay(iso: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // 0=Sun … 6=Sat
+  return dow === 5 || dow === 6;
+}
+
+/**
  * The next `count` calendar days starting today, computed in the club's timezone
  * so the pills don't drift to the server's TZ. Wall-clock date math (Date with
  * local components) rolls month/year boundaries correctly. Built server-side and
@@ -85,6 +101,7 @@ export function buildUpcomingDays(count: number): DayOption[] {
         month: "short",
         day: "numeric",
       }),
+      required: isStandingReservationDay(iso),
     });
   }
   return days;
@@ -152,6 +169,30 @@ export async function fetchTodaysReservation(
     .limit(1)
     .maybeSingle();
   return data;
+}
+
+/**
+ * The set of club dates in [fromISO, toISO] that staff have flagged as
+ * "reservations required" via a post — the exceptions to the standing Fri/Sat
+ * rule (e.g. a Sunday lunch). Read on the member reservations page and merged
+ * onto the day pills. Any member may read posts, so this runs as the member.
+ */
+export async function fetchReservationRequiredDates(
+  supabase: DB,
+  fromISO: string,
+  toISO: string,
+): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("posts")
+    .select("reservation_required_date")
+    .not("reservation_required_date", "is", null)
+    .gte("reservation_required_date", fromISO)
+    .lte("reservation_required_date", toISO);
+  return new Set(
+    (data ?? [])
+      .map((r) => r.reservation_required_date)
+      .filter((d): d is string => Boolean(d)),
+  );
 }
 
 /** e.g. "Seatings 5:00 PM–9:00 PM, every 30 min." */

@@ -14,6 +14,7 @@ import {
   type BookingSettings,
   fetchReservationSettings,
   fetchTodaysReservation,
+  isStandingReservationDay,
 } from "@/lib/reservations";
 import { createClient } from "@/lib/supabase/server";
 import { fetchWeather, type Weather } from "@/lib/weather";
@@ -151,18 +152,25 @@ export default async function TodayPage() {
       {(otherEvents.length > 0 || !featured) && (
         <TodayEvents events={otherEvents} />
       )}
-      <DinnerNote settings={settings} diningOpen={diningOpen} />
+      <DinnerNote
+        settings={settings}
+        diningOpen={diningOpen}
+        required={isStandingReservationDay(today)}
+      />
     </div>
   );
 }
 
-/** The dinner-service footnote — real service hours, plus a path to booking. */
+/** The dinner-service footnote — real service hours, plus a path to booking. On
+ * the club's standing reservation nights (Fri/Sat) it leads with the requirement. */
 function DinnerNote({
   settings,
   diningOpen,
+  required,
 }: {
   settings: BookingSettings;
   diningOpen: boolean;
+  required: boolean;
 }) {
   return (
     <p className="flex items-center gap-2 border-t border-border pt-6 text-sm text-muted">
@@ -173,7 +181,18 @@ function DinnerNote({
           {formatTime(settings.service_start)}–
           {formatTime(settings.service_end)}
         </span>
-        {diningOpen ? " — we're seating now. " : " — "}
+        {required ? (
+          <>
+            {" — "}
+            <span className="font-medium text-foreground">
+              reservations required tonight.
+            </span>{" "}
+          </>
+        ) : diningOpen ? (
+          " — we're seating now. "
+        ) : (
+          " — "
+        )}
         <Link href="/reservations" className="font-medium text-accent-600">
           Reserve a table →
         </Link>

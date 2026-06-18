@@ -60,6 +60,7 @@ export default async function EditPostPage({
           is_pinned: post.is_pinned,
           event_id: post.event_id,
           reservation_cta: post.reservation_cta,
+          reservation_required_date: post.reservation_required_date,
           attachments,
         }}
       />
