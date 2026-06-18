@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrunchEditor } from "@/components/brunch-editor";
 import { BuffetEditor } from "@/components/buffet-editor";
 import { DishCatalog } from "@/components/dining/dish-catalog";
 import { WeekEditor, type WeekDay } from "@/components/dining/week-editor";
@@ -15,8 +16,9 @@ export const metadata: Metadata = { title: "Dining" };
  */
 export default async function ManageDiningPage() {
   const supabase = await createClient();
-  const [buffetRes, dishesRes, weekRes] = await Promise.all([
+  const [buffetRes, brunchRes, dishesRes, weekRes] = await Promise.all([
     supabase.from("dining_buffet").select("*").maybeSingle(),
+    supabase.from("dining_brunch").select("*").maybeSingle(),
     supabase.from("dishes").select("*").order("name"),
     supabase
       .from("buffet_week")
@@ -27,6 +29,7 @@ export default async function ManageDiningPage() {
   ]);
 
   const buffet = buffetRes.data;
+  const brunch = brunchRes.data;
   const dishes = dishesRes.data ?? [];
   const week: WeekDay[] = (weekRes.data ?? []).map((d) => ({
     weekday: d.weekday,
@@ -43,7 +46,7 @@ export default async function ManageDiningPage() {
     <div className="space-y-8">
       <PageHeader
         title="Dining"
-        description="The lunch buffet members see on the Today home page — its hours, the dish catalog, and the weekly plan."
+        description="The dining members see on the Today home page — the lunch buffet (hours, dish catalog, weekly plan) and Sunday brunch."
       />
       {buffet ? (
         <BuffetEditor initial={buffet} />
@@ -54,6 +57,14 @@ export default async function ManageDiningPage() {
         />
       )}
       {week.length > 0 && <WeekEditor week={week} dishes={dishes} />}
+      {brunch ? (
+        <BrunchEditor initial={brunch} />
+      ) : (
+        <EmptyState
+          title="No brunch configured"
+          description="The Sunday brunch row hasn't been set up yet."
+        />
+      )}
       <DishCatalog dishes={dishes} />
     </div>
   );
