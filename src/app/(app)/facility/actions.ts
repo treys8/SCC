@@ -308,7 +308,7 @@ export async function setBuffet(input: BuffetInput) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Buffet row is missing.");
 
-  revalidateFacilityViews();
+  revalidateDiningViews();
 }
 
 /**
@@ -341,7 +341,7 @@ export async function setBrunch(input: BuffetInput) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Brunch row is missing.");
 
-  revalidateFacilityViews();
+  revalidateDiningViews();
 }
 
 // ── Weekly buffet: dish catalog + recurring weekday plan ─────────────────────

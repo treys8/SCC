@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { sortedAttachments } from "@/lib/feed";
 import {
+  clubTodayISO,
   formatDate,
   formatRelativeTime,
   formatTimeRange,
@@ -37,6 +38,11 @@ export function PostCard({
   const isAuthor = post.author_id === currentUserId;
   const showMenu = isAuthor || canManageAny;
   const isClub = post.author_type === "club";
+  // A "reservations required" callout is only actionable while the date is still
+  // upcoming. Once it's passed, fall back to the soft CTA (or nothing) so an old
+  // announcement doesn't keep showing a dead Reserve button for a bygone date.
+  const requiredDate = post.reservation_required_date;
+  const requiredUpcoming = requiredDate ? requiredDate >= clubTodayISO() : false;
 
   const attachments = sortedAttachments(post);
   const images = attachments.filter((a) => a.kind === "image");
@@ -74,8 +80,8 @@ export function PostCard({
       {images.length > 0 && <PostGallery images={images} />}
       {files.length > 0 && <AttachmentList files={files} />}
       {post.event && <PostEventCard event={post.event} />}
-      {post.reservation_required_date ? (
-        <PostReservationRequired date={post.reservation_required_date} />
+      {requiredUpcoming && requiredDate ? (
+        <PostReservationRequired date={requiredDate} />
       ) : (
         post.reservation_cta && <PostReservationCta />
       )}
