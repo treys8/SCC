@@ -311,6 +311,39 @@ export async function setBuffet(input: BuffetInput) {
   revalidateFacilityViews();
 }
 
+/**
+ * Staff/admin edit the single Sunday-brunch row that drives the Today page's
+ * brunch card (shown only on Sundays). Mirrors setBuffet exactly — a seeded
+ * singleton, update-only — against the dining_brunch table. Not realtime.
+ */
+export async function setBrunch(input: BuffetInput) {
+  const profile = await requireRole("staff", "admin");
+
+  const clean = {
+    title: input.title.trim().slice(0, 80) || "Sunday Brunch",
+    start_time: normalizeTime(input.start_time),
+    end_time: normalizeTime(input.end_time),
+    location: trimOrNull(input.location, 80),
+    price: trimOrNull(input.price, 40),
+    description: trimOrNull(input.description, 200),
+    walk_in: Boolean(input.walk_in),
+    active: Boolean(input.active),
+    updated_by: profile.id,
+  };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("dining_brunch")
+    .update(clean)
+    .eq("id", true)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Brunch row is missing.");
+
+  revalidateFacilityViews();
+}
+
 // ── Weekly buffet: dish catalog + recurring weekday plan ─────────────────────
 
 const DISH_NAME_MAX = 80;

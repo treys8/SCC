@@ -576,6 +576,55 @@ export interface Database {
           },
         ];
       };
+      dining_brunch: {
+        Row: {
+          id: boolean;
+          title: string;
+          start_time: string | null;
+          end_time: string | null;
+          location: string | null;
+          price: string | null;
+          description: string | null;
+          walk_in: boolean;
+          active: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          title?: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          location?: string | null;
+          price?: string | null;
+          description?: string | null;
+          walk_in?: boolean;
+          active?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          title?: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          location?: string | null;
+          price?: string | null;
+          description?: string | null;
+          walk_in?: boolean;
+          active?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dining_brunch_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       dishes: {
         Row: {
           id: string;
@@ -1097,6 +1146,9 @@ export type FacilityStatus =
   Database["public"]["Tables"]["facility_status"]["Row"];
 export type DiningBuffet =
   Database["public"]["Tables"]["dining_buffet"]["Row"];
+
+export type DiningBrunch =
+  Database["public"]["Tables"]["dining_brunch"]["Row"];
 export type Dish = Database["public"]["Tables"]["dishes"]["Row"];
 export type BuffetWeekDay =
   Database["public"]["Tables"]["buffet_week"]["Row"];

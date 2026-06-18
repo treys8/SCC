@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
+import { DiningCard } from "@/components/today/dining-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { FeaturedCard } from "@/components/today/featured-card";
@@ -8,10 +9,9 @@ import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
 import { fetchFacilityStatus } from "@/lib/facility";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatTimeRange } from "@/lib/format";
 import { memberFirstName } from "@/lib/member";
 import {
-  type BookingSettings,
   fetchReservationSettings,
   fetchTodaysReservation,
   isStandingReservationDay,
@@ -49,6 +49,7 @@ export default async function TodayPage() {
     settings,
     todaysEventsRes,
     buffetRes,
+    brunchRes,
     todayMenuRes,
     weather,
   ] = await Promise.all([
@@ -63,6 +64,7 @@ export default async function TodayPage() {
         .eq("event_date", today)
         .order("start_time", { ascending: true }),
       supabase.from("dining_buffet").select("*").maybeSingle(),
+      supabase.from("dining_brunch").select("*").maybeSingle(),
       supabase
         .from("buffet_week")
         // `main:dishes` needs the FK hint — the buffet_week_sides junction makes
@@ -85,6 +87,7 @@ export default async function TodayPage() {
     ? todaysEvents.filter((e) => e.id !== featured.id)
     : todaysEvents;
   const buffet = buffetRes.data;
+  const brunch = brunchRes.data;
   // Today's weekday plan: the chef's main + sides for this day, and whether the
   // club is closed (no buffet today). The seven rows are seeded, so a missing
   // row just means "not closed, nothing chosen yet".
@@ -100,11 +103,19 @@ export default async function TodayPage() {
 
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const diningOpen = isWithinService(
-    hour * 60 + minute,
-    settings.service_start,
-    settings.service_end,
-  );
+  // Dinner service is Fri/Sat only (and always reservations-required); brunch is
+  // Sunday. Mon–Thu show no dinner/brunch card — just the lunch buffet on its days.
+  const isDinnerNight = isStandingReservationDay(today);
+  const isBrunchDay = weekday === 7;
+  const brunchMeta = brunch
+    ? [
+        brunch.start_time && formatTimeRange(brunch.start_time, brunch.end_time),
+        brunch.location,
+        brunch.price,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null
+    : null;
   const summary = conciergeSummary(
     reservation,
     weather,
@@ -147,57 +158,29 @@ export default async function TodayPage() {
       {buffet?.active && !buffetClosed && (
         <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
       )}
+      {isDinnerNight && (
+        <DiningCard
+          eyebrow="Tonight's dinner"
+          title="Dinner service"
+          meta={formatTimeRange(settings.service_start, settings.service_end)}
+          reservation="required"
+        />
+      )}
+      {isBrunchDay && brunch?.active && (
+        <DiningCard
+          eyebrow="Sunday brunch"
+          title={brunch.title}
+          meta={brunchMeta}
+          description={brunch.description}
+          reservation={brunch.walk_in ? "walk_in" : "required"}
+        />
+      )}
       {/* Show the events list unless the day's only event is the featured one —
           then a "nothing on the calendar" empty state under the hero would lie. */}
       {(otherEvents.length > 0 || !featured) && (
         <TodayEvents events={otherEvents} />
       )}
-      <DinnerNote
-        settings={settings}
-        diningOpen={diningOpen}
-        required={isStandingReservationDay(today)}
-      />
     </div>
-  );
-}
-
-/** The dinner-service footnote — real service hours, plus a path to booking. On
- * the club's standing reservation nights (Fri/Sat) it leads with the requirement. */
-function DinnerNote({
-  settings,
-  diningOpen,
-  required,
-}: {
-  settings: BookingSettings;
-  diningOpen: boolean;
-  required: boolean;
-}) {
-  return (
-    <p className="flex items-center gap-2 border-t border-border pt-6 text-sm text-muted">
-      <span aria-hidden>📅</span>
-      <span>
-        Dinner service runs{" "}
-        <span className="font-medium text-foreground">
-          {formatTime(settings.service_start)}–
-          {formatTime(settings.service_end)}
-        </span>
-        {required ? (
-          <>
-            {" — "}
-            <span className="font-medium text-foreground">
-              reservations required tonight.
-            </span>{" "}
-          </>
-        ) : diningOpen ? (
-          " — we're seating now. "
-        ) : (
-          " — "
-        )}
-        <Link href="/reservations" className="font-medium text-accent-600">
-          Reserve a table →
-        </Link>
-      </span>
-    </p>
   );
 }
 
@@ -230,19 +213,6 @@ function clubNow(): {
     today,
     weekday: ((dow + 6) % 7) + 1,
   };
-}
-
-/** Whether `nowMinutes` (since midnight) falls in [start, end) of "HH:MM[:SS]". */
-function isWithinService(
-  nowMinutes: number,
-  start: string,
-  end: string,
-): boolean {
-  const toMin = (t: string) => {
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + (m || 0);
-  };
-  return nowMinutes >= toMin(start) && nowMinutes < toMin(end);
 }
 
 /**
