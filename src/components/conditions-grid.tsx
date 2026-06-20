@@ -51,7 +51,9 @@ export function ConditionsGrid({
         )}
       </div>
 
-      <div className="card overflow-hidden">
+      {/* Mobile: one card, a divided row per facility. Desktop (`lg`): the card
+          dissolves into a 2×2 grid of self-bordered tiles. */}
+      <div className="card overflow-hidden lg:grid lg:grid-cols-2 lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
         {rows.map((f, i) => (
           <ConditionRow key={f.facility} facility={f} divided={i > 0} />
         ))}
@@ -79,8 +81,10 @@ function ConditionRow({
     <Link
       href={`/facility/${facility.facility}`}
       className={cn(
-        "flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface-2 sm:px-5",
+        "flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-surface-2 sm:px-5",
         divided && "border-t border-border/60",
+        // Desktop tile: each row gets its own bordered, rounded card.
+        "lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:px-4 lg:py-3.5 lg:shadow-sm",
       )}
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -98,7 +102,7 @@ function ConditionRow({
       <svg
         aria-hidden
         viewBox="0 0 24 24"
-        className="h-4 w-4 shrink-0 text-muted"
+        className="h-4 w-4 shrink-0 text-muted lg:hidden"
         fill="none"
         stroke="currentColor"
         strokeWidth={2}
