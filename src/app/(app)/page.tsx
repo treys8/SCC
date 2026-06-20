@@ -129,77 +129,59 @@ export default async function TodayPage() {
   // (quick on mobile); members see the read-only conditions cards.
   const canManage = profile ? isStaff(profile.role) : false;
 
-  // The rail's contents (right column on desktop). Show the events list unless
-  // the day's only event is the featured one — then a "nothing on the calendar"
-  // empty state would lie. When nothing here is on, there's no rail at all and
-  // the main column goes full-width (no dead 320px gutter).
-  const showBuffet = Boolean(buffet?.active && !buffetClosed);
-  const showBrunch = Boolean(isBrunchDay && brunch?.active);
-  const showEvents = otherEvents.length > 0 || !featured;
-  const hasRail = showBuffet || isDinnerNight || showBrunch || showEvents;
-
-  // Desktop is a two-column dashboard: the state of the club on the left
-  // (greeting, highlight, conditions), what's on today in a fixed rail on the
-  // right (dining + events). Below `lg` it collapses to a single column in this
-  // same source order — hero → featured → conditions → dining → events — so the
-  // phone layout is unchanged but for tighter vertical rhythm.
+  // A single full-width column, top to bottom: hero → featured → conditions
+  // (a 2×2 tile grid on desktop, see ConditionsGrid) → today's dining services
+  // → the day's events. Tighter vertical rhythm than the phone default.
   return (
-    <div
-      className={
-        hasRail ? "lg:grid lg:grid-cols-[1fr_20rem] lg:items-start lg:gap-8" : ""
-      }
-    >
-      <div className="space-y-6 sm:space-y-8">
-        <TodayHero
-          firstName={firstName}
-          dateISO={today}
-          greeting={greeting}
-          summary={summary}
-          weather={weather}
+    <div className="space-y-6 sm:space-y-8">
+      <TodayHero
+        firstName={firstName}
+        dateISO={today}
+        greeting={greeting}
+        summary={summary}
+        weather={weather}
+      />
+      {featured && <FeaturedCard event={featured} />}
+      {canManage ? (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-h2 text-foreground">Conditions</h2>
+            <Link
+              href="/manage/conditions"
+              className="shrink-0 text-sm font-medium text-accent-600"
+            >
+              Edit details →
+            </Link>
+          </div>
+          <FacilityStatusWidget initial={facilities} canManage />
+        </section>
+      ) : (
+        <ConditionsGrid facilities={facilities} />
+      )}
+      {buffet?.active && !buffetClosed && (
+        <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
+      )}
+      {isDinnerNight && (
+        <DiningCard
+          eyebrow="Tonight's dinner"
+          title="Dinner service"
+          meta={formatTimeRange(settings.service_start, settings.service_end)}
+          reservation="required"
         />
-        {featured && <FeaturedCard event={featured} />}
-        {canManage ? (
-          <section className="space-y-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-h2 text-foreground">Conditions</h2>
-              <Link
-                href="/manage/conditions"
-                className="shrink-0 text-sm font-medium text-accent-600"
-              >
-                Edit details →
-              </Link>
-            </div>
-            <FacilityStatusWidget initial={facilities} canManage />
-          </section>
-        ) : (
-          <ConditionsGrid facilities={facilities} />
-        )}
-      </div>
-
-      {hasRail && (
-        <div className="mt-6 space-y-6 sm:mt-8 sm:space-y-8 lg:mt-0">
-          {showBuffet && (
-            <BuffetCard buffet={buffet!} main={buffetMain} sides={buffetSides} />
-          )}
-          {isDinnerNight && (
-            <DiningCard
-              eyebrow="Tonight's dinner"
-              title="Dinner service"
-              meta={formatTimeRange(settings.service_start, settings.service_end)}
-              reservation="required"
-            />
-          )}
-          {showBrunch && (
-            <DiningCard
-              eyebrow="Sunday brunch"
-              title={brunch!.title}
-              meta={brunchMeta}
-              description={brunch!.description}
-              reservation={brunch!.walk_in ? "walk_in" : "required"}
-            />
-          )}
-          {showEvents && <TodayEvents events={otherEvents} />}
-        </div>
+      )}
+      {isBrunchDay && brunch?.active && (
+        <DiningCard
+          eyebrow="Sunday brunch"
+          title={brunch.title}
+          meta={brunchMeta}
+          description={brunch.description}
+          reservation={brunch.walk_in ? "walk_in" : "required"}
+        />
+      )}
+      {/* Show the events list unless the day's only event is the featured one —
+          then a "nothing on the calendar" empty state under the hero would lie. */}
+      {(otherEvents.length > 0 || !featured) && (
+        <TodayEvents events={otherEvents} />
       )}
     </div>
   );
