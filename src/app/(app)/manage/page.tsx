@@ -72,8 +72,14 @@ const TILES: Tile[] = [
   {
     href: "/manage/dining",
     title: "Dining",
-    description: "Today's lunch buffet card members see on the home page.",
+    description: "Buffet, brunch, dishes, and the member Dining page sections.",
     icon: <ForkIcon />,
+  },
+  {
+    href: "/manage/pool",
+    title: "Pool page",
+    description: "Hours, season, and guest rules on the member Pool page.",
+    icon: <WavesIcon />,
   },
   {
     href: "/calendar/new",
@@ -231,6 +237,16 @@ function ForkIcon({ className }: IconProps) {
     <svg {...base(className)}>
       <path d="M5 3v8a3 3 0 0 0 6 0V3M8 3v18" />
       <path d="M17 3c-1.5 1-2 3-2 5s.5 3 2 3v10" />
+    </svg>
+  );
+}
+
+function WavesIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <path d="M2 8c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2 2 2 4 2" />
+      <path d="M2 13c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2 2 2 4 2" />
+      <path d="M2 18c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2 2 2 4 2" />
     </svg>
   );
 }

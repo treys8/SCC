@@ -21,8 +21,9 @@ export function SiteNav({
     { href: "/posts", label: "Feed" },
     { href: "/reservations", label: "Reservations" },
     { href: "/calendar", label: "Calendar" },
-    { href: "/menu", label: "Menus" },
-    // Pool info, newsletters, and forms still live in the document library.
+    { href: "/dining", label: "Dining" },
+    { href: "/pool", label: "Pool" },
+    // Newsletters, forms, and menu/pool PDFs live in the document library.
     { href: "/documents", label: "Documents" },
   ];
   // Members reach the front office via Contact; staff have the inbox instead

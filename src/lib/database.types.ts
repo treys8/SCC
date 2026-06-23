@@ -831,6 +831,46 @@ export interface Database {
         };
         Relationships: [];
       };
+      page_sections: {
+        Row: {
+          id: string;
+          page: string;
+          heading: string;
+          body: string;
+          sort_order: number;
+          is_published: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          page: string;
+          heading: string;
+          body?: string;
+          sort_order?: number;
+          is_published?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          page?: string;
+          heading?: string;
+          body?: string;
+          sort_order?: number;
+          is_published?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "page_sections_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       club_info: {
         Row: {
           id: boolean;
@@ -1162,6 +1202,10 @@ export type ClubInfo = Database["public"]["Tables"]["club_info"]["Row"];
 export type ClubSettings =
   Database["public"]["Tables"]["club_settings"]["Row"];
 export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
+export type PageSection =
+  Database["public"]["Tables"]["page_sections"]["Row"];
+/** The member info pages that page_sections content is scoped to. */
+export type SectionPage = "dining" | "pool";
 export type ContactMessage =
   Database["public"]["Tables"]["contact_messages"]["Row"];
 export type Account = Database["public"]["Tables"]["accounts"]["Row"];
