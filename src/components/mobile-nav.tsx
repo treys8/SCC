@@ -101,6 +101,23 @@ export function MobileNav({
             </div>
 
             <nav className="flex flex-col gap-1 p-3">
+              {/* Search isn't in the shared `links` (desktop uses a header icon
+                  instead of a text link), so add it explicitly here. */}
+              <Link
+                href="/search"
+                onClick={() => setOpen(false)}
+                aria-current={
+                  pathname.startsWith("/search") ? "page" : undefined
+                }
+                className={cn(
+                  "flex min-h-11 items-center rounded-md px-3 text-sm font-medium transition-colors",
+                  pathname.startsWith("/search")
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-background",
+                )}
+              >
+                Search
+              </Link>
               {links.map((link) => {
                 const active =
                   link.href === "/"

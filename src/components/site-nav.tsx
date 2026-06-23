@@ -59,6 +59,13 @@ export function SiteNav({
         <NavLinks links={links} className="ml-4 hidden md:flex" />
 
         <div className="ml-auto flex items-center gap-3">
+          <Link
+            href="/search"
+            aria-label="Search"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-background"
+          >
+            <SearchIcon />
+          </Link>
           <NotificationBell count={unreadCount} />
           {/* Phones: a direct profile shortcut (the drawer covers sign-out). */}
           <Link
@@ -93,4 +100,23 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
 }

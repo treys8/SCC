@@ -105,6 +105,13 @@ const TILES: Tile[] = [
     description: "Invite members and assign account numbers.",
     icon: <KeyIcon />,
   },
+  {
+    href: "/manage/analytics",
+    title: "Adoption",
+    description: "See who's signed in and how members are using the app.",
+    icon: <ChartIcon />,
+    adminOnly: true,
+  },
 ];
 
 export default async function ManagePage() {
@@ -284,6 +291,15 @@ function KeyIcon({ className }: IconProps) {
     <svg {...base(className)}>
       <circle cx="8" cy="8" r="4" />
       <path d="m11 11 8 8M16 16l2-2M19 19l2-2" />
+    </svg>
+  );
+}
+
+function ChartIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <path d="M4 4v16h16" />
+      <path d="M8 16v-4M12 16V8M16 16v-6" />
     </svg>
   );
 }
