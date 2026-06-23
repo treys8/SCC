@@ -755,6 +755,28 @@ export interface Database {
           },
         ];
       };
+      member_activity: {
+        Row: {
+          user_id: string;
+          last_seen_at: string;
+        };
+        Insert: {
+          user_id: string;
+          last_seen_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          last_seen_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_activity_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       push_subscriptions: {
         Row: {
           id: string;
@@ -1157,6 +1179,11 @@ export interface Database {
         Args: { p_departments: DepartmentType[] };
         Returns: undefined;
       };
+      /** Refresh the caller's last-seen heartbeat (self-throttled to ~15 min). */
+      touch_last_seen: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
     };
     Enums: {
       user_role: UserRole;
@@ -1196,6 +1223,8 @@ export type MemberDepartmentPreference =
   Database["public"]["Tables"]["member_department_preferences"]["Row"];
 export type PushSubscriptionRow =
   Database["public"]["Tables"]["push_subscriptions"]["Row"];
+export type MemberActivity =
+  Database["public"]["Tables"]["member_activity"]["Row"];
 export type StaffMember =
   Database["public"]["Tables"]["staff_directory"]["Row"];
 export type ClubInfo = Database["public"]["Tables"]["club_info"]["Row"];

@@ -141,6 +141,15 @@ export function clubDatePlusDaysISO(days: number): string {
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 }
 
+/**
+ * UTC ISO instant of `days` ago from now — a timestamptz lower bound for
+ * "active since" windows (compare directly against a timestamptz column, both
+ * being ISO-8601 UTC). Lives here so callers don't read the clock during render.
+ */
+export function instantDaysAgoISO(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
 /** ms to add to a UTC instant to get club-local wall-clock (DST-aware). */
 function clubOffsetMs(utcMs: number): number {
   const parts = new Intl.DateTimeFormat("en-US", {

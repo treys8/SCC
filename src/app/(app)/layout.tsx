@@ -12,13 +12,22 @@ export default async function AppLayout({
 }) {
   const profile = await requireProfile();
 
-  // Unread notification count powers the nav bell badge.
   const supabase = await createClient();
-  const { count } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", profile.id)
-    .eq("is_read", false);
+  // Unread notification count powers the nav bell badge; the heartbeat records
+  // this visit for the adoption dashboard (self-throttled to ~15 min in the DB,
+  // so calling it on every page load is cheap). Run both together — the
+  // heartbeat is best-effort and swallows failures so it can never break a page.
+  const [{ count }] = await Promise.all([
+    supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", profile.id)
+      .eq("is_read", false),
+    supabase.rpc("touch_last_seen").then(
+      () => undefined,
+      () => undefined,
+    ),
+  ]);
 
   return (
     // Reserve space at the bottom on phones so the fixed tab bar never covers
