@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { InviteMemberForm } from "@/components/invite-member-form";
 import { MembersTable } from "@/components/members-table";
 import { PageHeader } from "@/components/page-header";
@@ -45,6 +46,11 @@ export default async function MembersPage() {
           admin
             ? "Invite new members, assign account numbers, and manage roles."
             : "Invite new members and assign account numbers."
+        }
+        action={
+          <Link href="/members/import" className="btn btn-outline btn-sm">
+            Import from CSV
+          </Link>
         }
       />
       <InviteMemberForm isAdmin={admin} titles={titles ?? []} accounts={accounts} />
