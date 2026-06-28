@@ -4,9 +4,17 @@ import Link from "next/link";
 import { FacilityStatusBadge } from "@/components/badges";
 import { FacilityIcon } from "@/components/facility-icon";
 import { FACILITY_LABEL } from "@/lib/constants";
-import { formatRelativeTime, formatTimestamp } from "@/lib/format";
+import {
+  formatDateShort,
+  formatRelativeTime,
+  formatTimestamp,
+} from "@/lib/format";
 import { useLiveFacilityStatus } from "@/lib/use-live-facility-status";
-import type { FacilityStatus, FacilityType } from "@/lib/database.types";
+import type {
+  FacilityStatus,
+  FacilityType,
+  UpcomingGolfEvent,
+} from "@/lib/database.types";
 
 /**
  * Read-only member view of one facility's conditions: status badge, the optional
@@ -17,9 +25,11 @@ import type { FacilityStatus, FacilityType } from "@/lib/database.types";
 export function FacilityDetailView({
   initial,
   type,
+  upcoming = [],
 }: {
   initial: FacilityStatus[];
   type: FacilityType;
+  upcoming?: UpcomingGolfEvent[];
 }) {
   const [rows] = useLiveFacilityStatus(initial);
   const facility = rows.find((r) => r.facility === type);
@@ -83,6 +93,44 @@ export function FacilityDetailView({
         <p className="card p-5 text-sm text-muted">
           No additional details right now.
         </p>
+      )}
+
+      {upcoming.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-h2 text-foreground">Upcoming on the course</h2>
+          <ul className="space-y-3">
+            {upcoming.map((ev) => (
+              <li
+                key={ev.id}
+                className="card flex items-start gap-4 p-4 sm:px-5"
+              >
+                <span className="mt-0.5 w-14 shrink-0 text-sm font-semibold text-accent-600">
+                  {formatDateShort(ev.event_date)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {ev.title}
+                  </p>
+                  {ev.schedule_note && (
+                    <p className="mt-0.5 text-caption text-muted">
+                      {ev.schedule_note}
+                    </p>
+                  )}
+                </div>
+                {ev.registration_url && (
+                  <a
+                    href={ev.registration_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline btn-sm shrink-0"
+                  >
+                    Register
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

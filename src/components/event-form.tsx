@@ -47,6 +47,7 @@ export function EventForm({
     event?.registration_url ?? "",
   );
   const [fee, setFee] = useState(event?.fee ?? "");
+  const [scheduleNote, setScheduleNote] = useState(event?.schedule_note ?? "");
   const [isHighlight, setIsHighlight] = useState(event?.is_highlight ?? false);
   // Create-only: optionally fan a linked announcement out to the Feed.
   const [alsoPostToFeed, setAlsoPostToFeed] = useState(false);
@@ -237,6 +238,25 @@ export function EventForm({
             placeholder="$50 per player"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="label" htmlFor="schedule_note">
+          Schedule note <span className="text-muted">(optional)</span>
+        </label>
+        <input
+          id="schedule_note"
+          name="schedule_note"
+          type="text"
+          value={scheduleNote}
+          onChange={(e) => setScheduleNote(e.target.value)}
+          className="input"
+          placeholder="Field full · 162/162"
+        />
+        <p className="field-hint">
+          Shown on the Golf page&apos;s season schedule — e.g. &ldquo;Field full ·
+          162/162&rdquo; or &ldquo;Registration opens Jul 21&rdquo;.
+        </p>
       </div>
 
       <div>

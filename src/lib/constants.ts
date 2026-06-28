@@ -39,6 +39,13 @@ export const POST_TEMPLATES: PostTemplate[] = [
     asClub: true,
     body: "Good Morning!\n\nHere is your blue plate menu for the week:\n\nTuesday– \n\nWednesday– \n\nThursday– \n\nFriday– \n\nHave a great week!",
   },
+  {
+    key: "golf_preview",
+    label: "Weekly Golf Preview",
+    department: "golf",
+    asClub: true,
+    body: "Good morning SCC members,\n\n\n\nThis week on the course\n– \n\nUpcoming events\nThe full season schedule lives on the Golf page. \n\nFrom the golf shop\n– \n\nCourse notes\n– \n\nSee you out there,\n",
+  },
 ];
 
 export const DEPARTMENT_LABEL: Record<DepartmentType, string> = {
