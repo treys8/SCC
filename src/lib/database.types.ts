@@ -338,6 +338,7 @@ export interface Database {
           department: DepartmentType | null;
           registration_url: string | null;
           fee: string | null;
+          schedule_note: string | null;
           cover_image_url: string | null;
           is_highlight: boolean;
           created_by: string | null;
@@ -354,6 +355,7 @@ export interface Database {
           department?: DepartmentType | null;
           registration_url?: string | null;
           fee?: string | null;
+          schedule_note?: string | null;
           cover_image_url?: string | null;
           is_highlight?: boolean;
           created_by?: string | null;
@@ -370,6 +372,7 @@ export interface Database {
           department?: DepartmentType | null;
           registration_url?: string | null;
           fee?: string | null;
+          schedule_note?: string | null;
           cover_image_url?: string | null;
           is_highlight?: boolean;
           created_by?: string | null;
@@ -1203,6 +1206,11 @@ export type PostAttachment =
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
 export type CalendarEvent =
   Database["public"]["Tables"]["calendar_events"]["Row"];
+/** Narrow projection for the Golf page's "Upcoming on the course" schedule. */
+export type UpcomingGolfEvent = Pick<
+  CalendarEvent,
+  "id" | "title" | "event_date" | "start_time" | "schedule_note" | "registration_url"
+>;
 export type DiningTable =
   Database["public"]["Tables"]["dining_tables"]["Row"];
 export type ReservationSettings =

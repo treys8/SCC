@@ -63,6 +63,7 @@ function parseEvent(formData: FormData) {
       department: VALID.has(deptRaw) ? (deptRaw as DepartmentType) : null,
       registration_url: registration.url,
       fee: String(formData.get("fee") ?? "").trim() || null,
+      schedule_note: String(formData.get("schedule_note") ?? "").trim() || null,
       cover_image_url: postsPublicUrl(String(formData.get("cover_image_url") ?? "")),
       is_highlight: formData.get("is_highlight") === "on",
     },
