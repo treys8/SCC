@@ -1,0 +1,50 @@
+# Publishes due scheduled posts every 5 minutes.
+#
+# Why this lives here and not in vercel.json: the Vercel Hobby plan only allows
+# cron jobs that run at most once per day, so a `*/5 * * * *` Vercel Cron is
+# rejected at deploy time. This GitHub Actions schedule pings the same endpoint
+# instead, keeping 5-minute scheduling granularity on the free plan.
+#
+# The endpoint (src/app/api/cron/publish-scheduled-posts/route.ts) self-guards
+# with a constant-time `Authorization: Bearer <CRON_SECRET>` check, so this
+# workflow just needs the secret.
+#
+# Setup (one time):
+#   - Add a repo secret CRON_SECRET matching the value in Vercel's env vars:
+#       gh secret set CRON_SECRET
+#   - (optional) override the target with a repo variable PROD_URL if the
+#     production domain ever changes.
+#
+# Note: GitHub's scheduled runs are best-effort and can be delayed several
+# minutes under load — acceptable for feed-post publishing.
+
+name: Publish scheduled posts
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping publish-scheduled-posts endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PROD_URL: ${{ vars.PROD_URL || 'https://scc-ten-rose.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — cannot authenticate."
+            exit 1
+          fi
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$PROD_URL/api/cron/publish-scheduled-posts")
+          echo "HTTP $code"
+          cat /tmp/body
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::Publish endpoint returned $code (expected 200)."
+            exit 1
+          fi
