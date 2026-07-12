@@ -114,7 +114,7 @@ export function GolfLogEntry({
           <img
             src={entry.photo_url}
             alt="Log photo"
-            className="max-h-48 rounded-lg border border-border object-cover"
+            className="max-h-48 max-w-full rounded-lg border border-border object-cover"
           />
         </a>
       )}
