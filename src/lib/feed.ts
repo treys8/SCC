@@ -12,6 +12,7 @@ import type {
   FeedPost,
   Post,
   PostAuthor,
+  PostStatus,
 } from "@/lib/database.types";
 
 export const FEED_PAGE_SIZE = 10;
@@ -74,6 +75,10 @@ export async function fetchPinnedPosts(
     .from("posts")
     .select(FEED_SELECT)
     .eq("is_pinned", true)
+    // Members only see published posts. RLS already enforces this; the explicit
+    // filter keeps the query self-documenting and correct for staff sessions
+    // (who can read drafts) viewing the member feed.
+    .eq("status", "published")
     .order("created_at", { ascending: false });
   if (depts.length) q = q.in("department", depts);
   const { data } = await q.returns<PostRow[]>();
@@ -92,6 +97,8 @@ export async function fetchFeedPage(
     .from("posts")
     .select(FEED_SELECT)
     .eq("is_pinned", false)
+    // See fetchPinnedPosts: members only see published posts.
+    .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(FEED_PAGE_SIZE + 1);
   if (depts.length) q = q.in("department", depts);
@@ -114,6 +121,8 @@ export type PostSearchFilters = {
   from?: string | null;
   /** Inclusive created_at upper bound, "YYYY-MM-DD" or null (covers the whole day). */
   to?: string | null;
+  /** Lifecycle filter; omit/null for all statuses (draft + scheduled + published). */
+  status?: PostStatus | null;
 };
 
 /**
@@ -141,6 +150,7 @@ export async function searchPosts(
     depts,
     from,
     to,
+    status,
     before,
   }: PostSearchFilters & { before?: string | null },
 ): Promise<FeedPage> {
@@ -153,6 +163,7 @@ export async function searchPosts(
   const term = sanitizeSearch(q ?? "");
   if (term) query = query.or(`title.ilike.%${term}%,content.ilike.%${term}%`);
   if (depts.length) query = query.in("department", depts);
+  if (status) query = query.eq("status", status);
   // Translate the date-only bounds to UTC instants at club-time day boundaries
   // (created_at is timestamptz) so the range matches the club's day, not the
   // server's UTC day. `to` is an exclusive next-club-day start (no end gap).

@@ -7,9 +7,14 @@ import {
   updatePost,
   type AttachmentInput,
 } from "@/app/(app)/posts/actions";
+import { PostCard } from "@/components/post-card";
 import { cn } from "@/lib/cn";
 import { CLUB_NAME, DEPARTMENTS, POST_TEMPLATES } from "@/lib/constants";
-import { clubTodayISO, formatDateShort } from "@/lib/format";
+import {
+  clubLocalInputValue,
+  clubTodayISO,
+  formatDateShort,
+} from "@/lib/format";
 import {
   ACCEPT_ATTR,
   classifyFile,
@@ -18,9 +23,13 @@ import {
 } from "@/lib/upload";
 import type {
   AttachmentKind,
+  CalendarEvent,
   DepartmentType,
+  FeedPost,
   PostAttachment,
+  PostAuthor,
   PostAuthorType,
+  PostStatus,
 } from "@/lib/database.types";
 
 type ExistingPost = {
@@ -33,11 +42,28 @@ type ExistingPost = {
   event_id: string | null;
   reservation_cta: boolean;
   reservation_required_date: string | null;
+  status: PostStatus;
+  publish_at: string | null;
   attachments: PostAttachment[];
 };
 
-/** The events a post can link to, listed in the composer's selector. */
-export type EventOption = { id: string; title: string; event_date: string };
+/**
+ * The events a post can link to. Carries the fields the live PostEventCard reads
+ * so the composer preview can render the real event card, not an approximation.
+ */
+export type EventOption = {
+  id: string;
+  title: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  fee: string | null;
+  registration_url: string | null;
+};
+
+/** Lifecycle intent chosen at submit time. */
+type SubmitIntent = "publish" | "draft" | "schedule";
 
 /** Seed values for a fresh post duplicated from an existing one ("use as
  * template"). Text/category/voice only — attachments are not carried over. */
@@ -60,13 +86,19 @@ export function PostComposer({
   post,
   initial,
   events = [],
+  previewAuthor,
 }: {
   userId: string;
   post?: ExistingPost;
   initial?: InitialPost;
   events?: EventOption[];
+  /** The signed-in staffer's display fields, for the preview byline. */
+  previewAuthor: PostAuthor;
 }) {
   const isEdit = !!post;
+  // A published post is live; keep its editor simple ("Save changes"). New posts
+  // and drafts/scheduled posts get the full publish / draft / schedule choice.
+  const canScheduleFlow = !post || post.status !== "published";
 
   // Field precedence: editing an existing post > duplicate seed > blank defaults.
   const [department, setDepartment] = useState<DepartmentType>(
@@ -91,6 +123,18 @@ export function PostComposer({
     post ? post.author_type === "club" : initial?.asClub ?? true,
   );
 
+  // Edit vs. live preview (renders the real member-facing card).
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
+
+  // Scheduling: a disclosure revealing a datetime picker. Pre-open + pre-fill
+  // when editing an already-scheduled post so its time shows for adjustment.
+  const [scheduleOpen, setScheduleOpen] = useState(post?.status === "scheduled");
+  const [scheduleAt, setScheduleAt] = useState(
+    post?.publish_at ? clubLocalInputValue(post.publish_at) : "",
+  );
+
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+
   // Built-in starter templates (new posts only). Applying one overwrites the
   // category, body, and voice; the author then fills in the blanks.
   function applyTemplate(key: string) {
@@ -99,6 +143,57 @@ export function PostComposer({
     setDepartment(tpl.department);
     setContent(tpl.body);
     setAsClub(tpl.asClub);
+  }
+
+  // Markdown toolbar: wrap the current selection (or a placeholder) with syntax
+  // and restore the selection so the author can keep typing.
+  function surroundSelection(before: string, after: string, placeholder: string) {
+    const ta = contentRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const e = ta.selectionEnd;
+    const chosen = content.slice(s, e) || placeholder;
+    const next = content.slice(0, s) + before + chosen + after + content.slice(e);
+    setContent(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const from = s + before.length;
+      ta.setSelectionRange(from, from + chosen.length);
+    });
+  }
+
+  function insertLink() {
+    const ta = contentRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const e = ta.selectionEnd;
+    const label = content.slice(s, e) || "link text";
+    const snippet = `[${label}](https://)`;
+    setContent(content.slice(0, s) + snippet + content.slice(e));
+    requestAnimationFrame(() => {
+      ta.focus();
+      // Drop the caret inside the empty (…) so the author types the URL next.
+      const urlStart = s + label.length + 3; // "[" + label + "]("
+      ta.setSelectionRange(urlStart, urlStart + "https://".length);
+    });
+  }
+
+  function bulletList() {
+    const ta = contentRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const e = ta.selectionEnd;
+    const lineStart = content.lastIndexOf("\n", s - 1) + 1;
+    const block = content.slice(lineStart, e);
+    const listed = block
+      .split("\n")
+      .map((l) => (l.trim() ? `- ${l}` : l))
+      .join("\n");
+    setContent(content.slice(0, lineStart) + listed + content.slice(e));
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(lineStart, lineStart + listed.length);
+    });
   }
 
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -156,8 +251,7 @@ export function PostComposer({
     setRemovedIds((prev) => new Set(prev).add(id));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(intent: SubmitIntent) {
     if (submitting) return;
     setError(null);
 
@@ -168,6 +262,18 @@ export function PostComposer({
       keptExisting.length > 0;
     if (!hasSomething) {
       setError("Add a title, some text, or at least one attachment.");
+      return;
+    }
+
+    // A draft can be empty-of-schedule; a scheduled post needs a time.
+    const status: PostStatus =
+      intent === "draft"
+        ? "draft"
+        : intent === "schedule"
+          ? "scheduled"
+          : "published";
+    if (status === "scheduled" && !scheduleAt) {
+      setError("Pick a date and time to schedule this post.");
       return;
     }
 
@@ -202,6 +308,8 @@ export function PostComposer({
         reservationRequired && reservationRequiredDate
           ? reservationRequiredDate
           : null,
+      status,
+      publishAt: status === "scheduled" ? scheduleAt : null,
       attachments: uploaded,
     };
 
@@ -219,8 +327,97 @@ export function PostComposer({
     }
   }
 
+  // Assemble a member-facing post from the live form state for the preview tab —
+  // draft image attachments use their local object URLs; the linked event is the
+  // selected option cast to the shape PostEventCard reads.
+  const previewAttachments: PostAttachment[] = [
+    ...keptExisting,
+    ...drafts.map((d, i) => ({
+      id: d.localId,
+      post_id: "preview",
+      kind: d.kind,
+      url: d.previewUrl ?? "#",
+      storage_path: "",
+      file_name: d.file.name,
+      mime_type: d.file.type || null,
+      size_bytes: d.file.size,
+      width: null,
+      height: null,
+      position: 1_000 + i,
+      created_at: "",
+    })),
+  ];
+  const selectedEvent = events.find((ev) => ev.id === eventId) ?? null;
+  const previewPost: FeedPost = {
+    id: "preview",
+    author_id: "preview",
+    author_type: asClub ? "club" : "member",
+    department,
+    title: title.trim() || null,
+    content: content.trim(),
+    image_url: null,
+    pdf_url: null,
+    event_id: eventId || null,
+    reservation_cta: reservationCta,
+    reservation_required_date:
+      reservationRequired && reservationRequiredDate
+        ? reservationRequiredDate
+        : null,
+    is_pinned: isPinned,
+    status: "published",
+    publish_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    post_attachments: previewAttachments,
+    author: previewAuthor,
+    event: selectedEvent
+      ? (selectedEvent as unknown as CalendarEvent)
+      : null,
+  };
+
+  const busyLabel = uploadingName ? "Uploading…" : "Saving…";
+
   return (
-    <form onSubmit={handleSubmit} className="card space-y-5 p-5 sm:p-6">
+    <form
+      onSubmit={(e) => e.preventDefault()}
+      className="card space-y-5 p-5 sm:p-6"
+    >
+      {/* Edit / Preview tabs */}
+      <div
+        role="tablist"
+        aria-label="Compose or preview"
+        className="flex gap-1 rounded-lg bg-surface-2 p-1"
+      >
+        {(["edit", "preview"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={mode === m}
+            onClick={() => setMode(m)}
+            className={cn(
+              "flex-1 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition",
+              mode === m
+                ? "bg-surface text-foreground shadow-sm"
+                : "text-muted hover:text-foreground",
+            )}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
+      {mode === "preview" && (
+        <div>
+          <PostCard post={previewPost} currentUserId="" canManageAny={false} />
+          <p className="field-hint mt-3">
+            This is how members will see the post. Attachments show your local
+            copies until you publish.
+          </p>
+        </div>
+      )}
+
+      <div className={cn("space-y-5", mode === "preview" && "hidden")}>
       {!isEdit && POST_TEMPLATES.length > 0 && (
         <div>
           <label className="label" htmlFor="template">
@@ -271,14 +468,32 @@ export function PostComposer({
         <label className="label" htmlFor="content">
           What&rsquo;s the update?
         </label>
+        <div className="mb-1.5 flex flex-wrap gap-1">
+          <ToolbarButton label="Bold" onClick={() => surroundSelection("**", "**", "bold text")}>
+            <span className="font-bold">B</span>
+          </ToolbarButton>
+          <ToolbarButton label="Italic" onClick={() => surroundSelection("_", "_", "italic text")}>
+            <span className="italic">I</span>
+          </ToolbarButton>
+          <ToolbarButton label="Link" onClick={insertLink}>
+            Link
+          </ToolbarButton>
+          <ToolbarButton label="Bulleted list" onClick={bulletList}>
+            • List
+          </ToolbarButton>
+        </div>
         <textarea
           id="content"
+          ref={contentRef}
           className="textarea min-h-32"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           maxLength={5000}
           placeholder="Share news, photos, or a document with members…"
         />
+        <p className="field-hint">
+          Formatting: **bold**, _italic_, [links](https://…), and - lists.
+        </p>
       </div>
 
       <div>
@@ -442,24 +657,101 @@ export function PostComposer({
         />
         Pin to top of feed
       </label>
+      </div>
+
+      {/* Scheduling (not offered for an already-live post) */}
+      {canScheduleFlow && (
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              checked={scheduleOpen}
+              onChange={(e) => setScheduleOpen(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            Schedule for later
+          </label>
+          <p className="field-hint">
+            Save it now; it goes live automatically at the time you pick.
+          </p>
+          {scheduleOpen && (
+            <input
+              type="datetime-local"
+              value={scheduleAt}
+              min={clubLocalInputValue(new Date().toISOString())}
+              onChange={(e) => setScheduleAt(e.target.value)}
+              aria-label="Publish date and time"
+              className="input mt-2 max-w-xs"
+            />
+          )}
+        </div>
+      )}
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <div className="flex items-center gap-3">
-        <button type="submit" disabled={submitting} className="btn btn-primary">
-          {submitting
-            ? uploadingName
-              ? "Uploading…"
-              : "Publishing…"
-            : isEdit
-              ? "Save changes"
-              : "Publish"}
-        </button>
+      <div className="flex flex-wrap items-center gap-3">
+        {canScheduleFlow && scheduleOpen ? (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSubmit("schedule")}
+            className="btn btn-primary"
+          >
+            {submitting ? busyLabel : "Schedule"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSubmit("publish")}
+            className="btn btn-primary"
+          >
+            {submitting
+              ? busyLabel
+              : isEdit && !canScheduleFlow
+                ? "Save changes"
+                : "Publish now"}
+          </button>
+        )}
+
+        {canScheduleFlow && (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSubmit("draft")}
+            className="btn btn-outline"
+          >
+            Save as draft
+          </button>
+        )}
+
         <Link href="/posts" className="btn btn-ghost">
           Cancel
         </Link>
       </div>
     </form>
+  );
+}
+
+function ToolbarButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="rounded border border-border bg-surface px-2.5 py-1 text-sm text-foreground/80 transition hover:bg-surface-2 hover:text-foreground"
+    >
+      {children}
+    </button>
   );
 }
 
