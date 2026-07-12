@@ -4,7 +4,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { DEPARTMENTS } from "@/lib/constants";
-import type { DepartmentType } from "@/lib/database.types";
+import type { DepartmentType, PostStatus } from "@/lib/database.types";
+
+const STATUS_TABS: { value: PostStatus | ""; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "published", label: "Published" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "draft", label: "Drafts" },
+];
 
 /**
  * Staff post-search controls: a debounced keyword box, multi-select department
@@ -17,11 +24,13 @@ export function ManagePostsSearch({
   depts,
   from,
   to,
+  status,
 }: {
   q: string;
   depts: DepartmentType[];
   from: string;
   to: string;
+  status: PostStatus | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,7 +85,7 @@ export function ManagePostsSearch({
     router.replace(pathname, { scroll: false });
   }
 
-  const hasFilters = !!(keyword || depts.length || from || to);
+  const hasFilters = !!(keyword || depts.length || from || to || status);
 
   return (
     <div className="card space-y-3 p-4">
@@ -90,6 +99,33 @@ export function ManagePostsSearch({
           aria-label="Search posts"
           className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
         />
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Filter by status"
+        className="flex flex-wrap gap-1 rounded-lg bg-surface-2 p-1"
+      >
+        {STATUS_TABS.map((t) => {
+          const active = (status ?? "") === t.value;
+          return (
+            <button
+              key={t.value || "all"}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setParam("status", t.value)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                active
+                  ? "bg-surface text-foreground shadow-sm"
+                  : "text-muted hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-2">

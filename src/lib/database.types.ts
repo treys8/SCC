@@ -30,6 +30,7 @@ export type ReservationStatus =
 export type AttachmentKind = "image" | "file";
 /** Whose voice a feed post is in: the club ("official") or an individual member. */
 export type PostAuthorType = "club" | "member";
+export type PostStatus = "draft" | "scheduled" | "published";
 export type FacilityType = "golf" | "pool" | "tennis" | "driving_range";
 export type FacilityStatusType =
   | "open"
@@ -172,6 +173,8 @@ export interface Database {
           reservation_cta: boolean;
           reservation_required_date: string | null;
           is_pinned: boolean;
+          status: PostStatus;
+          publish_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -188,6 +191,8 @@ export interface Database {
           reservation_cta?: boolean;
           reservation_required_date?: string | null;
           is_pinned?: boolean;
+          status?: PostStatus;
+          publish_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -204,6 +209,8 @@ export interface Database {
           reservation_cta?: boolean;
           reservation_required_date?: string | null;
           is_pinned?: boolean;
+          status?: PostStatus;
+          publish_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -10,12 +10,14 @@ import {
   type FeedPage,
   type PostSearchFilters,
 } from "@/lib/feed";
+import { clubLocalToInstantUTC } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { postsObjectUrl, postsPublicUrl } from "@/lib/url";
 import type {
   DepartmentType,
   FeedPost,
   PostAuthorType,
+  PostStatus,
 } from "@/lib/database.types";
 
 const BUCKET = "posts";
@@ -54,6 +56,10 @@ export type CreatePostInput = {
   /** When set (YYYY-MM-DD), declares reservations required for that club date —
    * shows a badge on the post and flags the day on the booking form. */
   reservationRequiredDate: string | null;
+  /** Lifecycle intent: publish now, save privately, or schedule for later. */
+  status: PostStatus;
+  /** For status "scheduled": club wall-clock "YYYY-MM-DDTHH:mm" to go live. */
+  publishAt: string | null;
   attachments: AttachmentInput[];
 };
 
@@ -85,6 +91,28 @@ function sanitizeText(input: CreatePostInput) {
         (a.kind === "image" || a.kind === "file") && !!a.url && !!a.storage_path,
     ),
   };
+}
+
+/**
+ * Resolve the lifecycle intent into the columns to persist. Coerces an unknown
+ * status to "published" (the safe default), and for "scheduled" converts the
+ * club-local datetime to a UTC instant, requiring it to be in the future.
+ */
+function resolvePublishState(
+  input: Pick<CreatePostInput, "status" | "publishAt">,
+): { status: PostStatus; publishAt: string | null } | { error: string } {
+  const status: PostStatus =
+    input.status === "draft" || input.status === "scheduled"
+      ? input.status
+      : "published";
+  if (status !== "scheduled") return { status, publishAt: null };
+
+  const iso = input.publishAt ? clubLocalToInstantUTC(input.publishAt) : null;
+  if (!iso) return { error: "Pick a date and time to schedule this post." };
+  if (new Date(iso).getTime() <= Date.now()) {
+    return { error: "Schedule a time in the future." };
+  }
+  return { status, publishAt: iso };
 }
 
 function attachmentRows(
@@ -129,6 +157,9 @@ export async function createPost(
     return { error: "Add a title, some text, or at least one attachment." };
   }
 
+  const state = resolvePublishState(input);
+  if ("error" in state) return state;
+
   const supabase = await createClient();
 
   const { data: post, error: postError } = await supabase
@@ -143,6 +174,8 @@ export async function createPost(
       reservation_cta: reservationCta,
       reservation_required_date: reservationRequiredDate,
       is_pinned: isPinned,
+      status: state.status,
+      publish_at: state.publishAt,
     })
     .select("id")
     .single();
@@ -163,7 +196,10 @@ export async function createPost(
 
   revalidatePath("/posts");
   revalidatePath("/");
-  redirect("/posts");
+  revalidatePath("/manage/posts");
+  // A live post lands on the member feed; a draft or scheduled post lives in the
+  // staff console until it goes out.
+  redirect(state.status === "published" ? "/posts" : "/manage/posts");
 }
 
 export async function updatePost(
@@ -188,7 +224,7 @@ export async function updatePost(
 
   const { data: existing } = await supabase
     .from("posts")
-    .select("id, author_id")
+    .select("id, author_id, status")
     .eq("id", id)
     .single();
   if (!existing) return { error: "Announcement not found." };
@@ -197,6 +233,14 @@ export async function updatePost(
   if (!isStaff(profile.role) && existing.author_id !== profile.id) {
     return { error: "You can only edit your own posts." };
   }
+
+  const state = resolvePublishState(input);
+  if ("error" in state) return state;
+  // Feed order is keyset on created_at, so a draft/scheduled post that now goes
+  // live must jump to the top — bump created_at only on the transition *into*
+  // published (editing an already-live post must not reshuffle the feed).
+  const goingLive =
+    existing.status !== "published" && state.status === "published";
 
   const { data: current } = await supabase
     .from("post_attachments")
@@ -220,6 +264,9 @@ export async function updatePost(
       reservation_cta: reservationCta,
       reservation_required_date: reservationRequiredDate,
       is_pinned: isPinned,
+      status: state.status,
+      publish_at: state.publishAt,
+      ...(goingLive ? { created_at: new Date().toISOString() } : {}),
     })
     .eq("id", id);
   if (upError) return { error: upError.message };
@@ -247,7 +294,8 @@ export async function updatePost(
 
   revalidatePath("/posts");
   revalidatePath("/");
-  redirect("/posts");
+  revalidatePath("/manage/posts");
+  redirect(state.status === "published" ? "/posts" : "/manage/posts");
 }
 
 export async function deletePost(id: string) {

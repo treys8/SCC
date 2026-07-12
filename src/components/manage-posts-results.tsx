@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { loadMoreSearchPosts } from "@/app/(app)/posts/actions";
 import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { formatTimestamp } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import type { FeedPost } from "@/lib/database.types";
 import type { PostSearchFilters } from "@/lib/feed";
 
@@ -60,6 +61,22 @@ export function ManagePostsResults({
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-caption font-medium text-primary">
                     {DEPARTMENT_LABEL[post.department]}
                   </span>
+                  {post.status !== "published" && (
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-caption font-medium",
+                        post.status === "draft"
+                          ? "bg-surface-2 text-muted"
+                          : "bg-accent/10 text-accent-600",
+                      )}
+                    >
+                      {post.status === "draft"
+                        ? "Draft"
+                        : post.publish_at
+                          ? `Scheduled · ${formatTimestamp(post.publish_at)}`
+                          : "Scheduled"}
+                    </span>
+                  )}
                   {post.is_pinned && (
                     <span className="rounded-full bg-warning-soft px-2 py-0.5 text-caption font-medium text-warning-strong">
                       Pinned

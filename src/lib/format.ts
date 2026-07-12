@@ -188,6 +188,42 @@ export function clubDayStartUTC(dateStr: string): string {
 }
 
 /**
+ * Convert a `<input type="datetime-local">` value ("YYYY-MM-DDTHH:mm", read as
+ * club wall-clock) to a UTC ISO instant for storage in a timestamptz column.
+ * Same single-offset correction as clubDayStartUTC; returns null if unparseable.
+ * (A time landing in the 2 AM DST-forward gap is not representable in club time
+ * anyway — a non-issue for scheduling an announcement.)
+ */
+/**
+ * Format a UTC ISO instant as a club wall-clock "YYYY-MM-DDTHH:mm" value for a
+ * `<input type="datetime-local">` — the inverse of clubLocalToInstantUTC. Used to
+ * pre-fill the schedule picker when editing an already-scheduled post.
+ */
+export function clubLocalInputValue(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLUB_TZ,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  // Some engines render midnight hour as "24"; normalize to "00".
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+}
+
+export function clubLocalToInstantUTC(dtLocal: string): string | null {
+  const m = dtLocal.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d, h, min] = m.map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, min, 0);
+  return new Date(guess - clubOffsetMs(guess)).toISOString();
+}
+
+/**
  * The UTC ISO instant of the *start of the next* club day after "YYYY-MM-DD" —
  * an exclusive upper bound that covers the whole club day (no end-of-day gap).
  */

@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { DEPARTMENTS } from "@/lib/constants";
 import { searchPosts } from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
-import type { DepartmentType } from "@/lib/database.types";
+import type { DepartmentType, PostStatus } from "@/lib/database.types";
 
 export const metadata: Metadata = { title: "Posts" };
 
@@ -26,6 +26,11 @@ function parseDate(raw?: string): string {
   return raw && DATE_RE.test(raw) ? raw : "";
 }
 
+const STATUSES = new Set<string>(["draft", "scheduled", "published"]);
+function parseStatus(raw?: string): PostStatus | null {
+  return raw && STATUSES.has(raw) ? (raw as PostStatus) : null;
+}
+
 /**
  * Staff post search & management. Reads the keyword / department / date-range
  * filters from the URL, runs `searchPosts`, and hands the first page to the
@@ -36,20 +41,27 @@ function parseDate(raw?: string): string {
 export default async function ManagePostsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; dept?: string; from?: string; to?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    dept?: string;
+    from?: string;
+    to?: string;
+    status?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const depts = parseDepts(sp.dept);
   const from = parseDate(sp.from);
   const to = parseDate(sp.to);
+  const status = parseStatus(sp.status);
 
-  const filters = { q, depts, from: from || null, to: to || null };
+  const filters = { q, depts, from: from || null, to: to || null, status };
 
   const supabase = await createClient();
   const page = await searchPosts(supabase, { ...filters, before: null });
 
-  const hasFilters = !!(q || depts.length || from || to);
+  const hasFilters = !!(q || depts.length || from || to || status);
 
   return (
     <div className="space-y-6">
@@ -58,7 +70,13 @@ export default async function ManagePostsPage({
         description="Search every announcement; open one to edit, re-pin, or update it."
       />
 
-      <ManagePostsSearch q={q} depts={depts} from={from} to={to} />
+      <ManagePostsSearch
+        q={q}
+        depts={depts}
+        from={from}
+        to={to}
+        status={status}
+      />
 
       {page.posts.length === 0 ? (
         <EmptyState
@@ -72,7 +90,7 @@ export default async function ManagePostsPage({
       ) : (
         <ManagePostsResults
           // Re-key on filter change so the loaded-pages state resets cleanly.
-          key={`${q}|${depts.join(",")}|${from}|${to}`}
+          key={`${q}|${depts.join(",")}|${from}|${to}|${status ?? ""}`}
           initialPosts={page.posts}
           initialCursor={page.nextCursor}
           filters={filters}

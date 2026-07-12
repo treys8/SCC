@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { PostComposer, type InitialPost } from "@/components/post-composer";
-import { requireRole } from "@/lib/auth";
+import { getTitleName, requireRole } from "@/lib/auth";
 import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,12 +13,19 @@ export default async function NewPostPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const profile = await requireRole("staff", "admin");
+  const previewAuthor = {
+    full_name: profile.display_name ?? profile.full_name,
+    avatar_url: profile.avatar_url,
+    title: await getTitleName(),
+  };
 
   // Upcoming events a post can link to (renders their Register button inline).
   const supabase = await createClient();
   const { data: events } = await supabase
     .from("calendar_events")
-    .select("id, title, event_date")
+    .select(
+      "id, title, event_date, start_time, end_time, location, fee, registration_url",
+    )
     .gte("event_date", clubTodayISO())
     .order("event_date", { ascending: true });
 
@@ -50,6 +57,7 @@ export default async function NewPostPage({
         userId={profile.id}
         events={events ?? []}
         initial={initial}
+        previewAuthor={previewAuthor}
       />
     </div>
   );

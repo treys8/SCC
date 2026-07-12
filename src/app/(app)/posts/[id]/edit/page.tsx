@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { PostComposer } from "@/components/post-composer";
-import { isStaff, requireRole } from "@/lib/auth";
+import { getTitleName, isStaff, requireRole } from "@/lib/auth";
 import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { PostAttachment } from "@/lib/database.types";
@@ -39,11 +39,19 @@ export default async function EditPostPage({
   const today = clubTodayISO();
   const eventsQuery = supabase
     .from("calendar_events")
-    .select("id, title, event_date");
+    .select(
+      "id, title, event_date, start_time, end_time, location, fee, registration_url",
+    );
   const { data: events } = await (post.event_id
     ? eventsQuery.or(`event_date.gte.${today},id.eq.${post.event_id}`)
     : eventsQuery.gte("event_date", today)
   ).order("event_date", { ascending: true });
+
+  const previewAuthor = {
+    full_name: profile.display_name ?? profile.full_name,
+    avatar_url: profile.avatar_url,
+    title: await getTitleName(),
+  };
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -51,6 +59,7 @@ export default async function EditPostPage({
       <PostComposer
         userId={profile.id}
         events={events ?? []}
+        previewAuthor={previewAuthor}
         post={{
           id: post.id,
           department: post.department,
@@ -61,6 +70,8 @@ export default async function EditPostPage({
           event_id: post.event_id,
           reservation_cta: post.reservation_cta,
           reservation_required_date: post.reservation_required_date,
+          status: post.status,
+          publish_at: post.publish_at,
           attachments,
         }}
       />

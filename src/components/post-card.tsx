@@ -3,6 +3,7 @@ import { AttachmentList } from "@/components/attachment-list";
 import { DepartmentBadge, DEPARTMENT_ACCENT } from "@/components/badges";
 import { DateChip } from "@/components/calendar/date-chip";
 import { RegisterLink } from "@/components/event-card";
+import { Markdown } from "@/components/markdown";
 import { PostActions } from "@/components/post-actions";
 import { PostGallery } from "@/components/post-gallery";
 import { cn } from "@/lib/cn";
@@ -73,9 +74,9 @@ export function PostCard({
         </h3>
       )}
       {post.content && (
-        <p className="mt-2.5 whitespace-pre-wrap break-words text-body text-foreground/90">
-          {post.content}
-        </p>
+        <div className="mt-2.5">
+          <Markdown>{post.content}</Markdown>
+        </div>
       )}
       {images.length > 0 && <PostGallery images={images} />}
       {files.length > 0 && <AttachmentList files={files} />}
