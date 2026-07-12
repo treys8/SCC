@@ -133,7 +133,7 @@ export function NewReservationForm({
                 onClick={() => setTime(s.value)}
                 aria-pressed={active}
                 className={cn(
-                  "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
+                  "flex min-h-11 items-center justify-center rounded-lg border px-2 py-2 text-sm font-medium transition-colors sm:min-h-0",
                   active
                     ? "border-primary bg-primary text-white"
                     : "border-border bg-surface text-foreground hover:border-primary",
