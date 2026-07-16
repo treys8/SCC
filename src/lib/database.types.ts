@@ -638,6 +638,43 @@ export interface Database {
           },
         ];
       };
+      reservation_waitlist: {
+        Row: {
+          id: string;
+          member_id: string;
+          reservation_date: string;
+          reservation_time: string;
+          party_size: number;
+          created_at: string;
+          notified_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          reservation_date: string;
+          reservation_time: string;
+          party_size: number;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          member_id?: string;
+          reservation_date?: string;
+          reservation_time?: string;
+          party_size?: number;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reservation_waitlist_member_id_fkey";
+            columns: ["member_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       dining_service_overrides: {
         Row: {
           date: string;
@@ -1253,6 +1290,19 @@ export interface Database {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      /** How full each seating is, for the booking form's "Full · waitlist"
+       * chips. Aggregates only — never who booked. */
+      get_slot_availability: {
+        Args: { p_dates: string[] };
+        Returns: {
+          slot_date: string;
+          slot_time: string;
+          res_count: number;
+          cover_count: number;
+          max_res: number;
+          max_covers: number;
+        }[];
+      };
     };
     Enums: {
       user_role: UserRole;
@@ -1270,6 +1320,11 @@ export type Post = Database["public"]["Tables"]["posts"]["Row"];
 export type PostAttachment =
   Database["public"]["Tables"]["post_attachments"]["Row"];
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
+export type ReservationWaitlistEntry =
+  Database["public"]["Tables"]["reservation_waitlist"]["Row"];
+/** One seating's fullness, as returned by get_slot_availability. */
+export type SlotAvailability =
+  Database["public"]["Functions"]["get_slot_availability"]["Returns"][number];
 export type CalendarEvent =
   Database["public"]["Tables"]["calendar_events"]["Row"];
 /** Narrow projection for the Golf page's "Upcoming on the course" schedule. */

@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/badges";
 import { CancelReservationButton } from "@/components/cancel-reservation-button";
 import { ChartDateNav } from "@/components/chart-date-nav";
 import { EmptyState } from "@/components/empty-state";
+import { LeaveWaitlistButton } from "@/components/leave-waitlist-button";
 import {
   NewReservationForm,
   type DayDetail,
@@ -23,8 +24,10 @@ import {
 import { clubTodayISO, formatDate, formatLongDate, formatTime } from "@/lib/format";
 import {
   buildUpcomingDays,
+  fetchMyWaitlist,
   fetchReservationRequiredDates,
   fetchReservationSettings,
+  fetchSlotAvailability,
   generateSlots,
   serviceWindowNote,
 } from "@/lib/reservations";
@@ -55,19 +58,31 @@ async function MemberView() {
   const baseDays = buildUpcomingDays(7);
   const firstISO = baseDays[0].iso;
   const lastISO = baseDays[baseDays.length - 1].iso;
-  const [{ data }, settings, requiredDates, overrides, weeklyClosed] =
-    await Promise.all([
-      supabase
-        .from("reservations")
-        .select("*")
-        .eq("member_id", profile.id)
-        .order("reservation_date", { ascending: false })
-        .order("reservation_time", { ascending: false }),
-      fetchReservationSettings(supabase),
-      fetchReservationRequiredDates(supabase, firstISO, lastISO),
-      fetchServiceOverrides(supabase, firstISO, lastISO),
-      fetchWeeklyClosedWeekdays(supabase),
-    ]);
+  const [
+    { data },
+    settings,
+    requiredDates,
+    overrides,
+    weeklyClosed,
+    availability,
+    myWaitlist,
+  ] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select("*")
+      .eq("member_id", profile.id)
+      .order("reservation_date", { ascending: false })
+      .order("reservation_time", { ascending: false }),
+    fetchReservationSettings(supabase),
+    fetchReservationRequiredDates(supabase, firstISO, lastISO),
+    fetchServiceOverrides(supabase, firstISO, lastISO),
+    fetchWeeklyClosedWeekdays(supabase),
+    fetchSlotAvailability(
+      supabase,
+      baseDays.map((d) => d.iso),
+    ),
+    fetchMyWaitlist(supabase, profile.id),
+  ]);
   const reservations = data ?? [];
 
   // Decorate each pill with its dining status, and give each date its own slot
@@ -113,7 +128,36 @@ async function MemberView() {
         title="Reservations"
         description="Request a table and track your reservations."
       />
-      <NewReservationForm days={days} details={dayDetails} />
+      <NewReservationForm
+        days={days}
+        details={dayDetails}
+        availability={Object.fromEntries(availability)}
+      />
+
+      {myWaitlist.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-h2 text-foreground">You&rsquo;re waiting on</h2>
+          <div className="card divide-y divide-border">
+            {myWaitlist.map((w) => (
+              <div key={w.id} className="flex items-start gap-4 p-4">
+                <DateBlock iso={w.reservation_date} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">
+                    {formatTime(w.reservation_time)} · Party of {w.party_size}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    That seating is full. We&rsquo;ll let you know if a table
+                    opens up — first come, first served.
+                  </p>
+                  <div className="mt-2">
+                    <LeaveWaitlistButton id={w.id} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 text-h2 text-foreground">
@@ -209,8 +253,8 @@ async function StaffView({
     .order("reservation_time", { ascending: true });
   if (status) queueQuery = queueQuery.eq("status", status);
 
-  const [{ data: queueData }, { data: chartData }, settings] = await Promise.all(
-    [
+  const [{ data: queueData }, { data: chartData }, settings, { data: waiting }] =
+    await Promise.all([
       queueQuery,
       supabase
         .from("reservations")
@@ -219,10 +263,16 @@ async function StaffView({
         .eq("status", "confirmed")
         .order("reservation_time", { ascending: true }),
       fetchReservationSettings(supabase),
-    ],
-  );
+      // Staff read all waitlist rows (RLS), so the chart can show the demand a
+      // full night is turning away.
+      supabase
+        .from("reservation_waitlist")
+        .select("id, party_size")
+        .eq("reservation_date", chartDate),
+    ]);
   const reservations = queueData ?? [];
   const chartReservations = chartData ?? [];
+  const waitingCount = (waiting ?? []).length;
 
   // One name lookup covering both sets.
   const memberIds = [
@@ -274,6 +324,12 @@ async function StaffView({
             <p className="text-sm text-muted">
               {covers} {covers === 1 ? "cover" : "covers"} · {chartRows.length}{" "}
               {chartRows.length === 1 ? "table" : "tables"}
+              {waitingCount > 0 && (
+                <span className="text-accent-600">
+                  {" "}
+                  · {waitingCount} waiting
+                </span>
+              )}
             </p>
           </div>
           {chartRows.length === 0 ? (
