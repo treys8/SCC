@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers, sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -76,6 +76,15 @@ export async function createReservation(
   });
   if (error) return { error: error.message };
 
+  // They got the table they were waiting for — drop the waiting entry so it
+  // can't page them again. Best-effort: never fail a booking over housekeeping.
+  await supabase
+    .from("reservation_waitlist")
+    .delete()
+    .eq("member_id", profile.id)
+    .eq("reservation_date", date)
+    .eq("reservation_time", time);
+
   revalidatePath("/reservations");
   return { success: true };
 }
@@ -86,13 +95,16 @@ export async function cancelReservation(id: string) {
   const supabase = await createClient();
   // .select() so an RLS no-op (a non-owned or stale id matches 0 rows) surfaces
   // as an error instead of a false success — matching deletePost/togglePin.
+  // The date/time come back so we can offer the seat to anyone waiting on it.
   const { data, error } = await supabase
     .from("reservations")
     .update({ status: "cancelled" })
     .eq("id", id)
-    .select("id");
+    .select("id, reservation_date, reservation_time");
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("Reservation not found.");
+
+  await notifyWaitlistIfFreed(data[0].reservation_date, data[0].reservation_time);
   revalidatePath("/reservations");
 }
 
@@ -172,6 +184,11 @@ export async function setReservationStatus(
     console.error("reservation notification failed:", e);
   }
 
+  // Declining or cancelling hands the seat back — offer it to anyone waiting.
+  if (status === "declined" || status === "cancelled") {
+    await notifyWaitlistIfFreed(row.reservation_date, row.reservation_time);
+  }
+
   revalidatePath("/reservations");
 }
 
@@ -219,6 +236,10 @@ export async function acceptProposedTime(id: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
 
+  // No waitlist notification here: the row is 'declined', which stopped
+  // consuming capacity the moment it was declined (the trigger ignores
+  // non-active statuses) — so the original slot was already handed back then.
+  // Accepting takes capacity at the new slot; it frees nothing.
   revalidatePath("/reservations");
 }
 
@@ -320,4 +341,140 @@ async function notifyStatusChange(
     url: "/reservations",
     tag: `reservation-${row.id}`,
   });
+}
+
+// ── Waitlist ────────────────────────────────────────────────────────────────
+
+export type WaitlistState = { error?: string; success?: boolean };
+
+/**
+ * Join the waitlist for a seating that's already full. Validated exactly like a
+ * booking — a member shouldn't be able to wait on a day the club is closed, or
+ * on a time that isn't a real seating.
+ */
+export async function joinWaitlist(
+  _prev: WaitlistState,
+  formData: FormData,
+): Promise<WaitlistState> {
+  const profile = await requireProfile();
+
+  const date = String(formData.get("reservation_date") ?? "");
+  const time = String(formData.get("reservation_time") ?? "");
+  const partySize = Number(formData.get("party_size") ?? 0);
+
+  if (!date || !time) return { error: "Choose a date and time." };
+  if (!Number.isInteger(partySize) || partySize < 1) {
+    return { error: "Party size must be at least 1." };
+  }
+  if (partySize > MAX_PARTY_SIZE) {
+    return { error: `Party size can be at most ${MAX_PARTY_SIZE}.` };
+  }
+
+  const supabase = await createClient();
+  const [settings, override, weeklyClosed] = await Promise.all([
+    fetchReservationSettings(supabase),
+    fetchServiceOverride(supabase, date),
+    fetchWeeklyClosedWeekdays(supabase),
+  ]);
+  const dayError = validateBookingDay(date, weeklyClosed, override);
+  if (dayError) return { error: dayError };
+  const slotError = validateBookingSlot(
+    effectiveBookingSettings(settings, override),
+    date,
+    time,
+  );
+  if (slotError) return { error: slotError };
+
+  const { error } = await supabase.from("reservation_waitlist").insert({
+    member_id: profile.id,
+    reservation_date: date,
+    reservation_time: time,
+    party_size: partySize,
+  });
+  if (error) {
+    // The (member, date, time) unique index — they're already waiting.
+    if (error.code === "23505") {
+      return { error: "You're already on the waitlist for that seating." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/reservations");
+  return { success: true };
+}
+
+/** Leave the waitlist (RLS scopes the delete to the owner). */
+export async function leaveWaitlist(id: string) {
+  await requireProfile();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reservation_waitlist")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Waitlist entry not found.");
+  revalidatePath("/reservations");
+}
+
+/**
+ * A seating just freed up — tell everyone waiting on it.
+ *
+ * Everyone is notified at once and the first to book wins: the capacity trigger
+ * serializes the race on its per-slot advisory lock, so the club can't oversell
+ * however many members tap at the same moment. At club scale that beats an
+ * auto-assign or a held table, and needs no timers.
+ *
+ * Rows are claimed (notified_at) before sending, so a second freeing won't
+ * re-notify someone who's already been told — they either booked, or they know.
+ *
+ * Best-effort: never let a notification failure surface as a failed cancel or
+ * decline that the caller has already completed.
+ */
+async function notifyWaitlistIfFreed(date: string, time: string) {
+  try {
+    const admin = createAdminClient();
+
+    // Is there actually room now? A decline on a slot that's still full (two
+    // parties were over cap) shouldn't tell anyone to come running.
+    const { data: avail } = await admin.rpc("get_slot_availability", {
+      p_dates: [date],
+    });
+    const slot = (avail ?? []).find(
+      (s) => s.slot_time.slice(0, 5) === time.slice(0, 5),
+    );
+    if (!slot) return;
+    const tablesLeft = slot.max_res - slot.res_count;
+    const coversLeft = slot.max_covers - slot.cover_count;
+    if (tablesLeft <= 0 || coversLeft <= 0) return;
+
+    const { data: claimed, error } = await admin
+      .from("reservation_waitlist")
+      .update({ notified_at: new Date().toISOString() })
+      .eq("reservation_date", date)
+      .eq("reservation_time", time)
+      .is("notified_at", null)
+      .select("member_id, party_size");
+    if (error) {
+      console.error("waitlist claim failed:", error.message);
+      return;
+    }
+    // Only tell the members whose party actually fits in what opened up.
+    const ids = (claimed ?? [])
+      .filter((w) => w.party_size <= coversLeft)
+      .map((w) => w.member_id);
+    if (ids.length === 0) return;
+
+    await notifyUsers(ids, {
+      type: "reservation",
+      title: "A table just opened up",
+      body: `${formatDate(date)} at ${formatTime(
+        time,
+      )} has space again — first come, first served.`,
+      link: "/reservations",
+      tag: `waitlist-${date}-${time}`,
+    });
+  } catch (e) {
+    console.error("notifyWaitlistIfFreed failed:", e);
+  }
 }
