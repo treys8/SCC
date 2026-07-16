@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DepartmentType,
+  DiningOverrideKind,
   DishKind,
   FacilityDetail,
   FacilityStatusType,
@@ -489,4 +490,123 @@ export async function setDishActive(id: string, active: boolean) {
   if (error) throw new Error(error.message);
 
   revalidateDiningViews();
+}
+
+// ── Dining service overrides: closures & special days ────────────────────────
+
+const OVERRIDE_NAME_MAX = 80;
+const OVERRIDE_DESCRIPTION_MAX = 300;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export type ServiceOverrideInput = {
+  date: string;
+  kind: DiningOverrideKind;
+  name: string | null;
+  description: string | null;
+  serviceStart: string | null;
+  serviceEnd: string | null;
+  maxReservationsPerSlot: number | null;
+  maxCoversPerSlot: number | null;
+  reservationsRequired: boolean;
+};
+
+/** A cap of 0 is meaningful (closed to bookings); only reject junk. */
+const normalizeCap = (n: number | null) =>
+  typeof n === "number" && Number.isInteger(n) && n >= 0 ? n : null;
+
+/**
+ * Create or update the override for a date (the date is the key, so this is a
+ * plain upsert). A 'closed' day keeps no hours or caps — they'd be meaningless,
+ * and leaving stale ones behind would resurface if staff flip it to 'special'.
+ */
+export async function upsertServiceOverride(input: ServiceOverrideInput) {
+  const profile = await requireRole("staff", "admin");
+
+  if (!ISO_DATE_RE.test(input.date)) throw new Error("Choose a valid date.");
+  const kind: DiningOverrideKind =
+    input.kind === "closed" ? "closed" : "special";
+  const isClosed = kind === "closed";
+
+  const start = isClosed ? null : normalizeTime(input.serviceStart);
+  const end = isClosed ? null : normalizeTime(input.serviceEnd);
+  // The DB has the same check; catch it here so staff get a sentence, not a raise.
+  if (start && end && start >= end) {
+    throw new Error("Service has to end after it starts.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("dining_service_overrides").upsert(
+    {
+      date: input.date,
+      kind,
+      name: trimOrNull(input.name, OVERRIDE_NAME_MAX),
+      description: trimOrNull(input.description, OVERRIDE_DESCRIPTION_MAX),
+      service_start: start,
+      service_end: end,
+      max_reservations_per_slot: isClosed
+        ? null
+        : normalizeCap(input.maxReservationsPerSlot),
+      max_covers_per_slot: isClosed ? null : normalizeCap(input.maxCoversPerSlot),
+      reservations_required: !isClosed && Boolean(input.reservationsRequired),
+      updated_by: profile.id,
+    },
+    { onConflict: "date" },
+  );
+  if (error) throw new Error(error.message);
+
+  revalidateDiningViews();
+  revalidatePath("/reservations");
+}
+
+/** Drop an override — the date reverts to the derived schedule. */
+export async function deleteServiceOverride(date: string) {
+  await requireRole("staff", "admin");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("dining_service_overrides")
+    .delete()
+    .eq("date", date);
+  if (error) throw new Error(error.message);
+
+  revalidateDiningViews();
+  revalidatePath("/reservations");
+}
+
+/** The weekdays the club is closed every week (ISO: 1=Mon … 7=Sun). */
+export async function setWeeklyClosedWeekdays(weekdays: number[]) {
+  const profile = await requireRole("staff", "admin");
+
+  const clean = [
+    ...new Set(
+      (weekdays ?? []).filter((n) => Number.isInteger(n) && n >= 1 && n <= 7),
+    ),
+  ].sort((a, b) => a - b);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("club_settings")
+    .update({ weekly_closed_weekdays: clean, updated_by: profile.id })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+
+  revalidateDiningViews();
+  revalidatePath("/reservations");
+}
+
+/**
+ * How many active reservations already sit on a date — so the editor can warn
+ * before staff close a day (or cut its caps) that members have booked. The
+ * trigger blocks new/changed bookings but never touches existing rows, so those
+ * have to be resolved by hand.
+ */
+export async function countActiveReservationsOn(date: string): Promise<number> {
+  await requireRole("staff", "admin");
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("reservations")
+    .select("id", { count: "exact", head: true })
+    .eq("reservation_date", date)
+    .in("status", ["pending", "confirmed"]);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }

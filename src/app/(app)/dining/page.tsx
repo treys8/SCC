@@ -7,7 +7,12 @@ import { PageHeader } from "@/components/page-header";
 import { SectionsView } from "@/components/sections-view";
 import { DiningCard } from "@/components/today/dining-card";
 import { requireProfile } from "@/lib/auth";
-import { clubTodayISO, formatTimeRange } from "@/lib/format";
+import {
+  clubTodayISO,
+  clubWeekday,
+  formatLongDate,
+  formatTimeRange,
+} from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { PageSection } from "@/lib/database.types";
 
@@ -22,8 +27,14 @@ export default async function DiningPage() {
   await requireProfile();
   const supabase = await createClient();
 
-  const [sectionsRes, buffetRes, brunchRes, weekRes, menuDocsRes] =
-    await Promise.all([
+  const [
+    sectionsRes,
+    buffetRes,
+    brunchRes,
+    weekRes,
+    menuDocsRes,
+    overridesRes,
+  ] = await Promise.all([
       supabase
         .from("page_sections")
         .select("*")
@@ -47,6 +58,14 @@ export default async function DiningPage() {
         .eq("is_published", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false }),
+      // The next few exceptions to the usual week — a member checking the
+      // dining page should find out about a closure before they drive over.
+      supabase
+        .from("dining_service_overrides")
+        .select("*")
+        .gte("date", clubTodayISO())
+        .order("date")
+        .limit(5),
     ]);
 
   const sections = (sectionsRes.data ?? []) as PageSection[];
@@ -66,7 +85,7 @@ export default async function DiningPage() {
       .filter((n): n is string => Boolean(n)),
   }));
 
-  const todayWeekday = clubWeekday();
+  const todayWeekday = clubWeekday(clubTodayISO());
 
   const buffetMeta = buffet
     ? [
@@ -87,8 +106,14 @@ export default async function DiningPage() {
         .join(" · ") || null
     : null;
 
+  const upcoming = overridesRes.data ?? [];
+
   const hasAnything =
-    sections.length > 0 || days.length > 0 || brunch?.active || menuDocs.length > 0;
+    sections.length > 0 ||
+    days.length > 0 ||
+    brunch?.active ||
+    menuDocs.length > 0 ||
+    upcoming.length > 0;
 
   return (
     <div className="space-y-8">
@@ -103,6 +128,35 @@ export default async function DiningPage() {
       />
 
       <SectionsView sections={sections} />
+
+      {upcoming.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-h2 text-foreground">Coming up</h2>
+          <div className="space-y-3">
+            {upcoming.map((o) => (
+              <DiningCard
+                key={o.date}
+                eyebrow={formatLongDate(o.date)}
+                title={
+                  o.name ??
+                  (o.kind === "closed" ? "Dining room closed" : "A special service")
+                }
+                meta={
+                  o.kind === "special" && o.service_start
+                    ? formatTimeRange(o.service_start, o.service_end)
+                    : null
+                }
+                description={o.description}
+                reservation={
+                  o.kind === "special" && o.reservations_required
+                    ? "required"
+                    : null
+                }
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {days.length > 0 && (
         <section className="space-y-3">
@@ -144,10 +198,4 @@ export default async function DiningPage() {
       )}
     </div>
   );
-}
-
-/** Club-timezone ISO weekday (1=Mon … 7=Sun) for highlighting today's row. */
-function clubWeekday(): number {
-  const dow = new Date(`${clubTodayISO()}T12:00:00Z`).getUTCDay(); // 0=Sun…6=Sat
-  return ((dow + 6) % 7) + 1;
 }

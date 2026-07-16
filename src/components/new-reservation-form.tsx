@@ -11,6 +11,14 @@ import type { DayOption, SlotOption } from "@/lib/reservations";
 
 const INITIAL: ReservationState = {};
 
+/** Per-date booking detail: a special day can run its own hours and menu. */
+export type DayDetail = {
+  slots: SlotOption[];
+  windowNote: string | null;
+  /** The special service's details, when the day has one. */
+  description: string | null;
+};
+
 /**
  * Member booking form, concierge-chips style: horizontal day pills, a grid of
  * seating chips, and a party stepper. The selections are mirrored into hidden
@@ -18,20 +26,24 @@ const INITIAL: ReservationState = {};
  * (reservation_date / reservation_time / party_size), so the Server Action is
  * unchanged. Slots are all selectable — per-slot capacity is enforced at INSERT
  * by the DB trigger, not exposed here.
+ *
+ * Seatings come per-date rather than as one global grid: a closed day offers
+ * none, and a special day runs its own hours (see lib/dining.ts).
  */
 export function NewReservationForm({
-  slots,
   days,
-  windowNote,
+  details,
 }: {
-  slots: SlotOption[];
   days: DayOption[];
-  windowNote?: string;
+  details: Record<string, DayDetail>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [result, setResult] = useState<ReservationState>(INITIAL);
 
-  const [date, setDate] = useState(days[0]?.iso ?? "");
+  // Open on the first day that's actually bookable — landing on a closed
+  // Monday with an empty seating grid reads as broken.
+  const firstOpen = days.find((d) => !d.closed) ?? days[0];
+  const [date, setDate] = useState(firstOpen?.iso ?? "");
   const [time, setTime] = useState("");
   const [party, setParty] = useState(2);
 
@@ -43,21 +55,29 @@ export function NewReservationForm({
     const res = await createReservation(INITIAL, formData);
     setResult(res);
     if (res.success) {
-      setDate(days[0]?.iso ?? "");
+      setDate(firstOpen?.iso ?? "");
       setTime("");
       setParty(2);
       formRef.current?.reset();
     }
   }
 
+  const selectedDay = days.find((d) => d.iso === date);
+  const detail = details[date];
+  const slots = detail?.slots ?? [];
   const ready = Boolean(date && time);
   const slotLabel = slots.find((s) => s.value === time)?.label;
-  const selectedDay = days.find((d) => d.iso === date);
   const dayLabel = selectedDay?.label;
   const selectedRequired = selectedDay?.required ?? false;
   const submitLabel = ready
     ? `Request — ${dayLabel} · ${slotLabel} · Party of ${party}`
     : "Choose a day and time";
+
+  /** Picking a different day drops a seating that may not exist on the new one. */
+  function pickDate(iso: string) {
+    setDate(iso);
+    setTime("");
+  }
 
   return (
     <form ref={formRef} action={submit} className="card p-6">
@@ -80,40 +100,65 @@ export function NewReservationForm({
               <button
                 key={d.iso}
                 type="button"
-                onClick={() => setDate(d.iso)}
+                onClick={() => pickDate(d.iso)}
+                disabled={d.closed}
                 aria-pressed={active}
+                title={d.closed ? "Closed for dining" : d.specialName ?? undefined}
                 className={cn(
                   "flex w-14 shrink-0 flex-col items-center rounded-lg border px-2 py-2 transition-colors",
-                  active
-                    ? "border-primary bg-primary text-white"
-                    : "border-border bg-surface text-foreground hover:border-primary",
+                  d.closed
+                    ? "cursor-not-allowed border-border bg-surface-2 text-muted"
+                    : active
+                      ? "border-primary bg-primary text-white"
+                      : "border-border bg-surface text-foreground hover:border-primary",
                 )}
               >
                 <span
                   className={cn(
                     "text-2xs font-medium uppercase tracking-wide",
-                    active ? "text-white/80" : "text-muted",
+                    active && !d.closed ? "text-white/80" : "text-muted",
                   )}
                 >
                   {d.weekday}
                 </span>
-                <span className="text-lg font-semibold leading-tight">
+                <span
+                  className={cn(
+                    "text-lg font-semibold leading-tight",
+                    d.closed && "line-through",
+                  )}
+                >
                   {d.day}
                 </span>
-                {d.required && (
-                  <span
-                    aria-hidden
-                    title="Reservations required"
-                    className={cn(
-                      "mt-1 h-1.5 w-1.5 rounded-full",
-                      active ? "bg-white/90" : "bg-accent",
-                    )}
-                  />
+                {d.closed ? (
+                  <span className="mt-0.5 text-3xs uppercase tracking-wide text-muted">
+                    Closed
+                  </span>
+                ) : (
+                  d.required && (
+                    <span
+                      aria-hidden
+                      title="Reservations required"
+                      className={cn(
+                        "mt-1 h-1.5 w-1.5 rounded-full",
+                        active ? "bg-white/90" : "bg-accent",
+                      )}
+                    />
+                  )
                 )}
               </button>
             );
           })}
         </div>
+        {selectedDay?.specialName && (
+          <div className="mt-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
+            <p className="font-medium text-foreground">
+              {selectedDay.specialName}
+            </p>
+            {detail?.description && (
+              <p className="mt-1 text-sm text-muted">{detail.description}</p>
+            )}
+          </div>
+        )}
         {selectedRequired && (
           <p className="mt-2 text-sm font-medium text-accent-600">
             Reservations required for {dayLabel}.
@@ -123,6 +168,11 @@ export function NewReservationForm({
 
       <fieldset className="mt-5">
         <legend className="label">Seating</legend>
+        {slots.length === 0 ? (
+          <p className="text-sm text-muted">
+            No seatings that day — the club is closed for dining.
+          </p>
+        ) : (
         <div className="grid grid-cols-3 gap-2">
           {slots.map((s) => {
             const active = s.value === time;
@@ -144,7 +194,8 @@ export function NewReservationForm({
             );
           })}
         </div>
-        {windowNote && <p className="field-hint">{windowNote}</p>}
+        )}
+        {detail?.windowNote && <p className="field-hint">{detail.windowNote}</p>}
       </fieldset>
 
       <fieldset className="mt-5">
