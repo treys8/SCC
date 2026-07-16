@@ -11,6 +11,7 @@ import {
   type PostSearchFilters,
 } from "@/lib/feed";
 import { clubLocalToInstantUTC } from "@/lib/format";
+import { notifyPostPublished } from "@/lib/post-notify";
 import { createClient } from "@/lib/supabase/server";
 import { postsObjectUrl, postsPublicUrl } from "@/lib/url";
 import type {
@@ -60,6 +61,9 @@ export type CreatePostInput = {
   status: PostStatus;
   /** For status "scheduled": club wall-clock "YYYY-MM-DDTHH:mm" to go live. */
   publishAt: string | null;
+  /** Send members a notification + push when this post goes live. Rides along on
+   * drafts/scheduled posts so the cron sends it at publish time. */
+  notifyMembers: boolean;
   attachments: AttachmentInput[];
 };
 
@@ -78,6 +82,7 @@ function sanitizeText(input: CreatePostInput) {
     title: (input.title ?? "").trim().slice(0, TITLE_MAX),
     content: (input.content ?? "").trim().slice(0, CONTENT_MAX),
     isPinned: !!input.isPinned,
+    notifyMembers: !!input.notifyMembers,
     eventId: input.eventId || null,
     reservationCta: !!input.reservationCta,
     // Persist only a canonical YYYY-MM-DD; anything else becomes "no requirement".
@@ -147,6 +152,7 @@ export async function createPost(
     title,
     content,
     isPinned,
+    notifyMembers,
     eventId,
     reservationCta,
     reservationRequiredDate,
@@ -176,6 +182,7 @@ export async function createPost(
       is_pinned: isPinned,
       status: state.status,
       publish_at: state.publishAt,
+      notify_members: notifyMembers,
     })
     .select("id")
     .single();
@@ -192,6 +199,19 @@ export async function createPost(
       await supabase.from("posts").delete().eq("id", post.id);
       return { error: `Couldn't save attachments: ${attError.message}` };
     }
+  }
+
+  // Only a post that's live right now notifies from here — a scheduled one is
+  // sent by the publish cron when it goes out. Must run before the redirect
+  // below (redirect() throws to unwind).
+  if (state.status === "published" && notifyMembers) {
+    await notifyPostPublished({
+      id: post.id,
+      title: title || null,
+      content,
+      department,
+      author_id: profile.id,
+    });
   }
 
   revalidatePath("/posts");
@@ -213,6 +233,7 @@ export async function updatePost(
     title,
     content,
     isPinned,
+    notifyMembers,
     eventId,
     reservationCta,
     reservationRequiredDate,
@@ -266,10 +287,23 @@ export async function updatePost(
       is_pinned: isPinned,
       status: state.status,
       publish_at: state.publishAt,
+      notify_members: notifyMembers,
       ...(goingLive ? { created_at: new Date().toISOString() } : {}),
     })
     .eq("id", id);
   if (upError) return { error: upError.message };
+
+  // Notify only when this edit is what takes the post live — editing an
+  // already-published post must never re-push. (notified_at backstops both.)
+  if (goingLive && notifyMembers) {
+    await notifyPostPublished({
+      id,
+      title: title || null,
+      content,
+      department,
+      author_id: profile.id,
+    });
+  }
 
   // Remove de-selected attachments: DB rows first, then Storage objects.
   if (removedSet.size > 0) {

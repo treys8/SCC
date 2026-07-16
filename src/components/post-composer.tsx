@@ -44,6 +44,9 @@ type ExistingPost = {
   reservation_required_date: string | null;
   status: PostStatus;
   publish_at: string | null;
+  notify_members: boolean;
+  /** Non-null once the notification has gone out — the toggle then locks. */
+  notified_at: string | null;
   attachments: PostAttachment[];
 };
 
@@ -107,6 +110,13 @@ export function PostComposer({
   const [title, setTitle] = useState(post?.title ?? initial?.title ?? "");
   const [content, setContent] = useState(post?.content ?? initial?.content ?? "");
   const [isPinned, setIsPinned] = useState(post?.is_pinned ?? false);
+  // Notifying is always a deliberate choice — off unless the author asks. Once
+  // a post's notification has been sent, the choice is spent (the server won't
+  // send twice), so the toggle turns into a static "already sent" note.
+  const alreadyNotified = !!post?.notified_at;
+  const [notifyMembers, setNotifyMembers] = useState(
+    post?.notify_members ?? false,
+  );
   const [eventId, setEventId] = useState(post?.event_id ?? "");
   const [reservationCta, setReservationCta] = useState(
     post?.reservation_cta ?? false,
@@ -310,6 +320,9 @@ export function PostComposer({
           : null,
       status,
       publishAt: status === "scheduled" ? scheduleAt : null,
+      // A spent toggle keeps its stored value rather than being rewritten by an
+      // edit (the send is already guarded server-side by notified_at).
+      notifyMembers: alreadyNotified ? post!.notify_members : notifyMembers,
       attachments: uploaded,
     };
 
@@ -366,6 +379,8 @@ export function PostComposer({
     is_pinned: isPinned,
     status: "published",
     publish_at: null,
+    notify_members: notifyMembers,
+    notified_at: post?.notified_at ?? null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     post_attachments: previewAttachments,
@@ -657,6 +672,30 @@ export function PostComposer({
         />
         Pin to top of feed
       </label>
+
+      <div>
+        {alreadyNotified ? (
+          <p className="text-sm text-muted">
+            🔔 Members were notified about this post.
+          </p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <input
+                type="checkbox"
+                checked={notifyMembers}
+                onChange={(e) => setNotifyMembers(e.target.checked)}
+                className="h-4 w-4 rounded border-border"
+              />
+              Notify members
+            </label>
+            <p className="field-hint">
+              Sends a notification (and a push, for members who allow them) when
+              this post goes live. Members who muted this category are skipped.
+            </p>
+          </>
+        )}
+      </div>
       </div>
 
       {/* Scheduling (not offered for an already-live post) */}

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { notifyPostPublished } from "@/lib/post-notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Reads the current clock to decide which scheduled posts are due — never cache.
@@ -15,9 +16,11 @@ function authorized(authHeader: string | null, secret: string): boolean {
 /**
  * Publish scheduled posts whose time has arrived. Flips due rows to 'published'
  * and bumps created_at to now() so each lands at the top of the member feed
- * (which orders by created_at) as if freshly posted. Triggered by Vercel Cron
- * (see vercel.json) and authenticated by a bearer secret so the public can't
- * fire it. Runs under the service role, bypassing RLS.
+ * (which orders by created_at) as if freshly posted, then sends the notification
+ * for any post whose author asked for one. Runs every 5 minutes from GitHub
+ * Actions (.github/workflows/publish-scheduled-posts.yml — Vercel's Hobby plan
+ * only allows daily crons) and is authenticated by a bearer secret so the public
+ * can't fire it. Runs under the service role, bypassing RLS.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -29,15 +32,27 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
+  // Select the fields the notification needs from the flip itself, so going live
+  // and knowing what to announce stay one atomic step.
   const { data: published, error } = await admin
     .from("posts")
     .update({ status: "published", publish_at: null, created_at: now })
     .eq("status", "scheduled")
     .lte("publish_at", now)
-    .select("id");
+    .select("id, title, content, department, author_id, notify_members");
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  return Response.json({ published: published?.length ?? 0 });
+  // notifyPostPublished claims each post before sending, so a retry of this
+  // route (or an overlapping run) can't double-notify.
+  const toNotify = (published ?? []).filter((p) => p.notify_members);
+  for (const post of toNotify) {
+    await notifyPostPublished(post);
+  }
+
+  return Response.json({
+    published: published?.length ?? 0,
+    notified: toNotify.length,
+  });
 }
