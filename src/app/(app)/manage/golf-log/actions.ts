@@ -6,7 +6,7 @@ import { clubTodayISO } from "@/lib/format";
 import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { postsPublicUrl } from "@/lib/url";
+import { postsPublicUrl, postsStoragePathFromUrl } from "@/lib/url";
 import type { GolfLogKind } from "@/lib/database.types";
 
 const SUPERINTENDENT = "Golf Course Superintendent";
@@ -192,4 +192,72 @@ async function profileIdsForTitles(
     .select("id")
     .in("title_id", titleIds);
   return (people ?? []).map((p) => p.id);
+}
+
+/**
+ * Share a log entry with members: publishes it as a normal golf post in the
+ * club's voice, carrying the entry's photo across.
+ *
+ * A copy, deliberately — not a live view of the entry. The log is the
+ * superintendent's private working record; once something is published, a later
+ * edit to that record must not silently rewrite what members already read. The
+ * post is theirs to edit or delete from then on like any other.
+ *
+ * Written through the member's own client, not the service role: the
+ * superintendent is staff (posts_insert_staff_admin), so RLS permits the insert
+ * and there's no reason to reach for elevated privileges. requireTitle gates who
+ * may share; RLS still has the last word.
+ *
+ * The photo already lives in the public posts bucket (uploadEventCover put it
+ * there), so it's re-used in place — no copy, no second upload.
+ */
+export async function shareEntryWithMembers(entryId: string): Promise<void> {
+  const profile = await requireTitle(SUPERINTENDENT);
+  const supabase = await createClient();
+
+  // Title-based RLS on golf_log_entries is what makes this readable.
+  const { data: entry, error: readError } = await supabase
+    .from("golf_log_entries")
+    .select("id, area, note, photo_url")
+    .eq("id", entryId)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!entry) throw new Error("Log entry not found.");
+
+  const { data: post, error } = await supabase
+    .from("posts")
+    .insert({
+      author_id: profile.id,
+      author_type: "club",
+      department: "golf",
+      title: entry.area ? `From the course — ${entry.area}` : "From the course",
+      content: entry.note,
+      status: "published",
+      source_golf_log_entry_id: entry.id,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    // The partial unique index on source_golf_log_entry_id.
+    if (error.code === "23505") throw new Error("That's already been shared.");
+    throw new Error(error.message);
+  }
+
+  // Carry the photo over as an attachment. Best-effort: the update is already
+  // published and worth reading without the picture.
+  const storagePath = postsStoragePathFromUrl(entry.photo_url);
+  if (entry.photo_url && storagePath) {
+    const { error: attError } = await supabase.from("post_attachments").insert({
+      post_id: post.id,
+      kind: "image",
+      url: entry.photo_url,
+      storage_path: storagePath,
+      position: 0,
+    });
+    if (attError) console.error("course update photo failed:", attError.message);
+  }
+
+  revalidatePath("/manage/golf-log");
+  revalidatePath("/posts");
+  revalidatePath("/");
 }

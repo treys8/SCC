@@ -157,6 +157,8 @@ export type NotifyOptions = {
   link: string;
   /** Optional push tag (collapses repeats in the OS tray). */
   tag?: string;
+  /** Links the notification to a reservation, so it cascades away with it. */
+  reservationId?: string;
 };
 
 /**
@@ -180,6 +182,7 @@ export async function notifyUsers(
       title: opts.title,
       body: opts.body,
       link: opts.link,
+      ...(opts.reservationId ? { reservation_id: opts.reservationId } : {}),
     })),
   );
   if (error) {

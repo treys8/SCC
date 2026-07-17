@@ -49,6 +49,20 @@ export default async function GolfLogPage() {
     : { data: [] };
   const comments = (commentsData ?? []) as GolfLogComment[];
 
+  // Which entries have already been shared with members, in one query. Only the
+  // marker is needed — the post itself lives on the feed.
+  const { data: shared } = entryIds.length
+    ? await supabase
+        .from("posts")
+        .select("id, source_golf_log_entry_id")
+        .in("source_golf_log_entry_id", entryIds)
+    : { data: [] };
+  const sharedPostByEntry = new Map(
+    (shared ?? [])
+      .filter((p) => p.source_golf_log_entry_id)
+      .map((p) => [p.source_golf_log_entry_id as string, p.id]),
+  );
+
   // One name lookup for every author (entries + comments).
   const authorIds = [
     ...new Set([
@@ -77,6 +91,7 @@ export default async function GolfLogPage() {
     resolved: e.resolved,
     created_at: e.created_at,
     authorName: nameById.get(e.author_id) ?? "Staff",
+    sharedPostId: sharedPostByEntry.get(e.id) ?? null,
     comments: (commentsByEntry.get(e.id) ?? []).map((c) => ({
       id: c.id,
       authorName: nameById.get(c.author_id) ?? "Staff",
@@ -124,6 +139,7 @@ export default async function GolfLogPage() {
                 entry={e}
                 canManage={canLog}
                 canComment
+                canShare={canLog}
               />
             ))}
           </div>
@@ -154,6 +170,7 @@ export default async function GolfLogPage() {
                   entry={e}
                   canManage={canLog}
                   canComment
+                  canShare={canLog}
                 />
               ))}
             </div>

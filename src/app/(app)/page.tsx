@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
+import { CourseUpdateCard } from "@/components/today/course-update-card";
 import { DiningCard } from "@/components/today/dining-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
@@ -8,8 +9,19 @@ import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
+import {
+  dayDiningStatus,
+  effectiveBookingSettings,
+  fetchServiceOverride,
+  fetchWeeklyClosedWeekdays,
+} from "@/lib/dining";
 import { fetchFacilityStatus } from "@/lib/facility";
-import { formatTime, formatTimeRange } from "@/lib/format";
+import {
+  clubDatePlusDaysISO,
+  clubDayStartUTC,
+  formatTime,
+  formatTimeRange,
+} from "@/lib/format";
 import { memberFirstName } from "@/lib/member";
 import {
   fetchReservationSettings,
@@ -33,6 +45,10 @@ import type {
  * It's all live data: facility status + the conditions detail rows, the buffet
  * (both staff-set on /facility), events, weather, and dining hours.
  */
+/** How long a shared course update stays on Today — it's "today on the course",
+ * not an archive, and a week-old card reads worse than none. */
+const COURSE_UPDATE_DAYS = 2;
+
 export default async function TodayPage() {
   const profile = await getProfile();
   const supabase = await createClient();
@@ -52,6 +68,9 @@ export default async function TodayPage() {
     brunchRes,
     todayMenuRes,
     weather,
+    courseUpdateRes,
+    override,
+    weeklyClosed,
   ] = await Promise.all([
       fetchFacilityStatus(supabase),
       profile
@@ -76,6 +95,20 @@ export default async function TodayPage() {
         .eq("weekday", weekday)
         .maybeSingle(),
       fetchWeather(),
+      // The most recent course update shared from the golf log. Time-boxed: an
+      // update from last week isn't "today on the course", and a stale card
+      // reads worse than no card.
+      supabase
+        .from("posts")
+        .select("id, title, content, created_at, post_attachments(url, kind, position)")
+        .not("source_golf_log_entry_id", "is", null)
+        .eq("status", "published")
+        .gte("created_at", clubDayStartUTC(clubDatePlusDaysISO(-COURSE_UPDATE_DAYS)))
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      fetchServiceOverride(supabase, today),
+      fetchWeeklyClosedWeekdays(supabase),
     ]);
 
   const todaysEvents = todaysEventsRes.data ?? [];
@@ -101,12 +134,25 @@ export default async function TodayPage() {
     .filter((n): n is string => Boolean(n));
   const firstName = (profile && memberFirstName(profile)) || "Member";
 
+  const courseUpdate = courseUpdateRes.data;
+  // The log's photo is the post's first image attachment (see the share action).
+  const courseUpdatePhoto =
+    (courseUpdate?.post_attachments ?? [])
+      .filter((a) => a.kind === "image")
+      .sort((a, b) => a.position - b.position)[0]?.url ?? null;
+
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  // What kind of dining day this is. A closure or a special service overrides
+  // the derived schedule entirely — a special day IS the day's dining, so it
+  // replaces the buffet/dinner/brunch cards rather than stacking on top.
+  const diningStatus = dayDiningStatus(today, weeklyClosed, override);
+  const effective = effectiveBookingSettings(settings, override);
   // Dinner service is Fri/Sat only (and always reservations-required); brunch is
   // Sunday. Mon–Thu show no dinner/brunch card — just the lunch buffet on its days.
-  const isDinnerNight = isStandingReservationDay(today);
-  const isBrunchDay = weekday === 7;
+  const isDinnerNight =
+    diningStatus === "normal" && isStandingReservationDay(today);
+  const isBrunchDay = diningStatus === "normal" && weekday === 7;
   const brunchMeta = brunch
     ? [
         brunch.start_time && formatTimeRange(brunch.start_time, brunch.end_time),
@@ -158,7 +204,32 @@ export default async function TodayPage() {
       ) : (
         <ConditionsGrid facilities={facilities} />
       )}
-      {buffet?.active && !buffetClosed && (
+      {courseUpdate && (
+        <CourseUpdateCard
+          postId={courseUpdate.id}
+          title={courseUpdate.title}
+          content={courseUpdate.content}
+          photoUrl={courseUpdatePhoto}
+          createdAt={courseUpdate.created_at}
+        />
+      )}
+      {diningStatus === "closed" && (
+        <DiningCard
+          eyebrow="Today"
+          title={override?.name ?? "Dining room closed"}
+          description={override?.description}
+        />
+      )}
+      {diningStatus === "special" && (
+        <DiningCard
+          eyebrow="Today"
+          title={override?.name ?? "A special service"}
+          meta={formatTimeRange(effective.service_start, effective.service_end)}
+          description={override?.description}
+          reservation={override?.reservations_required ? "required" : "walk_in"}
+        />
+      )}
+      {diningStatus === "normal" && buffet?.active && !buffetClosed && (
         <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
       )}
       {isDinnerNight && (
