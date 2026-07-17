@@ -169,11 +169,19 @@ begin
   eff_res_cap := coalesce(o.max_reservations_per_slot, s.max_reservations_per_slot);
   eff_cov_cap := coalesce(o.max_covers_per_slot,       s.max_covers_per_slot);
 
-  -- Must land on a valid slot boundary. Cadence stays global: an override
-  -- changes when service runs and how full it gets, not the grid it sits on.
+  -- Must land on a valid slot boundary, measured FROM that day's service start
+  -- — which is how the booking form generates its chips (generateSlots steps
+  -- from service_start). Anchoring to the top of the hour instead would make an
+  -- 11:30 special-day start unbookable at a 60-minute cadence: the form would
+  -- offer 11:30/12:30 and every one would be rejected here. For the standing
+  -- 17:00 window the two are identical, so this changes nothing for normal days.
+  -- Cadence stays global: an override changes when service runs and how full it
+  -- gets, not the spacing of the seatings.
   if extract(second from new.reservation_time) <> 0
-     or (extract(minute from new.reservation_time)::int % s.slot_minutes) <> 0 then
-    raise exception 'Reservation time must align to a %-minute slot.', s.slot_minutes
+     or ((((extract(epoch from new.reservation_time)
+            - extract(epoch from eff_start))::int) / 60) % s.slot_minutes) <> 0 then
+    raise exception 'Reservation time must be one of that day''s seatings (every % minutes from %).',
+      s.slot_minutes, to_char(eff_start, 'HH12:MI AM')
       using errcode = 'check_violation';
   end if;
 
