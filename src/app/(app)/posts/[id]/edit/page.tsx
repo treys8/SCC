@@ -72,6 +72,8 @@ export default async function EditPostPage({
           reservation_required_date: post.reservation_required_date,
           status: post.status,
           publish_at: post.publish_at,
+          notify_members: post.notify_members,
+          notified_at: post.notified_at,
           attachments,
         }}
       />

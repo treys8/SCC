@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { BrunchEditor } from "@/components/brunch-editor";
 import { BuffetEditor } from "@/components/buffet-editor";
 import { DishCatalog } from "@/components/dining/dish-catalog";
+import { OverridesEditor } from "@/components/dining/overrides-editor";
 import { WeekEditor, type WeekDay } from "@/components/dining/week-editor";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { SectionsEditor } from "@/components/sections-editor";
+import { fetchWeeklyClosedWeekdays } from "@/lib/dining";
+import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { PageSection } from "@/lib/database.types";
 
@@ -18,23 +21,36 @@ export const metadata: Metadata = { title: "Dining" };
  */
 export default async function ManageDiningPage() {
   const supabase = await createClient();
-  const [buffetRes, brunchRes, dishesRes, weekRes, sectionsRes] =
-    await Promise.all([
-      supabase.from("dining_buffet").select("*").maybeSingle(),
-      supabase.from("dining_brunch").select("*").maybeSingle(),
-      supabase.from("dishes").select("*").order("name"),
-      supabase
-        .from("buffet_week")
-        .select(
-          "weekday, is_closed, note, main_dish_id, sides:buffet_week_sides(dish_id, position)",
-        )
-        .order("weekday"),
-      supabase
-        .from("page_sections")
-        .select("*")
-        .eq("page", "dining")
-        .order("sort_order", { ascending: true }),
-    ]);
+  const [
+    buffetRes,
+    brunchRes,
+    dishesRes,
+    weekRes,
+    sectionsRes,
+    overridesRes,
+    weeklyClosed,
+  ] = await Promise.all([
+    supabase.from("dining_buffet").select("*").maybeSingle(),
+    supabase.from("dining_brunch").select("*").maybeSingle(),
+    supabase.from("dishes").select("*").order("name"),
+    supabase
+      .from("buffet_week")
+      .select(
+        "weekday, is_closed, note, main_dish_id, sides:buffet_week_sides(dish_id, position)",
+      )
+      .order("weekday"),
+    supabase
+      .from("page_sections")
+      .select("*")
+      .eq("page", "dining")
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("dining_service_overrides")
+      .select("*")
+      .gte("date", clubTodayISO())
+      .order("date"),
+    fetchWeeklyClosedWeekdays(supabase),
+  ]);
 
   const buffet = buffetRes.data;
   const brunch = brunchRes.data;
@@ -66,6 +82,10 @@ export default async function ManageDiningPage() {
         </div>
         <SectionsEditor page="dining" sections={sections} />
       </section>
+      <OverridesEditor
+        initialOverrides={overridesRes.data ?? []}
+        initialWeeklyClosed={weeklyClosed}
+      />
       {buffet ? (
         <BuffetEditor initial={buffet} />
       ) : (

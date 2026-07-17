@@ -51,6 +51,9 @@ export type DocumentCategory =
 export type GolfLogKind = "done" | "issue";
 /** A buffet dish is either a main or a side (text + CHECK in the DB). */
 export type DishKind = "main" | "side";
+/** A dining service override either closes a date or replaces it with a special
+ * service (text + CHECK in the DB, not a PG enum). */
+export type DiningOverrideKind = "closed" | "special";
 
 export interface Database {
   public: {
@@ -176,6 +179,8 @@ export interface Database {
           status: PostStatus;
           publish_at: string | null;
           source_golf_log_entry_id: string | null;
+          notify_members: boolean;
+          notified_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -195,6 +200,8 @@ export interface Database {
           status?: PostStatus;
           publish_at?: string | null;
           source_golf_log_entry_id?: string | null;
+          notify_members?: boolean;
+          notified_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -214,6 +221,8 @@ export interface Database {
           status?: PostStatus;
           publish_at?: string | null;
           source_golf_log_entry_id?: string | null;
+          notify_members?: boolean;
+          notified_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -228,6 +237,40 @@ export interface Database {
             foreignKeyName: "posts_event_id_fkey";
             columns: ["event_id"];
             referencedRelation: "calendar_events";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_rsvps: {
+        Row: {
+          event_id: string;
+          member_id: string;
+          party_size: number;
+          created_at: string;
+        };
+        Insert: {
+          event_id: string;
+          member_id: string;
+          party_size?: number;
+          created_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          member_id?: string;
+          party_size?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_rsvps_event_id_fkey";
+            columns: ["event_id"];
+            referencedRelation: "calendar_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_rsvps_member_id_fkey";
+            columns: ["member_id"];
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -297,6 +340,7 @@ export interface Database {
           staff_note: string | null;
           proposed_date: string | null;
           proposed_time: string | null;
+          reminded_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -311,6 +355,7 @@ export interface Database {
           staff_note?: string | null;
           proposed_date?: string | null;
           proposed_time?: string | null;
+          reminded_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -325,6 +370,7 @@ export interface Database {
           staff_note?: string | null;
           proposed_date?: string | null;
           proposed_time?: string | null;
+          reminded_at?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -632,6 +678,95 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "dining_brunch_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reservation_waitlist: {
+        Row: {
+          id: string;
+          member_id: string;
+          reservation_date: string;
+          reservation_time: string;
+          party_size: number;
+          created_at: string;
+          notified_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          reservation_date: string;
+          reservation_time: string;
+          party_size: number;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          member_id?: string;
+          reservation_date?: string;
+          reservation_time?: string;
+          party_size?: number;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reservation_waitlist_member_id_fkey";
+            columns: ["member_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dining_service_overrides: {
+        Row: {
+          date: string;
+          kind: DiningOverrideKind;
+          name: string | null;
+          description: string | null;
+          service_start: string | null;
+          service_end: string | null;
+          max_reservations_per_slot: number | null;
+          max_covers_per_slot: number | null;
+          reservations_required: boolean;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          date: string;
+          kind: DiningOverrideKind;
+          name?: string | null;
+          description?: string | null;
+          service_start?: string | null;
+          service_end?: string | null;
+          max_reservations_per_slot?: number | null;
+          max_covers_per_slot?: number | null;
+          reservations_required?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          date?: string;
+          kind?: DiningOverrideKind;
+          name?: string | null;
+          description?: string | null;
+          service_start?: string | null;
+          service_end?: string | null;
+          max_reservations_per_slot?: number | null;
+          max_covers_per_slot?: number | null;
+          reservations_required?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dining_service_overrides_updated_by_fkey";
             columns: ["updated_by"];
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -959,18 +1094,22 @@ export interface Database {
         Row: {
           id: boolean;
           conditions_reminder_enabled: boolean;
+          /** ISO weekdays (1=Mon … 7=Sun) the club is closed for dining weekly. */
+          weekly_closed_weekdays: number[];
           updated_at: string;
           updated_by: string | null;
         };
         Insert: {
           id?: boolean;
           conditions_reminder_enabled?: boolean;
+          weekly_closed_weekdays?: number[];
           updated_at?: string;
           updated_by?: string | null;
         };
         Update: {
           id?: boolean;
           conditions_reminder_enabled?: boolean;
+          weekly_closed_weekdays?: number[];
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1197,6 +1336,19 @@ export interface Database {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      /** How full each seating is, for the booking form's "Full · waitlist"
+       * chips. Aggregates only — never who booked. */
+      get_slot_availability: {
+        Args: { p_dates: string[] };
+        Returns: {
+          slot_date: string;
+          slot_time: string;
+          res_count: number;
+          cover_count: number;
+          max_res: number;
+          max_covers: number;
+        }[];
+      };
     };
     Enums: {
       user_role: UserRole;
@@ -1214,8 +1366,14 @@ export type Post = Database["public"]["Tables"]["posts"]["Row"];
 export type PostAttachment =
   Database["public"]["Tables"]["post_attachments"]["Row"];
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
+export type ReservationWaitlistEntry =
+  Database["public"]["Tables"]["reservation_waitlist"]["Row"];
+/** One seating's fullness, as returned by get_slot_availability. */
+export type SlotAvailability =
+  Database["public"]["Functions"]["get_slot_availability"]["Returns"][number];
 export type CalendarEvent =
   Database["public"]["Tables"]["calendar_events"]["Row"];
+export type EventRsvp = Database["public"]["Tables"]["event_rsvps"]["Row"];
 /** Narrow projection for the Golf page's "Upcoming on the course" schedule. */
 export type UpcomingGolfEvent = Pick<
   CalendarEvent,
@@ -1234,6 +1392,8 @@ export type DiningBuffet =
 
 export type DiningBrunch =
   Database["public"]["Tables"]["dining_brunch"]["Row"];
+export type DiningServiceOverride =
+  Database["public"]["Tables"]["dining_service_overrides"]["Row"];
 export type Dish = Database["public"]["Tables"]["dishes"]["Row"];
 export type BuffetWeekDay =
   Database["public"]["Tables"]["buffet_week"]["Row"];

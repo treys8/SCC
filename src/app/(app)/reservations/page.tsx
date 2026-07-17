@@ -4,18 +4,30 @@ import { StatusBadge } from "@/components/badges";
 import { CancelReservationButton } from "@/components/cancel-reservation-button";
 import { ChartDateNav } from "@/components/chart-date-nav";
 import { EmptyState } from "@/components/empty-state";
-import { NewReservationForm } from "@/components/new-reservation-form";
+import { LeaveWaitlistButton } from "@/components/leave-waitlist-button";
+import {
+  NewReservationForm,
+  type DayDetail,
+} from "@/components/new-reservation-form";
 import { PageHeader } from "@/components/page-header";
 import { ReservationProposalActions } from "@/components/reservation-proposal-actions";
 import { StaffReservationsTable } from "@/components/staff-reservations-table";
 import { cn } from "@/lib/cn";
 import { isStaff, requireProfile } from "@/lib/auth";
 import { RESERVATION_STATUSES, STATUS_LABEL } from "@/lib/constants";
+import {
+  dayDiningStatus,
+  effectiveBookingSettings,
+  fetchServiceOverrides,
+  fetchWeeklyClosedWeekdays,
+} from "@/lib/dining";
 import { clubTodayISO, formatDate, formatLongDate, formatTime } from "@/lib/format";
 import {
   buildUpcomingDays,
+  fetchMyWaitlist,
   fetchReservationRequiredDates,
   fetchReservationSettings,
+  fetchSlotAvailability,
   generateSlots,
   serviceWindowNote,
 } from "@/lib/reservations";
@@ -41,9 +53,20 @@ async function MemberView() {
   const supabase = await createClient();
 
   // The 7-day window is fixed up front so we can ask which of those dates a post
-  // has flagged "reservations required" (the exceptions to the Fri/Sat rule).
+  // has flagged "reservations required" (the exceptions to the Fri/Sat rule),
+  // and which are closed or given over to a special service.
   const baseDays = buildUpcomingDays(7);
-  const [{ data }, settings, requiredDates] = await Promise.all([
+  const firstISO = baseDays[0].iso;
+  const lastISO = baseDays[baseDays.length - 1].iso;
+  const [
+    { data },
+    settings,
+    requiredDates,
+    overrides,
+    weeklyClosed,
+    availability,
+    myWaitlist,
+  ] = await Promise.all([
     supabase
       .from("reservations")
       .select("*")
@@ -51,19 +74,53 @@ async function MemberView() {
       .order("reservation_date", { ascending: false })
       .order("reservation_time", { ascending: false }),
     fetchReservationSettings(supabase),
-    fetchReservationRequiredDates(
+    fetchReservationRequiredDates(supabase, firstISO, lastISO),
+    fetchServiceOverrides(supabase, firstISO, lastISO),
+    fetchWeeklyClosedWeekdays(supabase),
+    fetchSlotAvailability(
       supabase,
-      baseDays[0].iso,
-      baseDays[baseDays.length - 1].iso,
+      baseDays.map((d) => d.iso),
     ),
+    fetchMyWaitlist(supabase, profile.id),
   ]);
   const reservations = data ?? [];
-  const slots = generateSlots(settings);
-  // Standing rule (baked into buildUpcomingDays) OR a staff-flagged exception.
-  const days = baseDays.map((d) => ({
-    ...d,
-    required: d.required || requiredDates.has(d.iso),
-  }));
+
+  // Decorate each pill with its dining status, and give each date its own slot
+  // list — a special day can run different hours from the club's standing ones,
+  // so a single global slot grid would offer times the trigger rejects.
+  const days = baseDays.map((d) => {
+    const override = overrides.get(d.iso) ?? null;
+    const status = dayDiningStatus(d.iso, weeklyClosed, override);
+    return {
+      ...d,
+      closed: status === "closed",
+      specialName: status === "special" ? override?.name ?? null : null,
+      // Standing Fri/Sat rule, a staff-flagged exception, or a special day that
+      // needs booking. A closed day can't require a reservation.
+      required:
+        status === "closed"
+          ? false
+          : status === "special"
+            ? !!override?.reservations_required
+            : d.required || requiredDates.has(d.iso),
+    };
+  });
+  // Everything the form needs to render one day, keyed by date.
+  const dayDetails: Record<string, DayDetail> = Object.fromEntries(
+    days.map((d) => {
+      const override = overrides.get(d.iso) ?? null;
+      const effective = effectiveBookingSettings(settings, override);
+      return [
+        d.iso,
+        {
+          slots: d.closed ? [] : generateSlots(effective),
+          windowNote: d.closed ? null : serviceWindowNote(effective),
+          description:
+            override?.kind === "special" ? override.description : null,
+        },
+      ];
+    }),
+  );
 
   return (
     <div className="space-y-6">
@@ -72,10 +129,35 @@ async function MemberView() {
         description="Request a table and track your reservations."
       />
       <NewReservationForm
-        slots={slots}
         days={days}
-        windowNote={serviceWindowNote(settings)}
+        details={dayDetails}
+        availability={Object.fromEntries(availability)}
       />
+
+      {myWaitlist.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-h2 text-foreground">You&rsquo;re waiting on</h2>
+          <div className="card divide-y divide-border">
+            {myWaitlist.map((w) => (
+              <div key={w.id} className="flex items-start gap-4 p-4">
+                <DateBlock iso={w.reservation_date} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">
+                    {formatTime(w.reservation_time)} · Party of {w.party_size}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    That seating is full. We&rsquo;ll let you know if a table
+                    opens up — first come, first served.
+                  </p>
+                  <div className="mt-2">
+                    <LeaveWaitlistButton id={w.id} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 text-h2 text-foreground">
@@ -171,8 +253,8 @@ async function StaffView({
     .order("reservation_time", { ascending: true });
   if (status) queueQuery = queueQuery.eq("status", status);
 
-  const [{ data: queueData }, { data: chartData }, settings] = await Promise.all(
-    [
+  const [{ data: queueData }, { data: chartData }, settings, { data: waiting }] =
+    await Promise.all([
       queueQuery,
       supabase
         .from("reservations")
@@ -181,10 +263,16 @@ async function StaffView({
         .eq("status", "confirmed")
         .order("reservation_time", { ascending: true }),
       fetchReservationSettings(supabase),
-    ],
-  );
+      // Staff read all waitlist rows (RLS), so the chart can show the demand a
+      // full night is turning away.
+      supabase
+        .from("reservation_waitlist")
+        .select("id, party_size")
+        .eq("reservation_date", chartDate),
+    ]);
   const reservations = queueData ?? [];
   const chartReservations = chartData ?? [];
+  const waitingCount = (waiting ?? []).length;
 
   // One name lookup covering both sets.
   const memberIds = [
@@ -236,6 +324,12 @@ async function StaffView({
             <p className="text-sm text-muted">
               {covers} {covers === 1 ? "cover" : "covers"} · {chartRows.length}{" "}
               {chartRows.length === 1 ? "table" : "tables"}
+              {waitingCount > 0 && (
+                <span className="text-accent-600">
+                  {" "}
+                  · {waitingCount} waiting
+                </span>
+              )}
             </p>
           </div>
           {chartRows.length === 0 ? (

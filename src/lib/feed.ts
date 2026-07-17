@@ -113,6 +113,25 @@ export async function fetchFeedPage(
   return { posts, nextCursor };
 }
 
+/**
+ * A single post by id, in the same shape the feed renders — the target of a
+ * post notification's deep link. Returns null when the post doesn't exist or
+ * RLS hides it (a member following a link to a draft/scheduled post).
+ */
+export async function fetchPost(
+  supabase: DB,
+  id: string,
+): Promise<FeedPost | null> {
+  const { data } = await supabase
+    .from("posts")
+    .select(FEED_SELECT)
+    .eq("id", id)
+    .maybeSingle<PostRow>();
+  if (!data) return null;
+  const [post] = await attachAuthors(supabase, [data]);
+  return post ?? null;
+}
+
 /** Filters for the staff post search (shared by the page and load-more action). */
 export type PostSearchFilters = {
   q?: string;
