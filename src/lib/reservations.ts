@@ -10,6 +10,7 @@ import type {
   Database,
   DiningServiceOverride,
   Reservation,
+  ReservationWaitlistEntry,
 } from "@/lib/database.types";
 import { clubDatePlusDaysISO, clubTodayISO, formatTime } from "@/lib/format";
 
@@ -222,6 +223,79 @@ export async function fetchReservationRequiredDates(
       .map((r) => r.reservation_required_date)
       .filter((d): d is string => Boolean(d)),
   );
+}
+
+/** How full a seating is; `undefined` for a slot the availability read missed. */
+export type SlotFullness = { resCount: number; coverCount: number; maxRes: number; maxCovers: number };
+
+/** Key for the availability map: one entry per date+time. */
+export const slotKey = (iso: string, time: string) => `${iso} ${time.slice(0, 5)}`;
+
+/**
+ * How full every seating across `dates` is, keyed by `slotKey`. Drives the
+ * booking form's "Full · waitlist" chips.
+ *
+ * Comes from the get_slot_availability RPC, which mirrors — but does not
+ * replace — the capacity trigger: this only decides what's drawn, so a stale or
+ * optimistic reading can mis-render a chip but can never oversell (the trigger
+ * still rejects the INSERT).
+ */
+export async function fetchSlotAvailability(
+  supabase: DB,
+  dates: string[],
+): Promise<Map<string, SlotFullness>> {
+  if (dates.length === 0) return new Map();
+  const { data, error } = await supabase.rpc("get_slot_availability", {
+    p_dates: dates,
+  });
+  if (error) {
+    // Availability is decoration: without it every slot simply stays tappable
+    // and the trigger has the final word, exactly as before the waitlist.
+    console.error("fetchSlotAvailability failed:", error.message);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((r) => [
+      slotKey(r.slot_date, r.slot_time),
+      {
+        resCount: r.res_count,
+        coverCount: r.cover_count,
+        maxRes: r.max_res,
+        maxCovers: r.max_covers,
+      },
+    ]),
+  );
+}
+
+/**
+ * Is this seating out of room for a party of `party`? True when the table cap is
+ * reached, or the remaining covers can't seat them — a slot with room for 2 is
+ * "full" to a party of 6, which is what the member needs to know.
+ */
+export function isSlotFull(
+  fullness: SlotFullness | undefined,
+  party: number,
+): boolean {
+  if (!fullness) return false; // unknown → let the trigger decide, as before
+  return (
+    fullness.resCount >= fullness.maxRes ||
+    fullness.coverCount + party > fullness.maxCovers
+  );
+}
+
+/** The member's own waitlist entries from today on, soonest first. */
+export async function fetchMyWaitlist(
+  supabase: DB,
+  memberId: string,
+): Promise<ReservationWaitlistEntry[]> {
+  const { data } = await supabase
+    .from("reservation_waitlist")
+    .select("*")
+    .eq("member_id", memberId)
+    .gte("reservation_date", clubTodayISO())
+    .order("reservation_date", { ascending: true })
+    .order("reservation_time", { ascending: true });
+  return data ?? [];
 }
 
 /** e.g. "Seatings 5:00 PM–9:00 PM, every 30 min." */

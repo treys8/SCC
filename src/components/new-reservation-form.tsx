@@ -3,11 +3,18 @@
 import { useRef, useState } from "react";
 import {
   createReservation,
+  joinWaitlist,
   type ReservationState,
 } from "@/app/(app)/reservations/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { cn } from "@/lib/cn";
-import type { DayOption, SlotOption } from "@/lib/reservations";
+import {
+  isSlotFull,
+  slotKey,
+  type DayOption,
+  type SlotFullness,
+  type SlotOption,
+} from "@/lib/reservations";
 
 const INITIAL: ReservationState = {};
 
@@ -33,12 +40,18 @@ export type DayDetail = {
 export function NewReservationForm({
   days,
   details,
+  availability,
 }: {
   days: DayOption[];
   details: Record<string, DayDetail>;
+  /** How full each seating is, keyed by `slotKey` — drives the waitlist chips. */
+  availability: Record<string, SlotFullness>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [result, setResult] = useState<ReservationState>(INITIAL);
+  const [succeededAs, setSucceededAs] = useState<
+    "reservation" | "waitlist" | null
+  >(null);
 
   // Open on the first day that's actually bookable — landing on a closed
   // Monday with an empty seating grid reads as broken.
@@ -51,17 +64,6 @@ export function NewReservationForm({
   // controlled chip selections in the same step (resetting controlled state in
   // an effect trips react-hooks/set-state-in-effect and wouldn't re-fire on a
   // second success). The textarea is uncontrolled, so form.reset() clears it.
-  async function submit(formData: FormData) {
-    const res = await createReservation(INITIAL, formData);
-    setResult(res);
-    if (res.success) {
-      setDate(firstOpen?.iso ?? "");
-      setTime("");
-      setParty(2);
-      formRef.current?.reset();
-    }
-  }
-
   const selectedDay = days.find((d) => d.iso === date);
   const detail = details[date];
   const slots = detail?.slots ?? [];
@@ -69,9 +71,36 @@ export function NewReservationForm({
   const slotLabel = slots.find((s) => s.value === time)?.label;
   const dayLabel = selectedDay?.label;
   const selectedRequired = selectedDay?.required ?? false;
-  const submitLabel = ready
-    ? `Request — ${dayLabel} · ${slotLabel} · Party of ${party}`
-    : "Choose a day and time";
+
+  /** Fullness is party-relative: a slot with room for 2 is full to a party of 6. */
+  const fullFor = (slotValue: string) =>
+    isSlotFull(availability[slotKey(date, slotValue)], party);
+  // Requesting a full seating would just bounce off the capacity trigger; offer
+  // to wait instead.
+  const waiting = ready && fullFor(time);
+
+  async function submit(formData: FormData) {
+    const joined = waiting;
+    const res = joined
+      ? await joinWaitlist(INITIAL, formData)
+      : await createReservation(INITIAL, formData);
+    setResult(res);
+    if (res.success) {
+      // Remember which it was: the reset below clears the selection `waiting`
+      // is derived from, so the confirmation can't read it back.
+      setSucceededAs(joined ? "waitlist" : "reservation");
+      setDate(firstOpen?.iso ?? "");
+      setTime("");
+      setParty(2);
+      formRef.current?.reset();
+    }
+  }
+
+  const submitLabel = !ready
+    ? "Choose a day and time"
+    : waiting
+      ? `Join the waitlist — ${dayLabel} · ${slotLabel} · Party of ${party}`
+      : `Request — ${dayLabel} · ${slotLabel} · Party of ${party}`;
 
   /** Picking a different day drops a seating that may not exist on the new one. */
   function pickDate(iso: string) {
@@ -176,6 +205,7 @@ export function NewReservationForm({
         <div className="grid grid-cols-3 gap-2">
           {slots.map((s) => {
             const active = s.value === time;
+            const full = fullFor(s.value);
             return (
               <button
                 key={s.value}
@@ -183,13 +213,25 @@ export function NewReservationForm({
                 onClick={() => setTime(s.value)}
                 aria-pressed={active}
                 className={cn(
-                  "flex min-h-11 items-center justify-center rounded-lg border px-2 py-2 text-sm font-medium transition-colors sm:min-h-0",
+                  "flex min-h-11 flex-col items-center justify-center rounded-lg border px-2 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
                   active
                     ? "border-primary bg-primary text-white"
-                    : "border-border bg-surface text-foreground hover:border-primary",
+                    : full
+                      ? "border-accent/40 bg-accent/5 text-foreground hover:border-accent"
+                      : "border-border bg-surface text-foreground hover:border-primary",
                 )}
               >
-                {s.label}
+                <span>{s.label}</span>
+                {full && (
+                  <span
+                    className={cn(
+                      "text-3xs font-semibold uppercase tracking-wide",
+                      active ? "text-white/80" : "text-accent-600",
+                    )}
+                  >
+                    Full · waitlist
+                  </span>
+                )}
               </button>
             );
           })}
@@ -252,9 +294,19 @@ export function NewReservationForm({
         >
           {submitLabel}
         </SubmitButton>
+        {waiting && (
+          <p className="field-hint">
+            That seating is full. Join the waitlist and we&rsquo;ll let you know
+            the moment a table opens up — first come, first served.
+          </p>
+        )}
         <div className="mt-2 min-h-5 text-sm">
           {result.success && (
-            <span className="text-success">Reservation requested.</span>
+            <span className="text-success">
+              {succeededAs === "waitlist"
+                ? "You're on the waitlist — we'll let you know."
+                : "Reservation requested."}
+            </span>
           )}
           {result.error && <span className="text-danger">{result.error}</span>}
         </div>
