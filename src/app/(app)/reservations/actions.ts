@@ -183,6 +183,10 @@ export async function acceptProposedTime(id: string) {
       staff_note: null,
       proposed_date: null,
       proposed_time: null,
+      // The booking has moved to a different day, so any reminder already sent
+      // was about the old one — clear it, or the new date's cron would skip
+      // this member entirely (it only claims rows where reminded_at is null).
+      reminded_at: null,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);

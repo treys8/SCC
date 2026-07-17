@@ -300,6 +300,7 @@ export interface Database {
           staff_note: string | null;
           proposed_date: string | null;
           proposed_time: string | null;
+          reminded_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -314,6 +315,7 @@ export interface Database {
           staff_note?: string | null;
           proposed_date?: string | null;
           proposed_time?: string | null;
+          reminded_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -328,6 +330,7 @@ export interface Database {
           staff_note?: string | null;
           proposed_date?: string | null;
           proposed_time?: string | null;
+          reminded_at?: string | null;
           created_at?: string;
         };
         Relationships: [
