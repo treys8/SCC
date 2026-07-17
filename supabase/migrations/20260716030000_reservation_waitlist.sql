@@ -132,9 +132,13 @@ begin
   ),
   open_days as (
     -- Same precedence as the trigger: a date row of either kind beats the
-    -- weekly rule; 'closed' yields no seatings at all.
+    -- weekly rule; 'closed' yields no seatings at all. A non-positive window
+    -- (an override whose start lands after the inherited end) yields none
+    -- either — the form draws nothing for it, and offering a phantom seating
+    -- here would page waitlisters toward a time the trigger refuses.
     select * from days
     where coalesce(kind, '') <> 'closed'
+      and eff_end > eff_start
       and (
         has_override
         or extract(isodow from the_date)::smallint
@@ -148,13 +152,15 @@ begin
       od.eff_res,
       od.eff_cov
     from open_days od
+    -- Upper bound is duration-1, NOT duration-slot_minutes: the seatings are
+    -- every start strictly before eff_end (exactly what generateSlots emits
+    -- with `t < end`). Subtracting a whole slot silently drops the final
+    -- seating whenever the window isn't a whole multiple of the cadence — an
+    -- 11:00-14:20 day would lose 14:00, whose chip would then never read
+    -- "Full" and whose waitlisters could never be notified.
     cross join lateral generate_series(
       0,
-      greatest(
-        0,
-        (extract(epoch from (od.eff_end - od.eff_start))::int / 60)
-          - s.slot_minutes
-      ),
+      (extract(epoch from (od.eff_end - od.eff_start))::int / 60) - 1,
       s.slot_minutes
     ) as n
   )
