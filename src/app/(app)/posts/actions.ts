@@ -377,3 +377,57 @@ export async function refreshFeed(
   ]);
   return { pinned, page };
 }
+
+/**
+ * Record that the member saw these posts — called from the feed as cards scroll
+ * into view (see `Feed`). Runs through the member's own client so auth.uid() in
+ * the RPC is them; the RPC filters the batch to real published posts and dedupes
+ * on the table's PK, so a replayed or padded call can't manufacture reach.
+ *
+ * Best-effort by contract: analytics must never break someone's scrolling.
+ */
+export async function recordPostViews(postIds: string[]): Promise<void> {
+  try {
+    await requireProfile();
+    const ids = [...new Set(postIds)].filter(Boolean);
+    if (ids.length === 0) return;
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("record_post_views", {
+      p_post_ids: ids,
+    });
+    if (error) console.error("recordPostViews failed:", error.message);
+  } catch (e) {
+    console.error("recordPostViews failed:", e);
+  }
+}
+
+/**
+ * How many members have seen each of these posts — the reach numbers on the
+ * staff post console. Staff-only, and enforced twice: this gate, and the
+ * staff-only select policy on post_views.
+ *
+ * Counted client-side from the ids rather than by a per-post count query: at
+ * club scale a post has tens of views, and one round trip beats N.
+ */
+export async function getPostViewCounts(
+  postIds: string[],
+): Promise<Record<string, number>> {
+  await requireRole("staff", "admin");
+  const ids = [...new Set(postIds)].filter(Boolean);
+  if (ids.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("post_views")
+    .select("post_id")
+    .in("post_id", ids);
+  if (error) {
+    console.error("getPostViewCounts failed:", error.message);
+    return {};
+  }
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.post_id] = (counts[row.post_id] ?? 0) + 1;
+  }
+  return counts;
+}

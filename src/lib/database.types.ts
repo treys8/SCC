@@ -229,6 +229,37 @@ export interface Database {
           },
         ];
       };
+      post_views: {
+        Row: {
+          post_id: string;
+          user_id: string;
+          seen_at: string;
+        };
+        Insert: {
+          post_id: string;
+          user_id: string;
+          seen_at?: string;
+        };
+        Update: {
+          post_id?: string;
+          user_id?: string;
+          seen_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_views_post_id_fkey";
+            columns: ["post_id"];
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_views_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       post_attachments: {
         Row: {
           id: string;
@@ -1192,6 +1223,11 @@ export interface Database {
       /** Refresh the caller's last-seen heartbeat (self-throttled to ~15 min). */
       touch_last_seen: {
         Args: Record<string, never>;
+        Returns: undefined;
+      };
+      /** Record that the caller saw these posts (deduped by the table's PK). */
+      record_post_views: {
+        Args: { p_post_ids: string[] };
         Returns: undefined;
       };
     };

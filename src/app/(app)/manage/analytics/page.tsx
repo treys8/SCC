@@ -32,7 +32,7 @@ export default async function AnalyticsPage() {
   const weekAgoMs = new Date(instantDaysAgoISO(7)).getTime();
   const monthAgoMs = new Date(instantDaysAgoISO(30)).getTime();
 
-  const [membersRes, activityRes, reservationsRes, messagesRes] =
+  const [membersRes, activityRes, reservationsRes, messagesRes, viewsRes] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -44,6 +44,13 @@ export default async function AnalyticsPage() {
       supabase
         .from("contact_messages")
         .select("*", { count: "exact", head: true }),
+      // Post reach over the last 30 days. Rows, not a count, so we can report
+      // distinct readers as well as total reads — "40 posts were read" says much
+      // less than "12 different members read something".
+      supabase
+        .from("post_views")
+        .select("user_id")
+        .gte("seen_at", instantDaysAgoISO(30)),
     ]);
 
   const members = membersRes.data ?? [];
@@ -54,6 +61,9 @@ export default async function AnalyticsPage() {
   for (const a of activityRes.data ?? []) {
     lastSeenMs.set(a.user_id, new Date(a.last_seen_at).getTime());
   }
+
+  const postViews = viewsRes.data ?? [];
+  const readers = new Set(postViews.map((v) => v.user_id)).size;
 
   const total = members.length;
   const signedIn = members.filter((m) => lastSeenMs.has(m.id)).length;
@@ -121,6 +131,8 @@ export default async function AnalyticsPage() {
             <Stat label="Active this month" value={activeSince(monthAgoMs)} />
             <Stat label="Reservations made" value={reservationsRes.count ?? 0} />
             <Stat label="Messages sent" value={messagesRes.count ?? 0} />
+            <Stat label="Read a post (30d)" value={readers} />
+            <Stat label="Posts read (30d)" value={postViews.length} />
           </div>
 
           <MemberActivityTable rows={rows} />

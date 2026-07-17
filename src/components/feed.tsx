@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadMorePosts,
+  recordPostViews,
   refreshFeed,
 } from "@/app/(app)/posts/actions";
 import { EmptyState } from "@/components/empty-state";
@@ -37,6 +38,15 @@ export function Feed({
 
   const sentinelRef = useRef<HTMLDivElement>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
+
+  // Reach tracking (staff-facing "seen by N members"). A post counts once it has
+  // actually been on screen — not merely rendered below the fold. `sentIdsRef`
+  // dedupes for the life of the page so a scroll up and back doesn't re-send;
+  // the RPC dedupes for good on its PK.
+  const viewRootRef = useRef<HTMLDivElement>(null);
+  const sentIdsRef = useRef<Set<string>>(new Set());
+  const pendingViewsRef = useRef<Set<string>>(new Set());
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track which post ids are already on screen, so realtime only counts truly
   // new ones.
@@ -78,6 +88,61 @@ export function Feed({
     observer.observe(el);
     return () => observer.disconnect();
   }, [loadMore, loadError]);
+
+  // Batch the ids seen so far into one call, rather than a request per card.
+  const flushViews = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const ids = [...pendingViewsRef.current];
+    if (ids.length === 0) return;
+    pendingViewsRef.current.clear();
+    // Fire and forget: recordPostViews swallows its own errors, and a failed
+    // count must never interrupt reading.
+    void recordPostViews(ids);
+  }, []);
+
+  // Watch the cards themselves. threshold 0.5 means half the card was on screen
+  // — a card clipped at the edge of the viewport as the member scrolls past
+  // isn't "seen". Re-runs as pages load so newly-mounted cards get observed.
+  useEffect(() => {
+    const root = viewRootRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const id = (entry.target as HTMLElement).dataset.postId;
+          if (!id || sentIdsRef.current.has(id)) continue;
+          sentIdsRef.current.add(id);
+          pendingViewsRef.current.add(id);
+          observer.unobserve(entry.target); // counted once; stop watching it
+        }
+        if (pendingViewsRef.current.size > 0 && !flushTimerRef.current) {
+          flushTimerRef.current = setTimeout(flushViews, 2000);
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    for (const el of root.querySelectorAll<HTMLElement>("[data-post-id]")) {
+      if (!sentIdsRef.current.has(el.dataset.postId ?? "")) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [pinned, posts, flushViews]);
+
+  // Don't lose the last batch when the member navigates away or backgrounds the
+  // tab — pagehide is the one event that survives the bfcache and mobile Safari.
+  useEffect(() => {
+    const onLeave = () => flushViews();
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      window.removeEventListener("pagehide", onLeave);
+      flushViews();
+    };
+  }, [flushViews]);
 
   // Realtime: count new posts from other members matching the current filter.
   // postgres_changes is RLS-gated by the socket's JWT — without it the socket is
@@ -177,22 +242,24 @@ export function Feed({
           }
         />
       ) : (
-        <div className="space-y-4">
+        <div ref={viewRootRef} className="space-y-4">
           {pinned.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              canManageAny={canPost}
-            />
+            <div key={post.id} data-post-id={post.id}>
+              <PostCard
+                post={post}
+                currentUserId={currentUserId}
+                canManageAny={canPost}
+              />
+            </div>
           ))}
           {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              canManageAny={canPost}
-            />
+            <div key={post.id} data-post-id={post.id}>
+              <PostCard
+                post={post}
+                currentUserId={currentUserId}
+                canManageAny={canPost}
+              />
+            </div>
           ))}
 
           {cursor !== null && (
