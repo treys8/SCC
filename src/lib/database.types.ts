@@ -229,6 +229,40 @@ export interface Database {
           },
         ];
       };
+      event_rsvps: {
+        Row: {
+          event_id: string;
+          member_id: string;
+          party_size: number;
+          created_at: string;
+        };
+        Insert: {
+          event_id: string;
+          member_id: string;
+          party_size?: number;
+          created_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          member_id?: string;
+          party_size?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_rsvps_event_id_fkey";
+            columns: ["event_id"];
+            referencedRelation: "calendar_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_rsvps_member_id_fkey";
+            columns: ["member_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       post_attachments: {
         Row: {
           id: string;
@@ -1213,6 +1247,7 @@ export type PostAttachment =
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
 export type CalendarEvent =
   Database["public"]["Tables"]["calendar_events"]["Row"];
+export type EventRsvp = Database["public"]["Tables"]["event_rsvps"]["Row"];
 /** Narrow projection for the Golf page's "Upcoming on the course" schedule. */
 export type UpcomingGolfEvent = Pick<
   CalendarEvent,
