@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadMorePosts,
+  recordPostViews,
   refreshFeed,
 } from "@/app/(app)/posts/actions";
 import { EmptyState } from "@/components/empty-state";
@@ -37,6 +38,15 @@ export function Feed({
 
   const sentinelRef = useRef<HTMLDivElement>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
+
+  // Reach tracking (staff-facing "seen by N members"). A post counts once it has
+  // actually been on screen — not merely rendered below the fold. `sentIdsRef`
+  // dedupes for the life of the page so a scroll up and back doesn't re-send;
+  // the RPC dedupes for good on its PK.
+  const viewRootRef = useRef<HTMLDivElement>(null);
+  const sentIdsRef = useRef<Set<string>>(new Set());
+  const pendingViewsRef = useRef<Set<string>>(new Set());
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track which post ids are already on screen, so realtime only counts truly
   // new ones.
@@ -78,6 +88,79 @@ export function Feed({
     observer.observe(el);
     return () => observer.disconnect();
   }, [loadMore, loadError]);
+
+  // Batch the ids seen so far into one call, rather than a request per card.
+  const flushViews = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const ids = [...pendingViewsRef.current];
+    if (ids.length === 0) return;
+    pendingViewsRef.current.clear();
+    // Fire and forget: recordPostViews swallows its own errors, and a failed
+    // count must never interrupt reading.
+    void recordPostViews(ids);
+  }, []);
+
+  // Watch the cards themselves: a card only counts once a real part of it has
+  // been on screen, so one clipped at the viewport edge while scrolling past
+  // isn't "seen". Re-runs as pages load so newly-mounted cards get observed.
+  //
+  // "Half the card" alone can't be the test — a post with a tall photo can be
+  // taller than the phone, so its ratio never reaches 0.5 at any scroll
+  // position and it would never count no matter how carefully it was read. So
+  // either half the card is visible, or it's filling half the screen. The
+  // several thresholds exist to get callbacks while such a card scrolls past;
+  // with a single one, nothing would fire between crossings.
+  useEffect(() => {
+    const root = viewRootRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const seen =
+            entry.intersectionRatio >= 0.5 ||
+            entry.intersectionRect.height >= window.innerHeight * 0.5;
+          if (!seen) continue;
+          const id = (entry.target as HTMLElement).dataset.postId;
+          if (!id || sentIdsRef.current.has(id)) continue;
+          sentIdsRef.current.add(id);
+          pendingViewsRef.current.add(id);
+          observer.unobserve(entry.target); // counted once; stop watching it
+        }
+        if (pendingViewsRef.current.size > 0 && !flushTimerRef.current) {
+          flushTimerRef.current = setTimeout(flushViews, 2000);
+        }
+      },
+      { threshold: [0, 0.1, 0.25, 0.5] },
+    );
+
+    for (const el of root.querySelectorAll<HTMLElement>("[data-post-id]")) {
+      if (!sentIdsRef.current.has(el.dataset.postId ?? "")) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [pinned, posts, flushViews]);
+
+  // Send the pending batch early rather than waiting out the debounce: on the
+  // cleanup path (navigating within the app) that's what saves it, and on
+  // pagehide it at least gets the request away before a bfcache freeze.
+  //
+  // It is NOT a guarantee against closing the tab: recordPostViews is a Server
+  // Action, i.e. a plain fetch, and browsers cancel in-flight fetches on a real
+  // unload. Reading a post and closing within the 2s window therefore still
+  // loses that view. Accepted — reach is a trend, not an audit — and the
+  // alternative is a sendBeacon route handler outside the action layer.
+  useEffect(() => {
+    const onLeave = () => flushViews();
+    window.addEventListener("pagehide", onLeave);
+    return () => {
+      window.removeEventListener("pagehide", onLeave);
+      flushViews();
+    };
+  }, [flushViews]);
 
   // Realtime: count new posts from other members matching the current filter.
   // postgres_changes is RLS-gated by the socket's JWT — without it the socket is
@@ -177,22 +260,24 @@ export function Feed({
           }
         />
       ) : (
-        <div className="space-y-4">
+        <div ref={viewRootRef} className="space-y-4">
           {pinned.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              canManageAny={canPost}
-            />
+            <div key={post.id} data-post-id={post.id}>
+              <PostCard
+                post={post}
+                currentUserId={currentUserId}
+                canManageAny={canPost}
+              />
+            </div>
           ))}
           {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              canManageAny={canPost}
-            />
+            <div key={post.id} data-post-id={post.id}>
+              <PostCard
+                post={post}
+                currentUserId={currentUserId}
+                canManageAny={canPost}
+              />
+            </div>
           ))}
 
           {cursor !== null && (

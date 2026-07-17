@@ -241,6 +241,37 @@ export interface Database {
           },
         ];
       };
+      post_views: {
+        Row: {
+          post_id: string;
+          user_id: string;
+          seen_at: string;
+        };
+        Insert: {
+          post_id: string;
+          user_id: string;
+          seen_at?: string;
+        };
+        Update: {
+          post_id?: string;
+          user_id?: string;
+          seen_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_views_post_id_fkey";
+            columns: ["post_id"];
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_views_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       event_rsvps: {
         Row: {
           event_id: string;
@@ -1335,6 +1366,21 @@ export interface Database {
       touch_last_seen: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      /** Record that the caller saw these posts (deduped by the table's PK). */
+      record_post_views: {
+        Args: { p_post_ids: string[] };
+        Returns: undefined;
+      };
+      /** Views per post. Aggregated in SQL (no row cap); staff-only via RLS. */
+      get_post_view_counts: {
+        Args: { p_post_ids: string[] };
+        Returns: { post_id: string; views: number }[];
+      };
+      /** Distinct readers + total reads since an instant; staff-only via RLS. */
+      get_post_view_stats: {
+        Args: { p_since: string };
+        Returns: { readers: number; views: number }[];
       };
       /** How full each seating is, for the booking form's "Full · waitlist"
        * chips. Aggregates only — never who booked. */

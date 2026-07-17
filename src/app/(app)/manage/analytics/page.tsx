@@ -32,7 +32,7 @@ export default async function AnalyticsPage() {
   const weekAgoMs = new Date(instantDaysAgoISO(7)).getTime();
   const monthAgoMs = new Date(instantDaysAgoISO(30)).getTime();
 
-  const [membersRes, activityRes, reservationsRes, messagesRes] =
+  const [membersRes, activityRes, reservationsRes, messagesRes, viewsRes] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -44,6 +44,11 @@ export default async function AnalyticsPage() {
       supabase
         .from("contact_messages")
         .select("*", { count: "exact", head: true }),
+      // Post reach over the last 30 days: distinct readers alongside total
+      // reads — "40 posts were read" says much less than "12 different members
+      // read something". Aggregated in SQL; tallying rows here would truncate
+      // at PostgREST's 1000-row cap and quietly plateau.
+      supabase.rpc("get_post_view_stats", { p_since: instantDaysAgoISO(30) }),
     ]);
 
   const members = membersRes.data ?? [];
@@ -54,6 +59,9 @@ export default async function AnalyticsPage() {
   for (const a of activityRes.data ?? []) {
     lastSeenMs.set(a.user_id, new Date(a.last_seen_at).getTime());
   }
+
+  // The RPC returns a single aggregate row.
+  const viewStats = viewsRes.data?.[0] ?? { readers: 0, views: 0 };
 
   const total = members.length;
   const signedIn = members.filter((m) => lastSeenMs.has(m.id)).length;
@@ -121,6 +129,8 @@ export default async function AnalyticsPage() {
             <Stat label="Active this month" value={activeSince(monthAgoMs)} />
             <Stat label="Reservations made" value={reservationsRes.count ?? 0} />
             <Stat label="Messages sent" value={messagesRes.count ?? 0} />
+            <Stat label="Read a post (30d)" value={viewStats.readers} />
+            <Stat label="Posts read (30d)" value={viewStats.views} />
           </div>
 
           <MemberActivityTable rows={rows} />

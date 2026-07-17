@@ -414,3 +414,54 @@ export async function refreshFeed(
   ]);
   return { pinned, page };
 }
+
+/**
+ * Record that the member saw these posts — called from the feed as cards scroll
+ * into view (see `Feed`). Runs through the member's own client so auth.uid() in
+ * the RPC is them; the RPC filters the batch to real published posts and dedupes
+ * on the table's PK, so a replayed or padded call can't manufacture reach.
+ *
+ * Best-effort by contract: analytics must never break someone's scrolling.
+ */
+export async function recordPostViews(postIds: string[]): Promise<void> {
+  try {
+    await requireProfile();
+    const ids = [...new Set(postIds)].filter(Boolean);
+    if (ids.length === 0) return;
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("record_post_views", {
+      p_post_ids: ids,
+    });
+    if (error) console.error("recordPostViews failed:", error.message);
+  } catch (e) {
+    console.error("recordPostViews failed:", e);
+  }
+}
+
+/**
+ * How many members have seen each of these posts — the reach numbers on the
+ * staff post console. Staff-only, enforced twice: this gate, and the staff-only
+ * select policy on post_views (which the RPC respects — it's invoker, not
+ * definer).
+ *
+ * The counting happens in SQL. Pulling the rows back to tally them in JS would
+ * silently truncate at PostgREST's 1000-row cap — 25 posts × 60 readers already
+ * exceeds it — and the trailing posts would report "Not seen yet" as fact.
+ */
+export async function getPostViewCounts(
+  postIds: string[],
+): Promise<Record<string, number>> {
+  await requireRole("staff", "admin");
+  const ids = [...new Set(postIds)].filter(Boolean);
+  if (ids.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_post_view_counts", {
+    p_post_ids: ids,
+  });
+  if (error) {
+    console.error("getPostViewCounts failed:", error.message);
+    return {};
+  }
+  return Object.fromEntries((data ?? []).map((r) => [r.post_id, r.views]));
+}

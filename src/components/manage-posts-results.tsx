@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
-import { loadMoreSearchPosts } from "@/app/(app)/posts/actions";
+import { useCallback, useEffect, useState } from "react";
+import {
+  getPostViewCounts,
+  loadMoreSearchPosts,
+} from "@/app/(app)/posts/actions";
 import { DEPARTMENT_LABEL } from "@/lib/constants";
 import { formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -28,6 +31,24 @@ export function ManagePostsResults({
   const [cursor, setCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
+
+  // Reach for whatever's on screen, refetched as pages append. Done here rather
+  // than server-side on the first page so loaded-more rows get counts too, from
+  // one code path. Best-effort: a missing count just hides the line.
+  useEffect(() => {
+    let cancelled = false;
+    const ids = posts.map((p) => p.id);
+    if (ids.length === 0) return;
+    getPostViewCounts(ids)
+      .then((counts) => {
+        if (!cancelled) setViewCounts((prev) => ({ ...prev, ...counts }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [posts]);
 
   const loadMore = useCallback(async () => {
     if (loading || cursor === null) return;
@@ -93,6 +114,11 @@ export function ManagePostsResults({
                   {post.author?.full_name ?? "Club"}
                   {post.author?.title ? ` · ${post.author.title}` : ""} ·{" "}
                   {formatTimestamp(post.created_at)}
+                  {/* Reach, for published posts only — a draft nobody can see
+                      yet showing "Seen by 0" reads as a failure, not a fact. */}
+                  {post.status === "published" && (
+                    <> · {seenLabel(viewCounts[post.id] ?? 0)}</>
+                  )}
                 </p>
               </div>
               <span
@@ -127,4 +153,11 @@ export function ManagePostsResults({
 /** First non-empty line of the body, for posts with no title. */
 function firstLine(content: string): string {
   return content.split("\n").find((l) => l.trim()) ?? "";
+}
+
+/** "Seen by 62 members" — the reach line. Zero says so plainly rather than
+ * hiding, so staff can tell "nobody's read it" from "we're not counting". */
+function seenLabel(count: number): string {
+  if (count === 0) return "Not seen yet";
+  return `Seen by ${count} ${count === 1 ? "member" : "members"}`;
 }
