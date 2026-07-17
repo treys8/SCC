@@ -5,9 +5,15 @@ import { requireProfile, requireRole } from "@/lib/auth";
 import { sendPushToUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  effectiveBookingSettings,
+  fetchServiceOverride,
+  fetchWeeklyClosedWeekdays,
+} from "@/lib/dining";
 import { formatDate, formatTime } from "@/lib/format";
 import {
   fetchReservationSettings,
+  validateBookingDay,
   validateBookingSlot,
 } from "@/lib/reservations";
 import type { ReservationStatus } from "@/lib/database.types";
@@ -44,10 +50,21 @@ export async function createReservation(
 
   const supabase = await createClient();
   // The picker only offers valid slots, but the action is the real boundary:
-  // validate the date is canonical, not past, within the horizon, and on a slot
-  // (a crafted POST can send a non-canonical past date that beats a string compare).
-  const settings = await fetchReservationSettings(supabase);
-  const slotError = validateBookingSlot(settings, date, time);
+  // validate the date is canonical, not past, within the horizon, that the club
+  // is serving that day, and that the time is a real slot for it (a crafted POST
+  // can send a non-canonical past date that beats a string compare).
+  const [settings, override, weeklyClosed] = await Promise.all([
+    fetchReservationSettings(supabase),
+    fetchServiceOverride(supabase, date),
+    fetchWeeklyClosedWeekdays(supabase),
+  ]);
+  const dayError = validateBookingDay(date, weeklyClosed, override);
+  if (dayError) return { error: dayError };
+  const slotError = validateBookingSlot(
+    effectiveBookingSettings(settings, override),
+    date,
+    time,
+  );
   if (slotError) return { error: slotError };
 
   const { error } = await supabase.from("reservations").insert({
@@ -113,9 +130,20 @@ export async function setReservationStatus(
     if (hasOffer) {
       // Validate the offered slot now — the slot trigger doesn't fire on the
       // proposed_* columns, so without this a member could be shown an offer
-      // that only fails (opaquely) when they tap Accept.
-      const settings = await fetchReservationSettings(supabase);
-      const offerError = validateBookingSlot(settings, pDate!, pTime!);
+      // that only fails (opaquely) when they tap Accept. That includes the day
+      // itself: never offer a time on a day the club isn't serving.
+      const [settings, override, weeklyClosed] = await Promise.all([
+        fetchReservationSettings(supabase),
+        fetchServiceOverride(supabase, pDate!),
+        fetchWeeklyClosedWeekdays(supabase),
+      ]);
+      const offerDayError = validateBookingDay(pDate!, weeklyClosed, override);
+      if (offerDayError) throw new Error(`Proposed day invalid: ${offerDayError}`);
+      const offerError = validateBookingSlot(
+        effectiveBookingSettings(settings, override),
+        pDate!,
+        pTime!,
+      );
       if (offerError) throw new Error(`Proposed time invalid: ${offerError}`);
     }
     patch.proposed_date = hasOffer ? pDate : null;

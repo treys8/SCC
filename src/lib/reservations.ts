@@ -5,7 +5,12 @@
  * times the trigger will accept.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Reservation } from "@/lib/database.types";
+import { dayDiningStatus } from "@/lib/dining";
+import type {
+  Database,
+  DiningServiceOverride,
+  Reservation,
+} from "@/lib/database.types";
 import { clubDatePlusDaysISO, clubTodayISO, formatTime } from "@/lib/format";
 
 type DB = SupabaseClient<Database>;
@@ -27,6 +32,11 @@ export type DayOption = {
   /** True when a reservation is required that day — the standing Fri/Sat rule,
    * or a staff-flagged exception the page merges in. Drives the form's badge. */
   required?: boolean;
+  /** The club isn't serving that day (a closure or the weekly rule) — the pill
+   * is shown, but not bookable. */
+  closed?: boolean;
+  /** Name of the special service replacing normal dining that day, if any. */
+  specialName?: string | null;
 };
 
 export type BookingSettings = {
@@ -131,6 +141,25 @@ export function validateBookingSlot(
     return "Choose an available seating time.";
   }
   return null;
+}
+
+/**
+ * Is the club serving at all on this date? Returns a member-facing reason, or
+ * null if it's bookable. Pairs with `validateBookingSlot`, which answers "is
+ * this a real seating time" — this answers "is there service that day".
+ *
+ * Mirrors the closure half of enforce_reservation_slot(): the trigger still has
+ * the final say, this just turns its raise into a message worth reading.
+ */
+export function validateBookingDay(
+  iso: string,
+  weeklyClosed: number[],
+  override?: DiningServiceOverride | null,
+): string | null {
+  if (dayDiningStatus(iso, weeklyClosed, override) !== "closed") return null;
+  return override?.name
+    ? `The club is closed for dining that day (${override.name}).`
+    : "The club is closed for dining that day.";
 }
 
 /** Bookable times: [service_start, service_end) stepped by slot_minutes. */

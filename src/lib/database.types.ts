@@ -51,6 +51,9 @@ export type DocumentCategory =
 export type GolfLogKind = "done" | "issue";
 /** A buffet dish is either a main or a side (text + CHECK in the DB). */
 export type DishKind = "main" | "side";
+/** A dining service override either closes a date or replaces it with a special
+ * service (text + CHECK in the DB, not a PG enum). */
+export type DiningOverrideKind = "closed" | "special";
 
 export interface Database {
   public: {
@@ -644,6 +647,58 @@ export interface Database {
           },
         ];
       };
+      dining_service_overrides: {
+        Row: {
+          date: string;
+          kind: DiningOverrideKind;
+          name: string | null;
+          description: string | null;
+          service_start: string | null;
+          service_end: string | null;
+          max_reservations_per_slot: number | null;
+          max_covers_per_slot: number | null;
+          reservations_required: boolean;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          date: string;
+          kind: DiningOverrideKind;
+          name?: string | null;
+          description?: string | null;
+          service_start?: string | null;
+          service_end?: string | null;
+          max_reservations_per_slot?: number | null;
+          max_covers_per_slot?: number | null;
+          reservations_required?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          date?: string;
+          kind?: DiningOverrideKind;
+          name?: string | null;
+          description?: string | null;
+          service_start?: string | null;
+          service_end?: string | null;
+          max_reservations_per_slot?: number | null;
+          max_covers_per_slot?: number | null;
+          reservations_required?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dining_service_overrides_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       dishes: {
         Row: {
           id: string;
@@ -965,18 +1020,22 @@ export interface Database {
         Row: {
           id: boolean;
           conditions_reminder_enabled: boolean;
+          /** ISO weekdays (1=Mon … 7=Sun) the club is closed for dining weekly. */
+          weekly_closed_weekdays: number[];
           updated_at: string;
           updated_by: string | null;
         };
         Insert: {
           id?: boolean;
           conditions_reminder_enabled?: boolean;
+          weekly_closed_weekdays?: number[];
           updated_at?: string;
           updated_by?: string | null;
         };
         Update: {
           id?: boolean;
           conditions_reminder_enabled?: boolean;
+          weekly_closed_weekdays?: number[];
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1240,6 +1299,8 @@ export type DiningBuffet =
 
 export type DiningBrunch =
   Database["public"]["Tables"]["dining_brunch"]["Row"];
+export type DiningServiceOverride =
+  Database["public"]["Tables"]["dining_service_overrides"]["Row"];
 export type Dish = Database["public"]["Tables"]["dishes"]["Row"];
 export type BuffetWeekDay =
   Database["public"]["Tables"]["buffet_week"]["Row"];

@@ -130,6 +130,18 @@ export function clubTodayISO(): string {
 }
 
 /**
+ * ISO weekday (1=Mon … 7=Sun) of a club calendar date — the key `buffet_week`
+ * and `club_settings.weekly_closed_weekdays` are stored against, and what
+ * `extract(isodow …)` returns in SQL. The ISO string is a wall-clock date, so
+ * it's parsed at noon UTC: far enough from either boundary that no timezone
+ * offset can roll it onto the wrong day.
+ */
+export function clubWeekday(iso: string): number {
+  const dow = new Date(`${iso}T12:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
+  return ((dow + 6) % 7) + 1;
+}
+
+/**
  * Today + `days` as "YYYY-MM-DD" in club time, for booking-horizon checks. Built
  * on clubTodayISO so it shares the same TZ anchor; wall-clock date math (Date
  * with local components) rolls month/year boundaries correctly.

@@ -8,6 +8,12 @@ import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
+import {
+  dayDiningStatus,
+  effectiveBookingSettings,
+  fetchServiceOverride,
+  fetchWeeklyClosedWeekdays,
+} from "@/lib/dining";
 import { fetchFacilityStatus } from "@/lib/facility";
 import { formatTime, formatTimeRange } from "@/lib/format";
 import { memberFirstName } from "@/lib/member";
@@ -52,6 +58,8 @@ export default async function TodayPage() {
     brunchRes,
     todayMenuRes,
     weather,
+    override,
+    weeklyClosed,
   ] = await Promise.all([
       fetchFacilityStatus(supabase),
       profile
@@ -76,6 +84,8 @@ export default async function TodayPage() {
         .eq("weekday", weekday)
         .maybeSingle(),
       fetchWeather(),
+      fetchServiceOverride(supabase, today),
+      fetchWeeklyClosedWeekdays(supabase),
     ]);
 
   const todaysEvents = todaysEventsRes.data ?? [];
@@ -103,10 +113,16 @@ export default async function TodayPage() {
 
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  // What kind of dining day this is. A closure or a special service overrides
+  // the derived schedule entirely — a special day IS the day's dining, so it
+  // replaces the buffet/dinner/brunch cards rather than stacking on top.
+  const diningStatus = dayDiningStatus(today, weeklyClosed, override);
+  const effective = effectiveBookingSettings(settings, override);
   // Dinner service is Fri/Sat only (and always reservations-required); brunch is
   // Sunday. Mon–Thu show no dinner/brunch card — just the lunch buffet on its days.
-  const isDinnerNight = isStandingReservationDay(today);
-  const isBrunchDay = weekday === 7;
+  const isDinnerNight =
+    diningStatus === "normal" && isStandingReservationDay(today);
+  const isBrunchDay = diningStatus === "normal" && weekday === 7;
   const brunchMeta = brunch
     ? [
         brunch.start_time && formatTimeRange(brunch.start_time, brunch.end_time),
@@ -158,7 +174,23 @@ export default async function TodayPage() {
       ) : (
         <ConditionsGrid facilities={facilities} />
       )}
-      {buffet?.active && !buffetClosed && (
+      {diningStatus === "closed" && (
+        <DiningCard
+          eyebrow="Today"
+          title={override?.name ?? "Dining room closed"}
+          description={override?.description}
+        />
+      )}
+      {diningStatus === "special" && (
+        <DiningCard
+          eyebrow="Today"
+          title={override?.name ?? "A special service"}
+          meta={formatTimeRange(effective.service_start, effective.service_end)}
+          description={override?.description}
+          reservation={override?.reservations_required ? "required" : "walk_in"}
+        />
+      )}
+      {diningStatus === "normal" && buffet?.active && !buffetClosed && (
         <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
       )}
       {isDinnerNight && (
