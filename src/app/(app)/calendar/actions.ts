@@ -187,11 +187,15 @@ export async function setRsvp(eventId: string, going: boolean) {
 
   if (going) {
     // Idempotent: tapping twice (a double-tap, a stale page) stays one row.
+    // ignoreDuplicates gives ON CONFLICT DO NOTHING, which is checked against
+    // the INSERT policy alone. The default (DO UPDATE) would be checked against
+    // an UPDATE policy — and this table deliberately has none, so re-tapping
+    // would raise an RLS violation at a member who is already on the list.
     const { error } = await supabase
       .from("event_rsvps")
       .upsert(
         { event_id: eventId, member_id: profile.id },
-        { onConflict: "event_id,member_id" },
+        { onConflict: "event_id,member_id", ignoreDuplicates: true },
       );
     if (error) throw new Error(error.message);
   } else {

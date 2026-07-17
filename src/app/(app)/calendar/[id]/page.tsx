@@ -39,13 +39,16 @@ export default async function EventDetailPage({ params }: Params) {
   const canManage = isStaff(profile.role);
 
   // RSVPs are for club-run events only — one with a registration_url hands off
-  // to GolfGenius, and a second sign-up path would split the count. There's
-  // also nothing to RSVP to once the day has passed.
-  const canRsvp = !event.registration_url && event.event_date >= clubTodayISO();
+  // to GolfGenius, and a second sign-up path would split the count.
+  const isRsvpEvent = !event.registration_url;
+  // Offer the button only while the event is still ahead: an RSVP states an
+  // intent, and there's nothing left to intend. The headcount outlives it
+  // though — staff reconcile covers against it the morning after.
+  const canRsvp = isRsvpEvent && event.event_date >= clubTodayISO();
 
   // RLS returns the member their own row and staff every row, so this one query
   // answers "am I going?" for a member and "who's coming?" for staff.
-  const { data: rsvps } = canRsvp
+  const { data: rsvps } = isRsvpEvent
     ? await supabase
         .from("event_rsvps")
         .select("member_id, party_size")
@@ -119,10 +122,10 @@ export default async function EventDetailPage({ params }: Params) {
 
           {/* Staff-only: the headcount this RSVP feeds. Members never see who
               else is coming — see the event_rsvps RLS. */}
-          {canManage && canRsvp && (
+          {canManage && isRsvpEvent && (
             <div className="rounded-lg border border-border bg-surface-2 p-4">
               <p className="text-caption font-semibold uppercase tracking-wide text-muted">
-                Coming along
+                {canRsvp ? "Coming along" : "Said they were coming"}
               </p>
               {headcount === 0 ? (
                 <p className="mt-1 text-sm text-muted">
