@@ -68,12 +68,9 @@ export default async function TodayPage() {
     brunchRes,
     todayMenuRes,
     weather,
-<<<<<<< HEAD
     courseUpdateRes,
-=======
     override,
     weeklyClosed,
->>>>>>> main
   ] = await Promise.all([
       fetchFacilityStatus(supabase),
       profile
@@ -98,7 +95,6 @@ export default async function TodayPage() {
         .eq("weekday", weekday)
         .maybeSingle(),
       fetchWeather(),
-<<<<<<< HEAD
       // The most recent course update shared from the golf log. Time-boxed: an
       // update from last week isn't "today on the course", and a stale card
       // reads worse than no card.
@@ -111,10 +107,8 @@ export default async function TodayPage() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-=======
       fetchServiceOverride(supabase, today),
       fetchWeeklyClosedWeekdays(supabase),
->>>>>>> main
     ]);
 
   const todaysEvents = todaysEventsRes.data ?? [];
@@ -210,7 +204,6 @@ export default async function TodayPage() {
       ) : (
         <ConditionsGrid facilities={facilities} />
       )}
-<<<<<<< HEAD
       {courseUpdate && (
         <CourseUpdateCard
           postId={courseUpdate.id}
@@ -220,8 +213,6 @@ export default async function TodayPage() {
           createdAt={courseUpdate.created_at}
         />
       )}
-      {buffet?.active && !buffetClosed && (
-=======
       {diningStatus === "closed" && (
         <DiningCard
           eyebrow="Today"
@@ -239,7 +230,6 @@ export default async function TodayPage() {
         />
       )}
       {diningStatus === "normal" && buffet?.active && !buffetClosed && (
->>>>>>> main
         <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
       )}
       {isDinnerNight && (
