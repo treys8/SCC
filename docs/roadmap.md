@@ -122,12 +122,31 @@ These shipped to `main` on top of the phased work:
   them, their comments notify the superintendent. Gated by title via new `requireTitle` /
   `private.current_user_title()`; RLS on `golf_log_entries` / `golf_log_comments`.
 
+## In review (2026-07-16 — PRs #40–#46, none merged yet)
+A batch closing the highest-leverage gaps. Each was verified against the live DB; the
+migrations are already applied, so these are code-only merges.
+- **Posts notify members** (#40) — an opt-in push/notification when a post goes live,
+  targeted by department. Also adds the `/posts/[id]` detail page it links to.
+- **Reservation day-of reminders** (#41) — a daily cron. ⚠️ Uses the **last** Hobby cron slot.
+- **Dining closures & special days** (#42) — a date-keyed override table + a weekly
+  closed-days rule. Rewrites the reservation capacity trigger. Supersedes the
+  unbuilt `feat/dining-service-days` spec.
+- **Reservation waitlist** (#43, stacked on #42) — full seatings offer to wait; everyone
+  is notified when one frees and the first to book wins.
+- **Event RSVP** (#44) — "I'm coming" with a staff-only headcount, for non-GolfGenius events.
+- **Course update** (#45) — the superintendent shares a golf-log entry to the feed + a
+  Today card.
+- **Post reach** (#46) — "seen by N members", counted on scroll-into-view.
+
 ## Still open (TODOs)
-- ⚠️ **VAPID env vars** — set keys in prod so Phase 7 push actually sends.
+- ⚠️ **VAPID env vars** — set keys in prod so Phase 7 push actually sends. This now gates
+  more than facility alerts: post notifications (#40), reservation reminders (#41), and
+  waitlist alerts (#43) all fall back to in-app-only without it.
 - **Email alerts** for reservations + contact messages (in-app + push exist; email is TODO).
-- **Roster import** + **household visibility** (follow-ups from the accounts model).
-- **Member-facing Dining/Pool pages** — decided these must be DB-backed + staff-editable
-  (not hardcoded); reference `menu.pdf` / `pool.pdf` on Desktop.
+- **Household visibility** (follow-up from the accounts model). *(Roster import shipped in #34.)*
+- **Waitlist purge** — one line to add to the reservation-reminders cron once #41 + #43 land
+  (see #43's description).
+- ~~**Member-facing Dining/Pool pages**~~ — shipped in #34 (DB-backed via `page_sections`).
 
 ---
 
