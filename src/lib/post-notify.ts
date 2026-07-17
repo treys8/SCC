@@ -41,7 +41,9 @@ function preview(content: string): string {
     : plain;
 }
 
-export async function notifyPostPublished(post: PublishedPost): Promise<void> {
+/** True when this call is the one that sent — false if it was already claimed
+ * or the claim failed. Lets the cron report sends rather than intentions. */
+export async function notifyPostPublished(post: PublishedPost): Promise<boolean> {
   try {
     const admin = createAdminClient();
 
@@ -54,16 +56,16 @@ export async function notifyPostPublished(post: PublishedPost): Promise<void> {
       .select("id");
     if (claimError) {
       console.error("notifyPostPublished: claim failed:", claimError.message);
-      return;
+      return false;
     }
-    if (!claimed || claimed.length === 0) return; // already sent
+    if (!claimed || claimed.length === 0) return false; // already sent
 
     // Everyone who hasn't opted out of this department, minus the author (they
     // just wrote it — a push telling them about their own post is noise).
     const audience = (
       await getUsersForDepartmentDefaultOn(admin, post.department)
     ).filter((id) => id !== post.author_id);
-    if (audience.length === 0) return;
+    if (audience.length === 0) return true; // claimed and settled: nobody to tell
 
     const body = preview(post.content);
     await notifyUsers(audience, {
@@ -74,7 +76,9 @@ export async function notifyPostPublished(post: PublishedPost): Promise<void> {
       link: `/posts/${post.id}`,
       tag: `post-${post.id}`,
     });
+    return true;
   } catch (e) {
     console.error("notifyPostPublished failed:", e);
+    return false;
   }
 }

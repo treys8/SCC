@@ -293,9 +293,12 @@ export async function updatePost(
     .eq("id", id);
   if (upError) return { error: upError.message };
 
-  // Notify only when this edit is what takes the post live — editing an
-  // already-published post must never re-push. (notified_at backstops both.)
-  if (goingLive && notifyMembers) {
+  // Notify whenever the post is live and the author has asked for it — that
+  // covers this edit taking it live, and the case of ticking the toggle on a
+  // post that went out quietly earlier. Editing an already-notified post can't
+  // re-push: notifyPostPublished's claim on notified_at is the guard, not this
+  // condition.
+  if (state.status === "published" && notifyMembers) {
     await notifyPostPublished({
       id,
       title: title || null,

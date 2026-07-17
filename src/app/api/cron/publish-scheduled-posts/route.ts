@@ -45,14 +45,13 @@ export async function GET(request: Request) {
   }
 
   // notifyPostPublished claims each post before sending, so a retry of this
-  // route (or an overlapping run) can't double-notify.
-  const toNotify = (published ?? []).filter((p) => p.notify_members);
-  for (const post of toNotify) {
-    await notifyPostPublished(post);
+  // route (or an overlapping run) can't double-notify. Count what it actually
+  // sent, not what was asked for — this response is the signal you'd reach for
+  // to debug a missing notification, so it mustn't overstate.
+  let notified = 0;
+  for (const post of (published ?? []).filter((p) => p.notify_members)) {
+    if (await notifyPostPublished(post)) notified++;
   }
 
-  return Response.json({
-    published: published?.length ?? 0,
-    notified: toNotify.length,
-  });
+  return Response.json({ published: published?.length ?? 0, notified });
 }
