@@ -122,12 +122,41 @@ These shipped to `main` on top of the phased work:
   them, their comments notify the superintendent. Gated by title via new `requireTitle` /
   `private.current_user_title()`; RLS on `golf_log_entries` / `golf_log_comments`.
 
+- **Notifications, dining depth & engagement batch** (2026-07-16, PRs #40–#46, #48) — seven
+  features closing the highest-leverage gaps:
+  - **Posts notify members** — an opt-in in-app + push notification when a post goes live,
+    targeted by department (opt-outs respected), sent exactly once via a claim on
+    `posts.notified_at`. Fires from the composer and from the scheduled-publish cron. Added
+    the `/posts/[id]` detail page the notification links to (it didn't exist).
+  - **Reservation day-of reminders** — a daily cron for confirmed bookings.
+    ⚠️ Uses the **second and last** Vercel Hobby cron slot.
+  - **Dining closures & special days** — `dining_service_overrides` (date-keyed) +
+    `club_settings.weekly_closed_weekdays`. Precedence: date row > weekly rule > derived
+    service. A special day *replaces* normal service. Rewrote `enforce_reservation_slot()`
+    to honour both. (Supersedes the unbuilt `feat/dining-service-days` spec.)
+  - **Reservation waitlist** — full seatings offer to wait; when one frees, everyone waiting
+    is told at once and the first to book wins (the capacity trigger arbitrates).
+  - **Event RSVP** — "I'm coming" with a **staff-only** headcount (enforced by RLS), for
+    events without a GolfGenius `registration_url`.
+  - **Course update** — the superintendent shares a golf-log entry to the feed + a Today
+    "From the course" card. The log itself stays private.
+  - **Post reach** — "seen by N members", counted on scroll-into-view, staff-only.
+
 ## Still open (TODOs)
-- ⚠️ **VAPID env vars** — set keys in prod so Phase 7 push actually sends.
+- ⚠️ **VAPID env vars** — set keys in prod so Phase 7 push actually sends. **This now gates far
+  more than facility alerts:** post notifications, reservation reminders, and waitlist alerts
+  all fall back to in-app-only without it. Highest-value env change available.
+- **Dining `walkin` state** — the club serves lunch Tue–Fri but takes dinner reservations only
+  Fri/Sat, and the booking form still offers dinner Tue–Thu. The override model has two states
+  (closed / normal); this needs a third (`reservations` / `walkin` / `closed`) so Tue–Thu can be
+  open-but-unbookable without hiding the lunch buffet. See the `feat/dining-service-days` spec.
+- **Waitlist purge** — one line in `/api/cron/reservation-reminders`
+  (`delete from reservation_waitlist where reservation_date < today`). Harmless meanwhile:
+  every read is date-filtered.
+- **View tracking on `/posts/[id]`** — members arriving from a push notification aren't counted
+  toward reach, so the most engaged readers are invisible.
 - **Email alerts** for reservations + contact messages (in-app + push exist; email is TODO).
-- **Roster import** + **household visibility** (follow-ups from the accounts model).
-- **Member-facing Dining/Pool pages** — decided these must be DB-backed + staff-editable
-  (not hardcoded); reference `menu.pdf` / `pool.pdf` on Desktop.
+- **Household visibility** (follow-up from the accounts model).
 
 ---
 
