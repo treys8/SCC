@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { requireProfile, requireRole } from "@/lib/auth";
 import { DEPARTMENTS } from "@/lib/constants";
+import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { postsPublicUrl } from "@/lib/url";
 import type { DepartmentType } from "@/lib/database.types";
@@ -153,4 +154,59 @@ export async function deleteEvent(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/calendar");
   revalidatePath("/");
+}
+
+// ── RSVPs ───────────────────────────────────────────────────────────────────
+
+/**
+ * Member toggles "I'm coming" for a club-run event. The headcount it feeds is
+ * staff-only (RLS); the member only ever sees their own answer.
+ *
+ * Refused for an event with a registration_url — those hand off to GolfGenius,
+ * and a second sign-up path would split the count between two systems. Also
+ * refused once the event has passed: an RSVP is a statement of intent, and
+ * there's nothing left to intend.
+ */
+export async function setRsvp(eventId: string, going: boolean) {
+  const profile = await requireProfile();
+  const supabase = await createClient();
+
+  const { data: event, error: readError } = await supabase
+    .from("calendar_events")
+    .select("id, event_date, registration_url")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!event) throw new Error("Event not found.");
+  if (event.registration_url) {
+    throw new Error("This event is registered through its own sign-up link.");
+  }
+  if (event.event_date < clubTodayISO()) {
+    throw new Error("That event has already passed.");
+  }
+
+  if (going) {
+    // Idempotent: tapping twice (a double-tap, a stale page) stays one row.
+    // ignoreDuplicates gives ON CONFLICT DO NOTHING, which is checked against
+    // the INSERT policy alone. The default (DO UPDATE) would be checked against
+    // an UPDATE policy — and this table deliberately has none, so re-tapping
+    // would raise an RLS violation at a member who is already on the list.
+    const { error } = await supabase
+      .from("event_rsvps")
+      .upsert(
+        { event_id: eventId, member_id: profile.id },
+        { onConflict: "event_id,member_id", ignoreDuplicates: true },
+      );
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("event_rsvps")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("member_id", profile.id);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath(`/calendar/${eventId}`);
+  revalidatePath("/calendar");
 }

@@ -6,8 +6,9 @@ import { AddToCalendar } from "@/components/calendar/add-to-calendar";
 import { DateChip } from "@/components/calendar/date-chip";
 import { EventActions } from "@/components/event-actions";
 import { EventCover, RegisterLink } from "@/components/event-card";
+import { EventRsvpButton } from "@/components/event-rsvp-button";
 import { isStaff, requireProfile } from "@/lib/auth";
-import { formatDate, formatTimeRange } from "@/lib/format";
+import { clubTodayISO, formatDate, formatTimeRange } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type Params = { params: Promise<{ id: string }> };
@@ -36,6 +37,32 @@ export default async function EventDetailPage({ params }: Params) {
   if (!event) notFound();
 
   const canManage = isStaff(profile.role);
+
+  // RSVPs are for club-run events only — one with a registration_url hands off
+  // to GolfGenius, and a second sign-up path would split the count.
+  const isRsvpEvent = !event.registration_url;
+  // Offer the button only while the event is still ahead: an RSVP states an
+  // intent, and there's nothing left to intend. The headcount outlives it
+  // though — staff reconcile covers against it the morning after.
+  const canRsvp = isRsvpEvent && event.event_date >= clubTodayISO();
+
+  // RLS returns the member their own row and staff every row, so this one query
+  // answers "am I going?" for a member and "who's coming?" for staff.
+  const { data: rsvps } = isRsvpEvent
+    ? await supabase
+        .from("event_rsvps")
+        .select("member_id, party_size")
+        .eq("event_id", id)
+    : { data: [] };
+  const going = (rsvps ?? []).some((r) => r.member_id === profile.id);
+  const headcount = (rsvps ?? []).reduce((sum, r) => sum + r.party_size, 0);
+
+  // Staff see who's coming; the name lookup is theirs alone (profiles is
+  // readable by self + staff), so it only runs for them.
+  const attendeeIds = canManage ? (rsvps ?? []).map((r) => r.member_id) : [];
+  const { data: attendees } = attendeeIds.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", attendeeIds)
+    : { data: [] };
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -85,10 +112,37 @@ export default async function EventDetailPage({ params }: Params) {
               {event.registration_url && (
                 <RegisterLink href={event.registration_url} />
               )}
+              {canRsvp && (
+                <EventRsvpButton eventId={event.id} initialGoing={going} />
+              )}
               <AddToCalendar event={event} />
             </div>
             {canManage && <EventActions id={event.id} redirectTo="/calendar" />}
           </div>
+
+          {/* Staff-only: the headcount this RSVP feeds. Members never see who
+              else is coming — see the event_rsvps RLS. */}
+          {canManage && isRsvpEvent && (
+            <div className="rounded-lg border border-border bg-surface-2 p-4">
+              <p className="text-caption font-semibold uppercase tracking-wide text-muted">
+                {canRsvp ? "Coming along" : "Said they were coming"}
+              </p>
+              {headcount === 0 ? (
+                <p className="mt-1 text-sm text-muted">
+                  No one has said they&rsquo;re coming yet.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 font-medium text-foreground">
+                    {headcount} {headcount === 1 ? "member" : "members"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    {(attendees ?? []).map((a) => a.full_name).join(", ")}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </article>
     </div>
