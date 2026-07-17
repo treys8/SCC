@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
+import { CourseUpdateCard } from "@/components/today/course-update-card";
 import { DiningCard } from "@/components/today/dining-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
 import { FacilityStatusWidget } from "@/components/facility-status-widget";
@@ -9,7 +10,12 @@ import { TodayHero } from "@/components/today/today-hero";
 import { getProfile, isStaff } from "@/lib/auth";
 import { CLUB_TZ } from "@/lib/constants";
 import { fetchFacilityStatus } from "@/lib/facility";
-import { formatTime, formatTimeRange } from "@/lib/format";
+import {
+  clubDatePlusDaysISO,
+  clubDayStartUTC,
+  formatTime,
+  formatTimeRange,
+} from "@/lib/format";
 import { memberFirstName } from "@/lib/member";
 import {
   fetchReservationSettings,
@@ -33,6 +39,10 @@ import type {
  * It's all live data: facility status + the conditions detail rows, the buffet
  * (both staff-set on /facility), events, weather, and dining hours.
  */
+/** How long a shared course update stays on Today — it's "today on the course",
+ * not an archive, and a week-old card reads worse than none. */
+const COURSE_UPDATE_DAYS = 2;
+
 export default async function TodayPage() {
   const profile = await getProfile();
   const supabase = await createClient();
@@ -52,6 +62,7 @@ export default async function TodayPage() {
     brunchRes,
     todayMenuRes,
     weather,
+    courseUpdateRes,
   ] = await Promise.all([
       fetchFacilityStatus(supabase),
       profile
@@ -76,6 +87,18 @@ export default async function TodayPage() {
         .eq("weekday", weekday)
         .maybeSingle(),
       fetchWeather(),
+      // The most recent course update shared from the golf log. Time-boxed: an
+      // update from last week isn't "today on the course", and a stale card
+      // reads worse than no card.
+      supabase
+        .from("posts")
+        .select("id, title, content, created_at, post_attachments(url, kind, position)")
+        .not("source_golf_log_entry_id", "is", null)
+        .eq("status", "published")
+        .gte("created_at", clubDayStartUTC(clubDatePlusDaysISO(-COURSE_UPDATE_DAYS)))
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const todaysEvents = todaysEventsRes.data ?? [];
@@ -100,6 +123,13 @@ export default async function TodayPage() {
     .map((s) => s.dish?.name)
     .filter((n): n is string => Boolean(n));
   const firstName = (profile && memberFirstName(profile)) || "Member";
+
+  const courseUpdate = courseUpdateRes.data;
+  // The log's photo is the post's first image attachment (see the share action).
+  const courseUpdatePhoto =
+    (courseUpdate?.post_attachments ?? [])
+      .filter((a) => a.kind === "image")
+      .sort((a, b) => a.position - b.position)[0]?.url ?? null;
 
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -157,6 +187,15 @@ export default async function TodayPage() {
         </section>
       ) : (
         <ConditionsGrid facilities={facilities} />
+      )}
+      {courseUpdate && (
+        <CourseUpdateCard
+          postId={courseUpdate.id}
+          title={courseUpdate.title}
+          content={courseUpdate.content}
+          photoUrl={courseUpdatePhoto}
+          createdAt={courseUpdate.created_at}
+        />
       )}
       {buffet?.active && !buffetClosed && (
         <BuffetCard buffet={buffet} main={buffetMain} sides={buffetSides} />
