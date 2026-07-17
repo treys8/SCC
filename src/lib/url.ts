@@ -91,6 +91,26 @@ export function postsObjectUrl(storagePath: string | null | undefined): string |
   return `${base}/storage/v1/object/public/posts/${path}`;
 }
 
+/**
+ * The in-bucket path behind a public posts URL — the inverse of
+ * `postsObjectUrl`. Used when an object already in the bucket (a golf-log photo)
+ * is attached to a post, since `post_attachments.storage_path` is required and
+ * there's no upload to take it from. Returns null for anything that isn't one of
+ * our posts-bucket URLs, so a foreign link can never be recorded as a path.
+ */
+export function postsStoragePathFromUrl(
+  raw: string | null | undefined,
+): string | null {
+  const url = postsPublicUrl(raw);
+  if (!url) return null;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  if (!base) return null;
+  const prefix = `${base}/storage/v1/object/public/posts/`;
+  // Drop any ?query the URL carries; a storage path has none.
+  const path = url.slice(prefix.length).split("?")[0];
+  return path || null;
+}
+
 /** Same-origin guard as `postsPublicUrl`, for the `documents` bucket. */
 export function documentsPublicUrl(raw: string | null | undefined): string | null {
   const trimmed = (raw ?? "").trim();

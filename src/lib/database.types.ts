@@ -178,6 +178,7 @@ export interface Database {
           is_pinned: boolean;
           status: PostStatus;
           publish_at: string | null;
+          source_golf_log_entry_id: string | null;
           notify_members: boolean;
           notified_at: string | null;
           created_at: string;
@@ -198,6 +199,7 @@ export interface Database {
           is_pinned?: boolean;
           status?: PostStatus;
           publish_at?: string | null;
+          source_golf_log_entry_id?: string | null;
           notify_members?: boolean;
           notified_at?: string | null;
           created_at?: string;
@@ -218,6 +220,7 @@ export interface Database {
           is_pinned?: boolean;
           status?: PostStatus;
           publish_at?: string | null;
+          source_golf_log_entry_id?: string | null;
           notify_members?: boolean;
           notified_at?: string | null;
           created_at?: string;

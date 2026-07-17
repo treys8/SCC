@@ -379,6 +379,8 @@ export function PostComposer({
     is_pinned: isPinned,
     status: "published",
     publish_at: null,
+    // The composer never authors a course update — those come from the golf log.
+    source_golf_log_entry_id: null,
     notify_members: notifyMembers,
     notified_at: post?.notified_at ?? null,
     created_at: new Date().toISOString(),

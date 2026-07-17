@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   addLogComment,
   setIssueResolved,
+  shareEntryWithMembers,
 } from "@/app/(app)/manage/golf-log/actions";
 import { cn } from "@/lib/cn";
 import { formatRelativeTime, formatTimestamp } from "@/lib/format";
@@ -19,6 +21,8 @@ export type GolfLogEntryView = {
   resolved: boolean;
   created_at: string;
   authorName: string;
+  /** The member-facing post this was shared to, if it has been. */
+  sharedPostId: string | null;
   comments: {
     id: string;
     authorName: string;
@@ -31,22 +35,41 @@ export type GolfLogEntryView = {
  * One log entry: a done item or an issue (open or resolved), with its photo,
  * comment thread, and a reply box. The author/admin can resolve or reopen issues;
  * leadership and the author can comment.
+ *
+ * `canShare` (the superintendent) adds "Share with members", which publishes the
+ * entry to the golf feed. The log itself stays private either way.
  */
 export function GolfLogEntry({
   entry,
   canManage,
   canComment,
+  canShare = false,
 }: {
   entry: GolfLogEntryView;
   canManage: boolean;
   canComment: boolean;
+  canShare?: boolean;
 }) {
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmingShare, setConfirmingShare] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   const isOpenIssue = entry.kind === "issue" && !entry.resolved;
+
+  function share() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await shareEntryWithMembers(entry.id);
+        setConfirmingShare(false);
+        router.refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't share that.");
+      }
+    });
+  }
 
   function resolve(resolved: boolean) {
     setError(null);
@@ -125,6 +148,49 @@ export function GolfLogEntry({
           {formatRelativeTime(entry.created_at)}
         </span>
       </p>
+
+      {/* Sharing publishes to every member, so it asks first. */}
+      {entry.sharedPostId ? (
+        <p className="mt-2 text-caption text-success">
+          ✓ Shared with members ·{" "}
+          <Link href={`/posts/${entry.sharedPostId}`} className="underline">
+            View the post
+          </Link>
+        </p>
+      ) : (
+        canShare &&
+        (confirmingShare ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted">
+              Publish this to the members&rsquo; golf feed?
+            </span>
+            <button
+              type="button"
+              onClick={() => setConfirmingShare(false)}
+              disabled={pending}
+              className="btn btn-ghost btn-sm"
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              onClick={share}
+              disabled={pending}
+              className="btn btn-primary btn-sm"
+            >
+              {pending ? "Sharing…" : "Share it"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingShare(true)}
+            className="btn btn-outline btn-sm mt-2"
+          >
+            Share with members
+          </button>
+        ))
+      )}
 
       {(entry.comments.length > 0 || canComment) && (
         <div className="mt-3 space-y-2 border-t border-border pt-3">
