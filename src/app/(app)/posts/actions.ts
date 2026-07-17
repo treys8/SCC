@@ -403,11 +403,13 @@ export async function recordPostViews(postIds: string[]): Promise<void> {
 
 /**
  * How many members have seen each of these posts — the reach numbers on the
- * staff post console. Staff-only, and enforced twice: this gate, and the
- * staff-only select policy on post_views.
+ * staff post console. Staff-only, enforced twice: this gate, and the staff-only
+ * select policy on post_views (which the RPC respects — it's invoker, not
+ * definer).
  *
- * Counted client-side from the ids rather than by a per-post count query: at
- * club scale a post has tens of views, and one round trip beats N.
+ * The counting happens in SQL. Pulling the rows back to tally them in JS would
+ * silently truncate at PostgREST's 1000-row cap — 25 posts × 60 readers already
+ * exceeds it — and the trailing posts would report "Not seen yet" as fact.
  */
 export async function getPostViewCounts(
   postIds: string[],
@@ -417,17 +419,12 @@ export async function getPostViewCounts(
   if (ids.length === 0) return {};
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("post_views")
-    .select("post_id")
-    .in("post_id", ids);
+  const { data, error } = await supabase.rpc("get_post_view_counts", {
+    p_post_ids: ids,
+  });
   if (error) {
     console.error("getPostViewCounts failed:", error.message);
     return {};
   }
-  const counts: Record<string, number> = {};
-  for (const row of data ?? []) {
-    counts[row.post_id] = (counts[row.post_id] ?? 0) + 1;
-  }
-  return counts;
+  return Object.fromEntries((data ?? []).map((r) => [r.post_id, r.views]));
 }

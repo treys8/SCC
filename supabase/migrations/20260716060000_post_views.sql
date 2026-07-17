@@ -82,3 +82,51 @@ $$;
 
 revoke all on function public.record_post_views(uuid[]) from public, anon;
 grant execute on function public.record_post_views(uuid[]) to authenticated;
+
+-- ── Reading the reach ────────────────────────────────────────────────────────
+-- Both of these aggregate in SQL rather than shipping rows to be counted in JS.
+-- That isn't only tidier: PostgREST caps a response at max-rows (1000 by
+-- default), so counting client-side would silently truncate — a well-read post
+-- would report "Not seen yet", and the 30-day total would plateau at exactly
+-- 1000 — and present it as fact. Aggregates return one row per post (or one row
+-- flat), so there's nothing to truncate.
+--
+-- Deliberately SECURITY INVOKER (the default, stated for emphasis): post_views'
+-- staff-only select policy then applies to the caller, so a member calling
+-- these gets zeros rather than the club's reading habits. No definer needed —
+-- there's nothing here a staffer couldn't select themselves.
+
+/** Views per post, for the ids given. Members get nothing (RLS). */
+create or replace function public.get_post_view_counts(p_post_ids uuid[])
+returns table (post_id uuid, views integer)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select pv.post_id, count(*)::integer
+  from public.post_views pv
+  where pv.post_id = any(p_post_ids)
+  group by pv.post_id;
+$$;
+
+revoke all on function public.get_post_view_counts(uuid[]) from public, anon;
+grant execute on function public.get_post_view_counts(uuid[]) to authenticated;
+
+/** Distinct readers + total reads since an instant. Members get zeros (RLS). */
+create or replace function public.get_post_view_stats(p_since timestamptz)
+returns table (readers integer, views integer)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    count(distinct pv.user_id)::integer,
+    count(*)::integer
+  from public.post_views pv
+  where pv.seen_at >= p_since;
+$$;
+
+revoke all on function public.get_post_view_stats(timestamptz) from public, anon;
+grant execute on function public.get_post_view_stats(timestamptz) to authenticated;

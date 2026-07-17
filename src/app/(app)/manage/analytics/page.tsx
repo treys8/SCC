@@ -44,13 +44,11 @@ export default async function AnalyticsPage() {
       supabase
         .from("contact_messages")
         .select("*", { count: "exact", head: true }),
-      // Post reach over the last 30 days. Rows, not a count, so we can report
-      // distinct readers as well as total reads — "40 posts were read" says much
-      // less than "12 different members read something".
-      supabase
-        .from("post_views")
-        .select("user_id")
-        .gte("seen_at", instantDaysAgoISO(30)),
+      // Post reach over the last 30 days: distinct readers alongside total
+      // reads — "40 posts were read" says much less than "12 different members
+      // read something". Aggregated in SQL; tallying rows here would truncate
+      // at PostgREST's 1000-row cap and quietly plateau.
+      supabase.rpc("get_post_view_stats", { p_since: instantDaysAgoISO(30) }),
     ]);
 
   const members = membersRes.data ?? [];
@@ -62,8 +60,8 @@ export default async function AnalyticsPage() {
     lastSeenMs.set(a.user_id, new Date(a.last_seen_at).getTime());
   }
 
-  const postViews = viewsRes.data ?? [];
-  const readers = new Set(postViews.map((v) => v.user_id)).size;
+  // The RPC returns a single aggregate row.
+  const viewStats = viewsRes.data?.[0] ?? { readers: 0, views: 0 };
 
   const total = members.length;
   const signedIn = members.filter((m) => lastSeenMs.has(m.id)).length;
@@ -131,8 +129,8 @@ export default async function AnalyticsPage() {
             <Stat label="Active this month" value={activeSince(monthAgoMs)} />
             <Stat label="Reservations made" value={reservationsRes.count ?? 0} />
             <Stat label="Messages sent" value={messagesRes.count ?? 0} />
-            <Stat label="Read a post (30d)" value={readers} />
-            <Stat label="Posts read (30d)" value={postViews.length} />
+            <Stat label="Read a post (30d)" value={viewStats.readers} />
+            <Stat label="Posts read (30d)" value={viewStats.views} />
           </div>
 
           <MemberActivityTable rows={rows} />

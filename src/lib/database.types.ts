@@ -1230,6 +1230,16 @@ export interface Database {
         Args: { p_post_ids: string[] };
         Returns: undefined;
       };
+      /** Views per post. Aggregated in SQL (no row cap); staff-only via RLS. */
+      get_post_view_counts: {
+        Args: { p_post_ids: string[] };
+        Returns: { post_id: string; views: number }[];
+      };
+      /** Distinct readers + total reads since an instant; staff-only via RLS. */
+      get_post_view_stats: {
+        Args: { p_since: string };
+        Returns: { readers: number; views: number }[];
+      };
     };
     Enums: {
       user_role: UserRole;

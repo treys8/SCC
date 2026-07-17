@@ -103,9 +103,16 @@ export function Feed({
     void recordPostViews(ids);
   }, []);
 
-  // Watch the cards themselves. threshold 0.5 means half the card was on screen
-  // — a card clipped at the edge of the viewport as the member scrolls past
+  // Watch the cards themselves: a card only counts once a real part of it has
+  // been on screen, so one clipped at the viewport edge while scrolling past
   // isn't "seen". Re-runs as pages load so newly-mounted cards get observed.
+  //
+  // "Half the card" alone can't be the test — a post with a tall photo can be
+  // taller than the phone, so its ratio never reaches 0.5 at any scroll
+  // position and it would never count no matter how carefully it was read. So
+  // either half the card is visible, or it's filling half the screen. The
+  // several thresholds exist to get callbacks while such a card scrolls past;
+  // with a single one, nothing would fire between crossings.
   useEffect(() => {
     const root = viewRootRef.current;
     if (!root) return;
@@ -114,6 +121,10 @@ export function Feed({
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
+          const seen =
+            entry.intersectionRatio >= 0.5 ||
+            entry.intersectionRect.height >= window.innerHeight * 0.5;
+          if (!seen) continue;
           const id = (entry.target as HTMLElement).dataset.postId;
           if (!id || sentIdsRef.current.has(id)) continue;
           sentIdsRef.current.add(id);
@@ -124,7 +135,7 @@ export function Feed({
           flushTimerRef.current = setTimeout(flushViews, 2000);
         }
       },
-      { threshold: 0.5 },
+      { threshold: [0, 0.1, 0.25, 0.5] },
     );
 
     for (const el of root.querySelectorAll<HTMLElement>("[data-post-id]")) {
@@ -133,8 +144,15 @@ export function Feed({
     return () => observer.disconnect();
   }, [pinned, posts, flushViews]);
 
-  // Don't lose the last batch when the member navigates away or backgrounds the
-  // tab — pagehide is the one event that survives the bfcache and mobile Safari.
+  // Send the pending batch early rather than waiting out the debounce: on the
+  // cleanup path (navigating within the app) that's what saves it, and on
+  // pagehide it at least gets the request away before a bfcache freeze.
+  //
+  // It is NOT a guarantee against closing the tab: recordPostViews is a Server
+  // Action, i.e. a plain fetch, and browsers cancel in-flight fetches on a real
+  // unload. Reading a post and closing within the 2s window therefore still
+  // loses that view. Accepted — reach is a trend, not an audit — and the
+  // alternative is a sendBeacon route handler outside the action layer.
   useEffect(() => {
     const onLeave = () => flushViews();
     window.addEventListener("pagehide", onLeave);
