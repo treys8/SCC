@@ -448,21 +448,24 @@ async function notifyWaitlistIfFreed(date: string, time: string) {
     const coversLeft = slot.max_covers - slot.cover_count;
     if (tablesLeft <= 0 || coversLeft <= 0) return;
 
+    // Claim ONLY the waiters this freeing can actually seat. The party filter
+    // has to be part of the claim, not applied after it: claiming a party too
+    // big for the gap would stamp notified_at on someone who was never told,
+    // and `.is("notified_at", null)` would then exclude them from every future
+    // freeing — a party of 8 silenced forever by a 4-top cancelling.
     const { data: claimed, error } = await admin
       .from("reservation_waitlist")
       .update({ notified_at: new Date().toISOString() })
       .eq("reservation_date", date)
       .eq("reservation_time", time)
       .is("notified_at", null)
-      .select("member_id, party_size");
+      .lte("party_size", coversLeft)
+      .select("member_id");
     if (error) {
       console.error("waitlist claim failed:", error.message);
       return;
     }
-    // Only tell the members whose party actually fits in what opened up.
-    const ids = (claimed ?? [])
-      .filter((w) => w.party_size <= coversLeft)
-      .map((w) => w.member_id);
+    const ids = (claimed ?? []).map((w) => w.member_id);
     if (ids.length === 0) return;
 
     await notifyUsers(ids, {
