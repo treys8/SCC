@@ -30,6 +30,47 @@ export function safeInternalPath(
   return raw;
 }
 
+export const REGISTRATION_URL_ERROR =
+  "Registration link must be a valid web address.";
+
+/**
+ * Normalize an optional registration link to an http(s) URL with a real domain.
+ * Tolerates a pasted link with no scheme ("golfgenius.com/…" →
+ * "https://golfgenius.com/…") but rejects non-web schemes (mailto:, etc.),
+ * malformed schemes ("https:/x"), and bare words ("TBD") that would otherwise
+ * silently save as a dead link behind a prominent Register button.
+ *
+ * Lives here rather than beside its caller because a `"use server"` module may
+ * only export async functions, which left this untestable.
+ */
+export function parseRegistrationUrl(raw: string): {
+  url: string | null;
+  error?: string;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) return { url: null };
+
+  // A scheme is present but it isn't http(s) (covers "mailto:…" and the
+  // single-slash "https:/…" typo, which fails the // test).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
+    return { url: null, error: REGISTRATION_URL_ERROR };
+  }
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return { url: null, error: REGISTRATION_URL_ERROR };
+  }
+  // Require a dotted hostname with a plausible TLD so "TBD"/"N/A" don't parse
+  // as hosts.
+  if (!/\.[a-z]{2,}$/i.test(parsed.hostname)) {
+    return { url: null, error: REGISTRATION_URL_ERROR };
+  }
+  return { url: parsed.toString() };
+}
+
 /**
  * Hostnames we accept a Web Push endpoint for. A push endpoint is a bearer URL
  * the browser hands us; pinning it to the real push services stops a crafted

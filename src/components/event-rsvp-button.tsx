@@ -9,16 +9,20 @@ import { cn } from "@/lib/cn";
  * "I'm coming" for a club-run event. Optimistic: the toggle flips immediately
  * and rolls back if the server refuses — an RSVP isn't worth a spinner.
  *
- * Only rendered for events without a registration_url (GolfGenius handles its
- * own sign-ups) and only while the event is still ahead; the action re-checks
- * both, since neither is the client's call to make.
+ * `canAdd` is false once an event has a registration_url (GolfGenius handles its
+ * own sign-ups). Someone who answered before that link was added keeps a button
+ * so they can withdraw, but it disappears once they do — re-adding is a refusal
+ * the server would have to make. The action re-checks all of this; none of it is
+ * the client's call.
  */
 export function EventRsvpButton({
   eventId,
   initialGoing,
+  canAdd,
 }: {
   eventId: string;
   initialGoing: boolean;
+  canAdd: boolean;
 }) {
   const [going, setGoing] = useState(initialGoing);
   const [error, setError] = useState<string | null>(null);
@@ -31,14 +35,23 @@ export function EventRsvpButton({
     setError(null);
     startTransition(async () => {
       try {
-        await setRsvp(eventId, next);
+        const { error: refusal } = await setRsvp(eventId, next);
+        if (refusal) {
+          setGoing(!next); // put it back
+          setError(refusal);
+          return;
+        }
         router.refresh();
-      } catch (e) {
-        setGoing(!next); // put it back
-        setError(e instanceof Error ? e.message : "Couldn't save that.");
+      } catch {
+        // Transport or auth failure — the refusals above come back as values.
+        setGoing(!next);
+        setError("Couldn't save that.");
       }
     });
   }
+
+  // Withdraw-only and already withdrawn: nothing left to offer.
+  if (!canAdd && !going) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">

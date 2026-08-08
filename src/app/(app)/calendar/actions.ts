@@ -6,45 +6,37 @@ import { requireProfile, requireRole } from "@/lib/auth";
 import { DEPARTMENTS } from "@/lib/constants";
 import { clubTodayISO } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { postsPublicUrl } from "@/lib/url";
+import { parseRegistrationUrl, postsPublicUrl } from "@/lib/url";
 import type { DepartmentType } from "@/lib/database.types";
 
 export type EventFormState = { error?: string };
 
 const VALID = new Set<string>(DEPARTMENTS.map((d) => d.value));
 
-const URL_ERROR = "Registration link must be a valid web address.";
-
 /**
- * Normalize an optional registration link to an http(s) URL with a real domain.
- * Tolerates a pasted link with no scheme ("golfgenius.com/…" →
- * "https://golfgenius.com/…") but rejects non-web schemes (mailto:, etc.),
- * malformed schemes ("https:/x"), and bare words ("TBD") that would otherwise
- * silently save as a dead link behind a prominent Register button.
+ * Shared shape checks for a submitted event. Both times arrive as "HH:MM" from
+ * the same pair of `<input type="time">` fields (the edit form slices stored
+ * "HH:MM:SS" values down to five characters), so they're equal-length and
+ * zero-padded — a lexicographic compare is an ordering compare.
+ *
+ * An end at or before the start is refused rather than wrapped: the model has a
+ * single `event_date` and no end date, so an event running past midnight can't
+ * be represented (see the DTEND note in lib/ics.ts). Saving one would produce an
+ * .ics whose DTEND precedes its DTSTART.
  */
-function parseRegistrationUrl(raw: string): { url: string | null; error?: string } {
-  const trimmed = raw.trim();
-  if (!trimmed) return { url: null };
-
-  // A scheme is present but it isn't http(s) (covers "mailto:…" and the
-  // single-slash "https:/…" typo, which fails the // test).
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
-    return { url: null, error: URL_ERROR };
+function validateEventFields(fields: {
+  title: string;
+  event_date: string;
+  start_time: string;
+  end_time: string | null;
+}): string | null {
+  if (!fields.title || !fields.event_date || !fields.start_time) {
+    return "Title, date, and start time are required.";
   }
-
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  let parsed: URL;
-  try {
-    parsed = new URL(candidate);
-  } catch {
-    return { url: null, error: URL_ERROR };
+  if (fields.end_time && fields.end_time <= fields.start_time) {
+    return "End time must be after the start time.";
   }
-  // Require a dotted hostname with a plausible TLD so "TBD"/"N/A" don't parse
-  // as hosts.
-  if (!/\.[a-z]{2,}$/i.test(parsed.hostname)) {
-    return { url: null, error: URL_ERROR };
-  }
-  return { url: parsed.toString() };
+  return null;
 }
 
 function parseEvent(formData: FormData) {
@@ -78,9 +70,8 @@ export async function createEvent(
   const profile = await requireRole("staff", "admin");
   const { fields, error: parseError } = parseEvent(formData);
   if (parseError) return { error: parseError };
-  if (!fields.title || !fields.event_date || !fields.start_time) {
-    return { error: "Title, date, and start time are required." };
-  }
+  const invalid = validateEventFields(fields);
+  if (invalid) return { error: invalid };
 
   const supabase = await createClient();
   const { data: created, error } = await supabase
@@ -128,9 +119,8 @@ export async function updateEvent(
   await requireRole("staff", "admin");
   const { fields, error: parseError } = parseEvent(formData);
   if (parseError) return { error: parseError };
-  if (!fields.title || !fields.event_date || !fields.start_time) {
-    return { error: "Title, date, and start time are required." };
-  }
+  const invalid = validateEventFields(fields);
+  if (invalid) return { error: invalid };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -139,7 +129,13 @@ export async function updateEvent(
     .eq("id", id);
   if (error) return { error: error.message };
 
+  // The detail path is named explicitly even though a Server Function's
+  // revalidate currently refreshes every previously visited page. Next's own
+  // docs call that blanket behaviour temporary and due to narrow to the given
+  // path, at which point an unnamed /calendar/[id] would start serving stale
+  // copy. Cheap now, correct later.
   revalidatePath("/calendar");
+  revalidatePath(`/calendar/${id}`);
   revalidatePath("/");
   redirect("/calendar");
 }
@@ -153,21 +149,34 @@ export async function deleteEvent(id: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/calendar");
+  revalidatePath(`/calendar/${id}`);
   revalidatePath("/");
 }
 
 // ── RSVPs ───────────────────────────────────────────────────────────────────
 
+export type RsvpState = { error?: string };
+
 /**
  * Member toggles "I'm coming" for a club-run event. The headcount it feeds is
  * staff-only (RLS); the member only ever sees their own answer.
  *
- * Refused for an event with a registration_url — those hand off to GolfGenius,
- * and a second sign-up path would split the count between two systems. Also
+ * A *new* RSVP is refused for an event with a registration_url — those hand off
+ * to GolfGenius, and a second sign-up path would split the count between two
+ * systems. Withdrawing is always allowed though: staff can add a sign-up link to
+ * an event members have already answered, and stranding them on a list they
+ * can't leave is worse than the split count we're avoiding. Both directions are
  * refused once the event has passed: an RSVP is a statement of intent, and
  * there's nothing left to intend.
+ *
+ * Refusals are returned, not thrown — they're expected outcomes, and Next
+ * replaces thrown Server Action messages with a generic string in production,
+ * so a thrown one would never reach the member. Mirrors `joinWaitlist`.
  */
-export async function setRsvp(eventId: string, going: boolean) {
+export async function setRsvp(
+  eventId: string,
+  going: boolean,
+): Promise<RsvpState> {
   const profile = await requireProfile();
   const supabase = await createClient();
 
@@ -176,13 +185,13 @@ export async function setRsvp(eventId: string, going: boolean) {
     .select("id, event_date, registration_url")
     .eq("id", eventId)
     .maybeSingle();
-  if (readError) throw new Error(readError.message);
-  if (!event) throw new Error("Event not found.");
-  if (event.registration_url) {
-    throw new Error("This event is registered through its own sign-up link.");
+  if (readError) return { error: readError.message };
+  if (!event) return { error: "Event not found." };
+  if (going && event.registration_url) {
+    return { error: "This event is registered through its own sign-up link." };
   }
   if (event.event_date < clubTodayISO()) {
-    throw new Error("That event has already passed.");
+    return { error: "That event has already passed." };
   }
 
   if (going) {
@@ -197,16 +206,17 @@ export async function setRsvp(eventId: string, going: boolean) {
         { event_id: eventId, member_id: profile.id },
         { onConflict: "event_id,member_id", ignoreDuplicates: true },
       );
-    if (error) throw new Error(error.message);
+    if (error) return { error: error.message };
   } else {
     const { error } = await supabase
       .from("event_rsvps")
       .delete()
       .eq("event_id", eventId)
       .eq("member_id", profile.id);
-    if (error) throw new Error(error.message);
+    if (error) return { error: error.message };
   }
 
   revalidatePath(`/calendar/${eventId}`);
   revalidatePath("/calendar");
+  return {};
 }

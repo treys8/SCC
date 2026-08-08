@@ -43,9 +43,14 @@ function stampPlusMinutes(dateIso: string, time: string, mins: number): string {
 /**
  * DTEND stamp for an event. An explicit end_time is same-date (the model has no
  * end-date); a missing end defaults to +1h, rolling past midnight if needed.
+ *
+ * An end at or before the start would emit a DTEND preceding its DTSTART, which
+ * calendar apps render as a negative-length event or reject outright. The event
+ * form refuses to save one, but rows predating that guard exist, so this falls
+ * back to the same +1h a missing end gets rather than trusting the column.
  */
 function endStamp(event: CalendarEvent): string {
-  return event.end_time
+  return event.end_time && event.end_time > event.start_time
     ? stamp(event.event_date, event.end_time)
     : stampPlusMinutes(event.event_date, event.start_time, 60);
 }

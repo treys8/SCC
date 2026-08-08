@@ -3,6 +3,8 @@
  * "YYYY-MM-DD" string (local), consistent with lib/format.ts — no UTC drift.
  */
 
+import { clubTodayISO } from "@/lib/format";
+
 export type DayCell = {
   iso: string; // "YYYY-MM-DD"
   day: number; // 1..31
@@ -22,12 +24,14 @@ function isoOf(d: Date): string {
   ).padStart(2, "0")}`;
 }
 
-/** Current month as "YYYY-MM" in local time. */
-export function currentMonth(): string {
-  return ym(new Date());
-}
-
-/** Parse/validate a "YYYY-MM" value, falling back to the current month. */
+/**
+ * Parse/validate a "YYYY-MM" value, falling back to the club's current month.
+ *
+ * The fallback is anchored to `clubTodayISO()` rather than `new Date()`: the
+ * server's clock is UTC on Vercel, so on the last evening of a month (after
+ * 19:00 CT) a local-time fallback would open the calendar on next month while
+ * `todayIso` still pointed at this one — a grid with no Today cell in it.
+ */
 export function parseMonth(value: string | undefined | null): {
   year: number;
   month: number; // 1..12
@@ -39,8 +43,9 @@ export function parseMonth(value: string | undefined | null): {
     const month = Number(m[2]);
     if (month >= 1 && month <= 12) return { year, month, key: `${m[1]}-${m[2]}` };
   }
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1, key: ym(now) };
+  const key = clubTodayISO().slice(0, 7);
+  const [year, month] = key.split("-");
+  return { year: Number(year), month: Number(month), key };
 }
 
 /** Shift a "YYYY-MM" key by n months (n may be negative). */
