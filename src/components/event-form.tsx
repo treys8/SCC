@@ -134,7 +134,11 @@ export function EventForm({
             name="event_date"
             type="date"
             required
-            min={clubTodayISO()}
+            // Create-only. On edit the event's date is often already past, and
+            // a `min` the value can't satisfy makes the field permanently
+            // invalid — staff could no longer save a fee, cover, or note on
+            // anything that had already run.
+            min={event ? undefined : clubTodayISO()}
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
             className="input"
