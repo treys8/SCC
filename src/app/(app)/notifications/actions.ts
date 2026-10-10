@@ -18,6 +18,8 @@ export async function markAllNotificationsRead() {
     .eq("user_id", profile.id)
     .eq("is_read", false);
   if (error) throw new Error(error.message);
+  // Layout hosts the nav bell badge; revalidate it the same way single mark-read does.
+  revalidatePath("/", "layout");
   revalidatePath("/notifications");
 }
 

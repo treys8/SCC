@@ -65,9 +65,10 @@ export async function GET(request: Request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
+  let reminded = 0;
   for (const r of due ?? []) {
     const when = whenWord(r.reservation_time);
-    await notifyUsers([r.member_id], {
+    const ok = await notifyUsers([r.member_id], {
       type: "reservation",
       title: when === "Tonight" ? "Your table tonight" : "Your table today",
       body: `${when} at ${formatTime(r.reservation_time)} — party of ${
@@ -77,7 +78,16 @@ export async function GET(request: Request) {
       tag: `reservation-remind-${r.id}`,
       reservationId: r.id,
     });
+    if (ok) {
+      reminded++;
+    } else {
+      // Unclaim so the next cron run can retry the in-app notification.
+      await admin
+        .from("reservations")
+        .update({ reminded_at: null })
+        .eq("id", r.id);
+    }
   }
 
-  return Response.json({ date: today, reminded: due?.length ?? 0 });
+  return Response.json({ date: today, reminded });
 }

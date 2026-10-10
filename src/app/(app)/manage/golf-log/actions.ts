@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireTitle } from "@/lib/auth";
 import { clubTodayISO } from "@/lib/format";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { postsPublicUrl, postsStoragePathFromUrl } from "@/lib/url";
@@ -127,19 +127,11 @@ async function notifyLeadership(
     kind === "issue" ? "New course issue logged" : "Course log updated";
   const body = `${authorName}: ${snippet(note)}`;
 
-  await admin.from("notifications").insert(
-    ids.map((id) => ({
-      user_id: id,
-      type: "golf_log",
-      title,
-      body,
-      link: "/manage/golf-log",
-    })),
-  );
-  await sendPushToUsers(ids, {
+  await notifyUsers(ids, {
+    type: "golf_log",
     title,
     body,
-    url: "/manage/golf-log",
+    link: "/manage/golf-log",
     tag: "golf-log",
   });
 }
@@ -160,17 +152,11 @@ async function notifyEntryAuthor(
 
   const title = "New comment on your log";
   const body = `${commenterName}: ${snippet(text)}`;
-  await admin.from("notifications").insert({
-    user_id: entry.author_id,
+  await notifyUsers([entry.author_id], {
     type: "golf_log",
     title,
     body,
     link: "/manage/golf-log",
-  });
-  await sendPushToUsers([entry.author_id], {
-    title,
-    body,
-    url: "/manage/golf-log",
     tag: `golf-log-${entryId}`,
   });
 }

@@ -8,7 +8,7 @@ import {
   FACILITY_STATUS_LABEL,
 } from "@/lib/constants";
 import { getUsersForDepartmentDefaultOn } from "@/lib/preferences";
-import { sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -149,20 +149,11 @@ async function notifyFacilityChange(
   const title = `${label}: ${FACILITY_STATUS_LABEL[status]}`;
   const body = FACILITY_ALERT_BODY[status](label);
 
-  await admin.from("notifications").insert(
-    targetIds.map((id) => ({
-      user_id: id,
-      type: "facility",
-      title,
-      body,
-      link: "/",
-    })),
-  );
-
-  await sendPushToUsers(targetIds, {
+  await notifyUsers(targetIds, {
+    type: "facility",
     title,
     body,
-    url: "/",
+    link: "/",
     tag: `facility-${facility}`,
   });
 }

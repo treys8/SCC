@@ -13,11 +13,17 @@ export default async function NotificationsPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const { items, nextCursor } = await fetchNotificationsPage(
-    supabase,
-    profile.id,
-  );
-  const hasUnread = items.some((n) => !n.is_read);
+  // Unread flag is global (not first-page only): a member can mark the newest
+  // page read and still have older unread rows the bell counts.
+  const [{ items, nextCursor }, { count: unreadCount }] = await Promise.all([
+    fetchNotificationsPage(supabase, profile.id),
+    supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", profile.id)
+      .eq("is_read", false),
+  ]);
+  const hasUnread = (unreadCount ?? 0) > 0;
 
   return (
     <div className="space-y-6">

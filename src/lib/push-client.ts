@@ -102,10 +102,13 @@ export async function disablePush(): Promise<void> {
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return;
 
-  await fetch("/api/push/unsubscribe", {
+  const res = await fetch("/api/push/unsubscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ endpoint: sub.endpoint }),
   });
+  // Leave the browser subscription intact so the member can retry; otherwise
+  // the server row could linger and keep receiving pushes after "turn off".
+  if (!res.ok) throw new Error("Could not remove your subscription.");
   await sub.unsubscribe();
 }
