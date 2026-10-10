@@ -58,6 +58,18 @@ export async function GET(request: Request) {
     return Response.json({ skipped: "fresh" });
   }
 
+  // At most one fan-out per ~day: a retried cron or lingering stale facilities
+  // must not pile unread conditions_reminder rows for every staff member.
+  const since = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
+  const { count: recentCount } = await admin
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("type", "conditions_reminder")
+    .gte("created_at", since);
+  if ((recentCount ?? 0) > 0) {
+    return Response.json({ skipped: "already_reminded" });
+  }
+
   const { data: staff } = await admin
     .from("profiles")
     .select("id")

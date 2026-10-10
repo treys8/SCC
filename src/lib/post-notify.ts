@@ -68,7 +68,7 @@ export async function notifyPostPublished(post: PublishedPost): Promise<boolean>
     if (audience.length === 0) return true; // claimed and settled: nobody to tell
 
     const body = preview(post.content);
-    await notifyUsers(audience, {
+    const ok = await notifyUsers(audience, {
       type: "post",
       title: post.title?.trim() || "New from the club",
       // A title-only post (photo + headline) would otherwise push an empty body.
@@ -76,6 +76,14 @@ export async function notifyPostPublished(post: PublishedPost): Promise<boolean>
       link: `/posts/${post.id}`,
       tag: `post-${post.id}`,
     });
+    // Unclaim so a retry (cron or re-publish path) can re-drive the in-app rows.
+    if (!ok) {
+      await admin
+        .from("posts")
+        .update({ notified_at: null })
+        .eq("id", post.id);
+      return false;
+    }
     return true;
   } catch (e) {
     console.error("notifyPostPublished failed:", e);

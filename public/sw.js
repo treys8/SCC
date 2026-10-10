@@ -3,7 +3,20 @@
 // Plain JS, no build step (served verbatim from /public at /sw.js, root scope).
 // Bump SW_VERSION when editing so clients pick up the new worker promptly; the
 // /sw.js response is sent with no-cache (see next.config.ts) to the same end.
-const SW_VERSION = "1";
+const SW_VERSION = "2";
+
+/**
+ * Same-origin path guard (mirrors src/lib/url.ts safeInternalPath). A bare
+ * startsWith("/") check is not enough: //evil.com is still dangerous.
+ */
+function safePath(url) {
+  if (typeof url !== "string" || !url) return "/";
+  if (!url.startsWith("/") || url.startsWith("//") || url.startsWith("/\\")) {
+    return "/";
+  }
+  if (/[\u0000-\u001f\u007f]/.test(url)) return "/";
+  return url;
+}
 
 // Activate a new worker immediately rather than waiting for all tabs to close.
 self.addEventListener("install", () => {
@@ -30,8 +43,8 @@ self.addEventListener("push", (event) => {
     badge: "/icon.svg",
     // A stable tag (e.g. "facility-golf") collapses repeats in the OS tray.
     tag: payload.tag,
-    // Where notificationclick should take the member.
-    data: { url: payload.url || "/" },
+    // Where notificationclick should take the member (same-origin path only).
+    data: { url: safePath(payload.url) },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -40,7 +53,7 @@ self.addEventListener("push", (event) => {
 // The member tapped a notification — focus an open tab or open a new one.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const url = safePath(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     (async () => {

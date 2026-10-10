@@ -80,8 +80,9 @@ export function PushToggle() {
       <div>
         <h2 className="text-h2">Push notifications</h2>
         <p className="field-hint">
-          Get alerts on this device for facility status changes and updates to
-          your reservations — even when the app is closed.
+          Get alerts on this device for facility status, reservation updates,
+          new club posts you follow, and other club messages — even when the
+          app is closed.
         </p>
       </div>
 

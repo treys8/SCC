@@ -1,5 +1,68 @@
 import { describe, expect, it } from "vitest";
-import { REGISTRATION_URL_ERROR, parseRegistrationUrl } from "./url";
+import {
+  REGISTRATION_URL_ERROR,
+  isAllowedPushEndpoint,
+  parseRegistrationUrl,
+  safeInternalPath,
+} from "./url";
+
+/**
+ * Same-origin path guard used by login redirects and notification deep links.
+ * A bare startsWith("/") check is not enough — //evil.com is still dangerous.
+ */
+describe("safeInternalPath", () => {
+  it("accepts a normal app path", () => {
+    expect(safeInternalPath("/reservations")).toBe("/reservations");
+  });
+
+  it("accepts nested paths with query strings", () => {
+    expect(safeInternalPath("/posts/abc?x=1")).toBe("/posts/abc?x=1");
+  });
+
+  it("rejects protocol-relative URLs", () => {
+    expect(safeInternalPath("//evil.com")).toBe("/");
+  });
+
+  it("rejects backslash smuggling", () => {
+    expect(safeInternalPath("/\\evil.com")).toBe("/");
+  });
+
+  it("rejects absolute http(s) URLs", () => {
+    expect(safeInternalPath("https://evil.com")).toBe("/");
+  });
+
+  it("rejects empty / nullish input", () => {
+    expect(safeInternalPath(null)).toBe("/");
+    expect(safeInternalPath(undefined)).toBe("/");
+    expect(safeInternalPath("")).toBe("/");
+  });
+
+  it("honours a custom fallback", () => {
+    expect(safeInternalPath("//evil.com", "/home")).toBe("/home");
+  });
+});
+
+/** Web Push endpoint allowlist — rejects junk/SSRF targets before we store or POST. */
+describe("isAllowedPushEndpoint", () => {
+  it.each([
+    "https://fcm.googleapis.com/fcm/send/abc",
+    "https://web.push.apple.com/foo",
+    "https://updates.push.services.mozilla.com/wpush/v2/x",
+    "https://wns2-c.wns.notify.windows.com/y",
+  ])("allows %s", (url) => {
+    expect(isAllowedPushEndpoint(url)).toBe(true);
+  });
+
+  it.each([
+    "http://fcm.googleapis.com/x",
+    "https://evil.com/fcm.googleapis.com",
+    "https://fcm.googleapis.com.evil.com/x",
+    "not-a-url",
+    "",
+  ])("rejects %s", (url) => {
+    expect(isAllowedPushEndpoint(url)).toBe(false);
+  });
+});
 
 /**
  * The guard behind the Register button. Anything it lets through is rendered as

@@ -1,7 +1,7 @@
 import "server-only";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isAllowedPushEndpoint } from "@/lib/url";
+import { isAllowedPushEndpoint, safeInternalPath } from "@/lib/url";
 
 /**
  * Server-side Web Push send pipeline. Loads a set of members' subscriptions
@@ -166,13 +166,21 @@ export type NotifyOptions = {
  * to a set of members — the shared tail behind the contact / cron / etc. notify
  * flows. Uses the service-role client because `notifications` has no insert RLS
  * policy (server-trusted inserts only). De-dupes ids and no-ops on an empty set.
+ *
+ * Returns true when the in-app rows were inserted successfully (or there was
+ * nothing to do). Claim-based callers unclaim on false so a failed insert can
+ * be retried. Push still runs best-effort even when the insert fails.
  */
 export async function notifyUsers(
   userIds: string[],
   opts: NotifyOptions,
-): Promise<void> {
+): Promise<boolean> {
   const ids = [...new Set(userIds)].filter(Boolean);
-  if (ids.length === 0) return;
+  if (ids.length === 0) return true;
+
+  // Defense in depth: only same-origin app paths land in the DB / push payload
+  // (mirrors login redirect guards — stops open-nav if a bad link is ever passed).
+  const link = safeInternalPath(opts.link, "/");
 
   const admin = createAdminClient();
   const { error } = await admin.from("notifications").insert(
@@ -181,18 +189,26 @@ export async function notifyUsers(
       type: opts.type,
       title: opts.title,
       body: opts.body,
-      link: opts.link,
+      link,
       ...(opts.reservationId ? { reservation_id: opts.reservationId } : {}),
     })),
   );
   if (error) {
     console.error("notifyUsers: notifications insert failed:", error.message);
+    await sendPushToUsers(ids, {
+      title: opts.title,
+      body: opts.body,
+      url: link,
+      tag: opts.tag,
+    });
+    return false;
   }
 
   await sendPushToUsers(ids, {
     title: opts.title,
     body: opts.body,
-    url: opts.link,
+    url: link,
     tag: opts.tag,
   });
+  return true;
 }

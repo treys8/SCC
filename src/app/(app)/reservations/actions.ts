@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth";
-import { notifyUsers, sendPushToUsers } from "@/lib/push";
+import { notifyUsers } from "@/lib/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -278,10 +278,8 @@ type NotifiableRow = {
 };
 
 /**
- * Insert an in-app notification for the member when staff move a reservation to
- * a terminal state. Best-effort: a notification failure must not undo the status
- * change the staff member just made. Uses the service-role client because
- * `notifications` has no insert RLS policy (server-trusted inserts only).
+ * Notify the member when staff move a reservation to a terminal state.
+ * Best-effort via notifyUsers: a failure must not undo the status change.
  */
 async function notifyStatusChange(
   status: ReservationStatus,
@@ -323,23 +321,13 @@ async function notifyStatusChange(
       return; // pending → nothing to announce
   }
 
-  const admin = createAdminClient();
-  await admin.from("notifications").insert({
-    user_id: row.member_id,
+  await notifyUsers([row.member_id], {
     type: "reservation",
     title,
     body,
     link: "/reservations",
-    reservation_id: row.id,
-  });
-
-  // Mirror the in-app notification to Web Push (same copy). Best-effort —
-  // sendPushToUsers never throws.
-  await sendPushToUsers([row.member_id], {
-    title,
-    body,
-    url: "/reservations",
     tag: `reservation-${row.id}`,
+    reservationId: row.id,
   });
 }
 
@@ -460,15 +448,16 @@ async function notifyWaitlistIfFreed(date: string, time: string) {
       .eq("reservation_time", time)
       .is("notified_at", null)
       .lte("party_size", coversLeft)
-      .select("member_id");
+      .select("id, member_id");
     if (error) {
       console.error("waitlist claim failed:", error.message);
       return;
     }
     const ids = (claimed ?? []).map((w) => w.member_id);
+    const claimIds = (claimed ?? []).map((w) => w.id);
     if (ids.length === 0) return;
 
-    await notifyUsers(ids, {
+    const ok = await notifyUsers(ids, {
       type: "reservation",
       title: "A table just opened up",
       body: `${formatDate(date)} at ${formatTime(
@@ -477,6 +466,13 @@ async function notifyWaitlistIfFreed(date: string, time: string) {
       link: "/reservations",
       tag: `waitlist-${date}-${time}`,
     });
+    // Unclaim so a later freeing (or retry) can re-notify if the insert failed.
+    if (!ok && claimIds.length > 0) {
+      await admin
+        .from("reservation_waitlist")
+        .update({ notified_at: null })
+        .in("id", claimIds);
+    }
   } catch (e) {
     console.error("notifyWaitlistIfFreed failed:", e);
   }
