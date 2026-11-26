@@ -28,7 +28,9 @@ import type {
  * - Urgent weather states (frost / rain / lightning) tint the column, add an
  *   accent bar and a pulsing dot, and say "since …". Closed stays static.
  * - A realtime change flashes that column gold (useLiveFacilityStatus).
- * - Phones show one detail line that rotates; desktop shows up to three.
+ * - Open: note + up to three detail rows (desktop) / note or one rotating
+ *   detail line (phones). Not open: "since" + note only — detail rows describe
+ *   normal operation and would contradict the status.
  * - Members: each column links to /facility/[type]. Staff: a column opens the
  *   ConditionEditor (pop-over on desktop, bottom sheet on phones), and stale
  *   columns carry a "Needs refresh" marker.
@@ -55,11 +57,9 @@ export function ConditionsGrid({
   const tick = useRotationTick(focusWithin || editing !== null);
 
   const closeEditor = useCallback(() => {
-    setEditing((f) => {
-      if (f) document.getElementById(`condition-${f}`)?.focus();
-      return null;
-    });
-  }, []);
+    if (editing) document.getElementById(`condition-${editing}`)?.focus();
+    setEditing(null);
+  }, [editing]);
 
   // Escape closes the editor and returns focus to the column that opened it.
   useEffect(() => {
@@ -305,31 +305,42 @@ function CellBody({
   now: Date;
   tick: number;
 }) {
-  const stamp = hydrated ? conditionsStamp(f.updated_at, now) : null;
+  // A non-open column already says "since …" — don't repeat the time.
+  const stamp =
+    hydrated && f.status === "open" ? conditionsStamp(f.updated_at, now) : null;
   const stale = hydrated && canManage && isConditionsStale(f.updated_at);
   const statusWord = FACILITY_STATUS_LABEL[f.status];
   const short = SHORT_STATUS[f.status];
 
-  // Phone rotation: the note first, then each detail row.
-  const lines: ReactNode[] = [
-    ...(f.message ? [<span key="note" className="italic">{f.message}</span>] : []),
-    ...f.details.map((d) => <DetailText key={d.label} label={d.label} value={d.value} urgent={urgent} />),
-  ];
+  // Detail rows describe normal operation ("Mats · Open", pool hours), so they'd
+  // contradict a hold or closure — a non-open column shows "since" + the note
+  // only. On phones the note, when set, is pinned; otherwise details rotate.
+  const isOpen = f.status === "open";
+  const details = isOpen ? f.details : [];
+  const lines: ReactNode[] = f.message
+    ? [<span key="note" className="italic">{f.message}</span>]
+    : details.map((d) => (
+        <DetailText key={d.label} label={d.label} value={d.value} urgent={urgent} />
+      ));
   const rotIndex = lines.length ? tick % lines.length : 0;
 
   return (
     <>
       <span
         className={cn(
-          "flex items-center justify-between gap-2 text-[0.68rem] font-semibold tracking-[0.18em] uppercase",
+          "flex flex-wrap items-center justify-between gap-x-2 text-[0.68rem] font-semibold tracking-[0.18em] uppercase",
           urgent ? "text-current opacity-85" : "text-muted",
         )}
       >
         <span className="truncate">{FACILITY_LABEL[f.facility]}</span>
         {stale ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-warning-soft px-2 py-0.5 text-[0.68rem] font-medium tracking-normal text-warning-strong normal-case">
+          // A bare amber dot on phones (the columns are too narrow for the pill).
+          <span
+            title="Needs refresh"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-warning-soft p-1 text-[0.68rem] font-medium tracking-normal text-warning-strong normal-case sm:px-2 sm:py-0.5"
+          >
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
-            Needs refresh
+            <span className="max-sm:sr-only">Needs refresh</span>
           </span>
         ) : (
           stamp && (
@@ -337,7 +348,9 @@ function CellBody({
               dateTime={f.updated_at}
               title={formatTimestamp(f.updated_at)}
               className={cn(
-                "shrink-0 text-[0.72rem] font-normal tracking-[0.02em] normal-case",
+                // Phones: its own line under the name — side by side truncates
+                // the name in a ~160px column.
+                "shrink-0 text-[0.72rem] font-normal tracking-[0.02em] normal-case max-sm:mt-1 max-sm:basis-full",
                 stamp === "Just now" && "font-semibold text-gold-ink",
               )}
             >
@@ -372,7 +385,7 @@ function CellBody({
         )}
       </span>
 
-      {hydrated && f.status !== "open" && (
+      {hydrated && !isOpen && (
         <span
           className={cn(
             "mt-2 block text-[0.8rem] sm:text-[0.84rem]",
@@ -383,7 +396,7 @@ function CellBody({
         </span>
       )}
 
-      {/* Desktop: the note, then up to three detail rows. */}
+      {/* Desktop: the note, then (open only) up to three detail rows. */}
       {f.message && (
         <span
           className={cn(
@@ -394,9 +407,9 @@ function CellBody({
           {f.message}
         </span>
       )}
-      {f.details.length > 0 && (
+      {details.length > 0 && (
         <span className="mt-2 block space-y-0.5 max-lg:hidden">
-          {f.details.slice(0, 3).map((d) => (
+          {details.slice(0, 3).map((d) => (
             <span key={d.label} className="block truncate text-[0.82rem] leading-snug">
               <DetailText label={d.label} value={d.value} urgent={urgent} />
             </span>
@@ -404,8 +417,8 @@ function CellBody({
         </span>
       )}
 
-      {/* Phones/tablets: one line, rotating. Fixed two-line height so the 2×2
-          grid doesn't jump as lines change length. */}
+      {/* Phones/tablets: the pinned note, or one rotating detail line. Fixed
+          two-line height so the 2×2 grid doesn't jump as lines change. */}
       {lines.length > 0 && (
         <span
           className={cn(
