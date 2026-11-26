@@ -24,6 +24,8 @@ function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     schedule_note: null,
     cover_image_url: null,
     is_highlight: false,
+    capacity: null,
+    signup_deadline: null,
     created_by: null,
     created_at: "2026-06-01T12:00:00Z",
     ...overrides,

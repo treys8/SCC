@@ -272,6 +272,43 @@ export interface Database {
           },
         ];
       };
+      event_waitlist: {
+        Row: {
+          event_id: string;
+          member_id: string;
+          party_size: number;
+          created_at: string;
+          notified_at: string | null;
+        };
+        Insert: {
+          event_id: string;
+          member_id: string;
+          party_size?: number;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Update: {
+          event_id?: string;
+          member_id?: string;
+          party_size?: number;
+          created_at?: string;
+          notified_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_waitlist_event_id_fkey";
+            columns: ["event_id"];
+            referencedRelation: "calendar_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_waitlist_member_id_fkey";
+            columns: ["member_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       event_rsvps: {
         Row: {
           event_id: string;
@@ -428,6 +465,8 @@ export interface Database {
           schedule_note: string | null;
           cover_image_url: string | null;
           is_highlight: boolean;
+          capacity: number | null;
+          signup_deadline: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -445,6 +484,8 @@ export interface Database {
           schedule_note?: string | null;
           cover_image_url?: string | null;
           is_highlight?: boolean;
+          capacity?: number | null;
+          signup_deadline?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -462,6 +503,8 @@ export interface Database {
           schedule_note?: string | null;
           cover_image_url?: string | null;
           is_highlight?: boolean;
+          capacity?: number | null;
+          signup_deadline?: string | null;
           created_by?: string | null;
           created_at?: string;
         };
@@ -1384,6 +1427,11 @@ export interface Database {
       };
       /** How full each seating is, for the booking form's "Full · waitlist"
        * chips. Aggregates only — never who booked. */
+      /** Aggregate fill of a capped event; no row when uncapped. */
+      get_event_availability: {
+        Args: { p_event_id: string };
+        Returns: { capacity: number; taken: number }[];
+      };
       get_slot_availability: {
         Args: { p_dates: string[] };
         Returns: {
@@ -1420,6 +1468,8 @@ export type SlotAvailability =
 export type CalendarEvent =
   Database["public"]["Tables"]["calendar_events"]["Row"];
 export type EventRsvp = Database["public"]["Tables"]["event_rsvps"]["Row"];
+export type EventWaitlistEntry =
+  Database["public"]["Tables"]["event_waitlist"]["Row"];
 /** Narrow projection for the Golf page's "Upcoming on the course" schedule. */
 export type UpcomingGolfEvent = Pick<
   CalendarEvent,

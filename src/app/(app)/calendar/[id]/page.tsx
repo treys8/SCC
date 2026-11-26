@@ -7,7 +7,13 @@ import { EventActions } from "@/components/event-actions";
 import { EventCover, RegisterLink } from "@/components/event-card";
 import { EventRsvpButton } from "@/components/event-rsvp-button";
 import { isStaff, requireProfile } from "@/lib/auth";
-import { clubTodayISO, formatDate, formatTimeRange } from "@/lib/format";
+import { signupStatus } from "@/lib/events";
+import {
+  clubTodayISO,
+  formatDate,
+  formatTimeRange,
+  formatTimestamp,
+} from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type Params = { params: Promise<{ id: string }> };
@@ -53,20 +59,56 @@ export default async function EventDetailPage({ params }: Params) {
     .from("event_rsvps")
     .select("member_id, party_size")
     .eq("event_id", id);
-  const going = (rsvps ?? []).some((r) => r.member_id === profile.id);
+  const mine = (rsvps ?? []).find((r) => r.member_id === profile.id);
+  const going = !!mine;
   const headcount = (rsvps ?? []).reduce((sum, r) => sum + r.party_size, 0);
+
+  // Capped events publish their fill ("18 spots left") through a definer RPC —
+  // the aggregate only; the rows stay own-or-staff.
+  const { data: availRows } =
+    event.capacity != null
+      ? await supabase.rpc("get_event_availability", { p_event_id: id })
+      : { data: null };
+  const avail = availRows?.[0] ?? null;
+  const status = signupStatus({
+    capacity: avail?.capacity ?? null,
+    taken: avail?.taken ?? 0,
+    deadline: event.signup_deadline,
+    now: new Date().toISOString(),
+    upcoming,
+  });
+
+  // Own waitlist row for a member; every row for staff (RLS: own-or-staff).
+  const { data: waitlist } =
+    event.capacity != null
+      ? await supabase
+          .from("event_waitlist")
+          .select("member_id, party_size, created_at")
+          .eq("event_id", id)
+          .order("created_at")
+      : { data: [] };
+  const myWait = (waitlist ?? []).find((w) => w.member_id === profile.id);
+
   // Someone already on the list keeps a way off it, even once the event moved
   // to its own sign-up link. The headcount itself outlives the event — staff
   // reconcile covers against it the morning after.
-  const showRsvpButton = canRsvp || (going && upcoming);
+  const showRsvpButton = canRsvp || (going && upcoming) || (!!myWait && upcoming);
   const showHeadcount = canRsvp || headcount > 0;
 
   // Staff see who's coming; the name lookup is theirs alone (profiles is
   // readable by self + staff), so it only runs for them.
-  const attendeeIds = canManage ? (rsvps ?? []).map((r) => r.member_id) : [];
+  const attendeeIds = canManage
+    ? [
+        ...(rsvps ?? []).map((r) => r.member_id),
+        ...(waitlist ?? []).map((w) => w.member_id),
+      ]
+    : [];
   const { data: attendees } = attendeeIds.length
     ? await supabase.from("profiles").select("id, full_name").in("id", attendeeIds)
     : { data: [] };
+  const nameOf = new Map((attendees ?? []).map((a) => [a.id, a.full_name]));
+  const withParty = (memberId: string, n: number) =>
+    `${nameOf.get(memberId) ?? "Member"}${n > 1 ? ` (${n})` : ""}`;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -92,6 +134,11 @@ export default async function EventDetailPage({ params }: Params) {
             <DetailRow label="Where">{event.location}</DetailRow>
           )}
           {event.fee && <DetailRow label="Fee">{event.fee}</DetailRow>}
+          {event.signup_deadline && (
+            <DetailRow label="Sign up by">
+              {formatTimestamp(event.signup_deadline)}
+            </DetailRow>
+          )}
           {/* Same note the golf season schedule carries — "Field full ·
               162/162" is exactly what a member opening the event wants. */}
           {event.schedule_note && (
@@ -119,8 +166,11 @@ export default async function EventDetailPage({ params }: Params) {
               {showRsvpButton && (
                 <EventRsvpButton
                   eventId={event.id}
-                  initialGoing={going}
+                  goingParty={mine?.party_size ?? null}
+                  waitlistParty={myWait?.party_size ?? null}
                   canAdd={canRsvp}
+                  state={status.state}
+                  spotsLeft={status.spotsLeft}
                 />
               )}
               <AddToCalendar event={event} />
@@ -142,12 +192,30 @@ export default async function EventDetailPage({ params }: Params) {
               ) : (
                 <>
                   <p className="mt-2 font-serif text-2xl text-foreground">
-                    {headcount} {headcount === 1 ? "member" : "members"}
+                    {headcount} {headcount === 1 ? "person" : "people"}
+                    {event.capacity != null && (
+                      <span className="text-base text-muted"> of {event.capacity}</span>
+                    )}
                   </p>
                   <p className="mt-1 text-sm text-muted">
-                    {(attendees ?? []).map((a) => a.full_name).join(", ")}
+                    {(rsvps ?? [])
+                      .map((r) => withParty(r.member_id, r.party_size))
+                      .join(", ")}
                   </p>
                 </>
+              )}
+              {(waitlist ?? []).length > 0 && (
+                <div className="mt-4 border-t border-border pt-3">
+                  <p className="eyebrow text-[0.66rem]">
+                    Waitlist ·{" "}
+                    {(waitlist ?? []).reduce((n, w) => n + w.party_size, 0)} people
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    {(waitlist ?? [])
+                      .map((w) => withParty(w.member_id, w.party_size))
+                      .join(", ")}
+                  </p>
+                </div>
               )}
               {/* Explains a headcount on an event that now points at its own
                   sign-up link — otherwise it reads as a live, growing count. */}
