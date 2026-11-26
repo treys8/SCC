@@ -78,10 +78,10 @@ $$;
 revoke all on function public.enforce_protected_profile_columns() from public, anon, authenticated;
 
 -- ---- member_cards: "Former staff" byline ------------------------------------
--- Recreated from 20260619010000 (definer view, authenticated-SELECT only).
--- Dropping the view drops its grants, so they're re-applied below.
-drop view if exists public.member_cards;
-create view public.member_cards
+-- Same columns, names and types as 20260619010000 (definer view,
+-- authenticated-SELECT only), so CREATE OR REPLACE applies in place and the
+-- view keeps its grants; they're re-asserted below anyway.
+create or replace view public.member_cards
   with (security_invoker = off) as
   select p.id,
          p.full_name,
