@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { notFound } from "next/navigation";
 import { PostCard } from "@/components/post-card";
 import { isStaff, requireProfile } from "@/lib/auth";
@@ -29,10 +29,11 @@ export default async function PostPage({
   if (!post) notFound();
 
   return (
-    <div className="space-y-4">
-      <Link href="/posts" className="btn btn-ghost btn-sm">
-        ← Back to the feed
-      </Link>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        title="From the club"
+        back={{ href: "/posts", label: "The feed" }}
+      />
       <PostCard
         post={post}
         currentUserId={profile.id}

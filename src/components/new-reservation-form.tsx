@@ -109,9 +109,12 @@ export function NewReservationForm({
   }
 
   return (
-    <form ref={formRef} action={submit} className="card p-6">
-      <h2 className="text-h2 text-foreground">Request a reservation</h2>
-      <p className="mt-1 text-sm text-muted">
+    <form ref={formRef} action={submit} className="card p-6 sm:p-8">
+      <p className="eyebrow">The dining room</p>
+      <h2 className="mt-3 font-serif text-3xl text-foreground">
+        Request a reservation
+      </h2>
+      <p className="mt-2 text-sm text-muted">
         Staff will confirm your reservation shortly.
       </p>
 
@@ -120,8 +123,8 @@ export function NewReservationForm({
       <input type="hidden" name="reservation_time" value={time} />
       <input type="hidden" name="party_size" value={party} />
 
-      <fieldset className="mt-5">
-        <legend className="label">Day</legend>
+      <fieldset className="mt-7">
+        <legend className="eyebrow mb-3 text-[0.68rem] text-muted">Day</legend>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {days.map((d) => {
             const active = d.iso === date;
@@ -134,32 +137,32 @@ export function NewReservationForm({
                 aria-pressed={active}
                 title={d.closed ? "Closed for dining" : d.specialName ?? undefined}
                 className={cn(
-                  "flex w-14 shrink-0 flex-col items-center rounded-lg border px-2 py-2 transition-colors",
+                  "flex w-14 shrink-0 flex-col items-center rounded-md border px-2 py-2.5 transition-colors",
                   d.closed
                     ? "cursor-not-allowed border-border bg-surface-2 text-muted"
                     : active
-                      ? "border-primary bg-primary text-white"
-                      : "border-border bg-surface text-foreground hover:border-primary",
+                      ? "border-green-deep bg-green-deep text-cream"
+                      : "border-border bg-surface text-foreground hover:border-primary/50",
                 )}
               >
                 <span
                   className={cn(
-                    "text-2xs font-medium uppercase tracking-wide",
-                    active && !d.closed ? "text-white/80" : "text-muted",
+                    "text-2xs font-semibold tracking-[0.14em] uppercase",
+                    active && !d.closed ? "text-gold-soft" : "text-muted",
                   )}
                 >
                   {d.weekday}
                 </span>
                 <span
                   className={cn(
-                    "text-lg font-semibold leading-tight",
+                    "mt-0.5 font-serif text-xl leading-tight",
                     d.closed && "line-through",
                   )}
                 >
                   {d.day}
                 </span>
                 {d.closed ? (
-                  <span className="mt-0.5 text-3xs uppercase tracking-wide text-muted">
+                  <span className="mt-0.5 text-2xs tracking-wide text-muted uppercase">
                     Closed
                   </span>
                 ) : (
@@ -169,7 +172,7 @@ export function NewReservationForm({
                       title="Reservations required"
                       className={cn(
                         "mt-1 h-1.5 w-1.5 rounded-full",
-                        active ? "bg-white/90" : "bg-accent",
+                        active ? "bg-gold-soft" : "bg-accent",
                       )}
                     />
                   )
@@ -179,8 +182,8 @@ export function NewReservationForm({
           })}
         </div>
         {selectedDay?.specialName && (
-          <div className="mt-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
-            <p className="font-medium text-foreground">
+          <div className="mt-4 border-l-2 border-accent bg-accent/[0.06] py-3 pr-3 pl-4">
+            <p className="font-serif text-lg text-foreground">
               {selectedDay.specialName}
             </p>
             {detail?.description && (
@@ -189,14 +192,14 @@ export function NewReservationForm({
           </div>
         )}
         {selectedRequired && (
-          <p className="mt-2 text-sm font-medium text-accent-600">
+          <p className="mt-3 text-sm font-medium text-gold-ink">
             Reservations required for {dayLabel}.
           </p>
         )}
       </fieldset>
 
-      <fieldset className="mt-5">
-        <legend className="label">Seating</legend>
+      <fieldset className="mt-7">
+        <legend className="eyebrow mb-3 text-[0.68rem] text-muted">Seating</legend>
         {slots.length === 0 ? (
           <p className="text-sm text-muted">
             No seatings that day — the club is closed for dining.
@@ -213,20 +216,20 @@ export function NewReservationForm({
                 onClick={() => setTime(s.value)}
                 aria-pressed={active}
                 className={cn(
-                  "flex min-h-11 flex-col items-center justify-center rounded-lg border px-2 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
+                  "flex min-h-11 flex-col items-center justify-center rounded-md border px-2 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "border-primary bg-primary text-white"
+                    ? "border-green-deep bg-green-deep text-cream"
                     : full
                       ? "border-accent/40 bg-accent/5 text-foreground hover:border-accent"
-                      : "border-border bg-surface text-foreground hover:border-primary",
+                      : "border-border bg-surface text-foreground hover:border-primary/50",
                 )}
               >
                 <span>{s.label}</span>
                 {full && (
                   <span
                     className={cn(
-                      "text-3xs font-semibold uppercase tracking-wide",
-                      active ? "text-white/80" : "text-accent-600",
+                      "text-2xs font-semibold tracking-wide uppercase",
+                      active ? "text-gold-soft" : "text-gold-ink",
                     )}
                   >
                     Full · waitlist
@@ -240,8 +243,8 @@ export function NewReservationForm({
         {detail?.windowNote && <p className="field-hint">{detail.windowNote}</p>}
       </fieldset>
 
-      <fieldset className="mt-5">
-        <legend className="label">Party size</legend>
+      <fieldset className="mt-7">
+        <legend className="eyebrow mb-3 text-[0.68rem] text-muted">Party size</legend>
         <div className="inline-flex items-center gap-3">
           <button
             type="button"
@@ -254,7 +257,7 @@ export function NewReservationForm({
           </button>
           <span
             aria-live="polite"
-            className="w-10 text-center text-lg font-semibold tabular-nums"
+            className="w-10 text-center font-serif text-2xl tabular-nums"
           >
             {party}
           </span>
@@ -273,7 +276,7 @@ export function NewReservationForm({
         </div>
       </fieldset>
 
-      <div className="mt-5">
+      <div className="mt-7">
         <label className="label" htmlFor="special_requests">
           Special requests <span className="text-muted">(optional)</span>
         </label>
@@ -286,7 +289,7 @@ export function NewReservationForm({
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-8">
         <SubmitButton
           className="w-full"
           pendingText="Submitting…"

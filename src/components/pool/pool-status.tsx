@@ -17,7 +17,7 @@ export function PoolStatus({ initial }: { initial: FacilityStatus[] }) {
   if (!pool) return null;
 
   return (
-    <div className="card space-y-3 p-5">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <FacilityStatusBadge status={pool.status} />
         <time
@@ -30,19 +30,25 @@ export function PoolStatus({ initial }: { initial: FacilityStatus[] }) {
         </time>
       </div>
 
-      {pool.message && <p className="text-sm text-foreground">{pool.message}</p>}
+      {pool.message && (
+        <p className="border-l-2 border-accent pl-4 font-serif text-lg text-foreground italic">
+          {pool.message}
+        </p>
+      )}
 
       {pool.details.length > 0 && (
-        <dl className="divide-y divide-border/60">
+        <dl className="rule-list">
           {pool.details.map((row, i) => (
             <div
               key={`${row.label}-${i}`}
-              className="flex items-baseline gap-4 py-2"
+              className="flex items-baseline justify-between gap-4 py-3.5"
             >
-              <dt className="w-28 shrink-0 text-sm font-medium text-foreground">
+              <dt className="text-[0.92rem] tracking-[0.03em] text-muted">
                 {row.label}
               </dt>
-              <dd className="text-sm text-muted">{row.value}</dd>
+              <dd className="text-right text-[0.92rem] font-medium text-foreground">
+                {row.value}
+              </dd>
             </div>
           ))}
         </dl>

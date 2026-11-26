@@ -42,7 +42,7 @@ export default async function FeedPage({
   const feedKey = depts.length ? depts.join(",") : "all";
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-5">
       <PageHeader
         title="Feed"
         description="Updates from around the club."

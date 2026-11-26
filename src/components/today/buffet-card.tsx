@@ -1,4 +1,4 @@
-import { DiningCard } from "@/components/today/dining-card";
+import { DiningCard, type DiningDetail } from "@/components/today/dining-card";
 import { formatTimeRange } from "@/lib/format";
 import type { DiningBuffet } from "@/lib/database.types";
 
@@ -13,24 +13,29 @@ export function BuffetCard({
   buffet,
   main = null,
   sides = [],
+  variant = "feature",
 }: {
   buffet: DiningBuffet;
   main?: string | null;
   sides?: string[];
+  variant?: "compact" | "feature";
 }) {
-  const meta = [
-    buffet.start_time && formatTimeRange(buffet.start_time, buffet.end_time),
-    buffet.location,
-    buffet.price,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const hours = buffet.start_time
+    ? formatTimeRange(buffet.start_time, buffet.end_time)
+    : null;
+  const meta = [hours, buffet.location, buffet.price].filter(Boolean).join(" · ");
+  const details: DiningDetail[] = [];
+  if (hours) details.push({ label: "Serving", value: hours });
+  if (buffet.location) details.push({ label: "Where", value: buffet.location });
+  if (buffet.price) details.push({ label: "Price", value: buffet.price });
 
   return (
     <DiningCard
+      variant={variant}
       eyebrow="Today's buffet"
       title={buffet.title}
       meta={meta || null}
+      details={details}
       mainDish={main}
       sides={sides}
       description={buffet.description}

@@ -43,7 +43,7 @@ export function IosInstallPrompt() {
   }
 
   return (
-    <div className="mb-6 flex items-start gap-3 rounded-xl border border-border bg-surface-2 p-4">
+    <div className="mt-10 flex items-start gap-3 rounded-lg border border-border bg-surface-2 p-4">
       <div className="flex-1 text-sm">
         <p className="font-medium">Get alerts on your phone</p>
         <p className="mt-1 text-muted">

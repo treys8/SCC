@@ -139,7 +139,7 @@ function ContactCard({ club }: { club: ClubInfo }) {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-h2 text-foreground">Contact</h2>
+      <h2 className="text-section text-foreground">Contact</h2>
       <div className="card divide-y divide-border">
         {hasAddress && (
           <ContactRow icon={<PinIcon />} label="Visit">

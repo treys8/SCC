@@ -61,7 +61,7 @@ export function SearchPostResults({
           type="button"
           onClick={loadMore}
           disabled={loading}
-          className="mx-auto block rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-primary hover:text-foreground disabled:opacity-60"
+          className="btn btn-outline mx-auto flex"
         >
           {error
             ? "Couldn’t load more — tap to retry"

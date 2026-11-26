@@ -10,12 +10,12 @@ import type { PageSection } from "@/lib/database.types";
 export function SectionsView({ sections }: { sections: PageSection[] }) {
   if (sections.length === 0) return null;
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       {sections.map((s) => (
-        <section key={s.id} className="space-y-2">
-          <h2 className="text-h2 text-foreground">{s.heading}</h2>
+        <section key={s.id} className="space-y-3">
+          <h2 className="text-section text-foreground">{s.heading}</h2>
           {s.body.trim() && (
-            <p className="whitespace-pre-wrap break-words text-body text-foreground/90">
+            <p className="text-body max-w-[62ch] break-words whitespace-pre-wrap text-foreground/85">
               {s.body}
             </p>
           )}

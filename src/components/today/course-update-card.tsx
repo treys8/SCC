@@ -26,7 +26,7 @@ export function CourseUpdateCard({
   return (
     <Link
       href={`/posts/${postId}`}
-      className="group card flex gap-4 overflow-hidden p-3 transition-colors hover:border-primary sm:p-4"
+      className="group grid items-center gap-5 border-y border-t-foreground/70 border-b-border py-6 sm:grid-cols-[11rem_1fr] sm:gap-8"
     >
       {photoUrl ? (
         // Log photos live in the public posts bucket, outside next/image's
@@ -35,26 +35,25 @@ export function CourseUpdateCard({
         <img
           src={photoUrl}
           alt=""
-          className="h-20 w-20 shrink-0 rounded-lg object-cover sm:h-24 sm:w-24"
+          className="aspect-[4/3] w-full rounded-md object-cover sm:w-44"
         />
       ) : (
         <div
-          className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-primary text-white sm:h-24 sm:w-24"
+          className="hidden aspect-[4/3] w-44 items-center justify-center rounded-md bg-green-deep text-gold-soft sm:flex"
           aria-hidden
         >
           <FlagGlyph />
         </div>
       )}
-      <div className="min-w-0 flex-1 py-0.5">
-        <p className="text-caption font-semibold uppercase tracking-wide text-accent-600">
-          From the course
+      <div className="min-w-0">
+        <p className="eyebrow">
+          From the course · {formatRelativeTime(createdAt)}
         </p>
-        <h3 className="mt-1 text-h2 text-foreground">
+        <h3 className="mt-3 font-serif text-2xl leading-tight text-foreground transition-colors group-hover:text-primary sm:text-[1.75rem]">
           {title ?? "Today on the course"}
         </h3>
-        <p className="mt-1 line-clamp-2 text-sm text-muted">{content}</p>
-        <p className="mt-1 text-caption text-muted">
-          {formatRelativeTime(createdAt)}
+        <p className="mt-2 line-clamp-2 max-w-[60ch] text-[0.95rem] leading-relaxed text-muted">
+          {content}
         </p>
       </div>
     </Link>

@@ -18,7 +18,7 @@ export function ContactForm() {
   }, [state.success]);
 
   return (
-    <form ref={formRef} action={formAction} className="card p-6">
+    <form ref={formRef} action={formAction} className="card p-6 sm:p-8">
       <div>
         <label className="label" htmlFor="subject">
           Subject

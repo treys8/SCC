@@ -31,38 +31,44 @@ export function SiteNav({
   if (!isStaff(profile.role)) {
     links.push({ href: "/contact", label: "Contact" });
   }
-  // Staff get the directory and management console; admins additionally get Members.
+  // Staff tools live in their own group — the avatar menu on desktop and a
+  // "Staff" section of the phone drawer — so the green bar keeps to the
+  // member links and the one-line wordmark has room.
+  const staffLinks: NavLink[] = [];
   if (isStaff(profile.role)) {
-    links.push({ href: "/directory", label: "Directory" });
-    links.push({ href: "/manage", label: "Manage" });
+    staffLinks.push({ href: "/directory", label: "Directory" });
+    staffLinks.push({ href: "/manage", label: "Manage" });
   }
   if (isAdmin(profile.role)) {
-    links.push({ href: "/members", label: "Members" });
+    staffLinks.push({ href: "/members", label: "Members" });
   }
 
   return (
-    <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+    <header className="on-dark relative bg-green-deep text-cream">
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 lg:py-4">
         <MobileNav
           links={links}
+          staffLinks={staffLinks}
           fullName={profile.full_name}
           roleLabel={ROLE_LABEL[profile.role]}
         />
 
-        <Link href="/" className="flex items-center gap-2.5">
-          <Crest className="h-9 w-9" />
-          <span className="hidden font-serif text-lg font-semibold leading-tight text-primary sm:block">
+        {/* The wordmark never wraps. Between lg and xl the full link row needs
+            the room, so the name steps aside and the crest carries the brand. */}
+        <Link href="/" className="flex shrink-0 items-center gap-3">
+          <Crest tone="dark" className="h-9 w-9" />
+          <span className="hidden whitespace-nowrap font-serif text-lg tracking-[0.01em] text-cream sm:block lg:hidden xl:block">
             Starkville Country Club
           </span>
         </Link>
 
-        <NavLinks links={links} className="ml-4 hidden md:flex" />
+        <NavLinks links={links} className="ml-6 hidden lg:flex" />
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <Link
             href="/search"
             aria-label="Search"
-            className="flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-background"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-cream/80 transition-colors hover:bg-cream/10 hover:text-cream sm:h-9 sm:w-9"
           >
             <SearchIcon />
           </Link>
@@ -71,11 +77,11 @@ export function SiteNav({
           <Link
             href="/profile"
             aria-label="My profile"
-            className="flex h-11 w-11 items-center justify-center rounded-md transition-colors hover:bg-background md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-md transition-colors hover:bg-cream/10 lg:hidden"
           >
             <span
               aria-hidden
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-gold-soft text-sm font-semibold text-green-darker"
             >
               {initials(profile.full_name)}
             </span>
@@ -85,10 +91,16 @@ export function SiteNav({
             fullName={profile.full_name}
             roleLabel={ROLE_LABEL[profile.role]}
             unreadCount={unreadCount}
-            className="hidden md:block"
+            staffLinks={staffLinks}
+            className="hidden lg:block"
           />
         </div>
       </div>
+      {/* Gold hairline that fades in from the edges. */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent"
+      />
     </header>
   );
 }

@@ -43,15 +43,15 @@ export default async function PoolPage() {
   const hasPool = facilities.some((f) => f.facility === "pool");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-14">
       <PageHeader
         title="Pool"
         description="Hours, guest policy, and today's pool status."
       />
 
       {hasPool && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Today at the pool</h2>
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Today at the pool</h2>
           <PoolStatus initial={facilities} />
         </section>
       )}
@@ -59,9 +59,9 @@ export default async function PoolPage() {
       <SectionsView sections={sections} />
 
       {poolDocs.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Pool documents</h2>
-          <ul className="space-y-2">
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Pool documents</h2>
+          <ul className="rule-list">
             {poolDocs.map((doc) => (
               <DocumentLink key={doc.id} doc={doc} />
             ))}

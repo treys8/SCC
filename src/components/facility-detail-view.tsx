@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { FacilityStatusBadge } from "@/components/badges";
 import { FacilityIcon } from "@/components/facility-icon";
 import { FACILITY_LABEL } from "@/lib/constants";
@@ -37,22 +37,18 @@ export function FacilityDetailView({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-600"
-      >
-        <span aria-hidden>←</span> Today
-      </Link>
+      <PageHeader
+        title={FACILITY_LABEL[facility.facility]}
+        eyebrow="Conditions"
+        back={{ href: "/", label: "Today" }}
+      />
 
-      <header className="flex items-start gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <FacilityIcon facility={facility.facility} className="h-6 w-6" />
+      <header className="flex items-center gap-4">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/25 text-primary">
+          <FacilityIcon facility={facility.facility} className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-h1 text-foreground">
-            {FACILITY_LABEL[facility.facility]}
-          </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FacilityStatusBadge status={facility.status} />
             <time
               dateTime={facility.updated_at}
@@ -67,48 +63,44 @@ export function FacilityDetailView({
       </header>
 
       {facility.message && (
-        <p className="card border-l-2 border-l-accent bg-accent/[0.05] p-4 text-sm text-foreground">
+        <p className="border-l-2 border-accent pl-4 font-serif text-lg leading-snug text-foreground italic sm:text-xl">
           {facility.message}
         </p>
       )}
 
       {facility.details.length > 0 ? (
-        <dl className="card overflow-hidden">
+        <dl className="rule-list">
           {facility.details.map((row, i) => (
             <div
               key={`${row.label}-${i}`}
-              className={
-                "flex items-baseline gap-4 px-4 py-3.5 sm:px-5" +
-                (i > 0 ? " border-t border-border/60" : "")
-              }
+              className="flex items-baseline justify-between gap-4 py-3.5"
             >
-              <dt className="w-28 shrink-0 text-sm font-medium text-foreground">
+              <dt className="text-[0.92rem] tracking-[0.03em] text-muted">
                 {row.label}
               </dt>
-              <dd className="text-sm text-muted">{row.value}</dd>
+              <dd className="text-right text-[0.92rem] font-medium text-foreground">
+                {row.value}
+              </dd>
             </div>
           ))}
         </dl>
       ) : (
-        <p className="card p-5 text-sm text-muted">
+        <p className="font-serif text-lg text-muted italic">
           No additional details right now.
         </p>
       )}
 
       {upcoming.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Upcoming on the course</h2>
-          <ul className="space-y-3">
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Upcoming on the course</h2>
+          <ul className="rule-list">
             {upcoming.map((ev) => (
-              <li
-                key={ev.id}
-                className="card flex items-start gap-4 p-4 sm:px-5"
-              >
-                <span className="mt-0.5 w-14 shrink-0 text-sm font-semibold text-accent-600">
+              <li key={ev.id} className="flex items-start gap-4 py-4">
+                <span className="mt-1 w-16 shrink-0 text-[0.7rem] font-semibold tracking-[0.14em] text-gold-ink uppercase">
                   {formatDateShort(ev.event_date)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="font-serif text-lg text-foreground">
                     {ev.title}
                   </p>
                   {ev.schedule_note && (

@@ -76,9 +76,9 @@ export function PushToggle() {
   }
 
   return (
-    <div className="card space-y-3 p-6">
+    <div className="card space-y-4 p-6 sm:p-8">
       <div>
-        <h2 className="text-h2">Push notifications</h2>
+        <h2 className="font-serif text-2xl text-foreground">Push notifications</h2>
         <p className="field-hint">
           Get alerts on this device for facility status, reservation updates,
           new club posts you follow, and other club messages — even when the

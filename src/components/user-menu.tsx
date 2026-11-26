@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/lib/actions/auth";
 import { cn } from "@/lib/cn";
+import type { NavLink } from "@/components/nav-links";
 
 /**
- * Desktop avatar dropdown (md+). The trigger shows the member's name, role, and
- * an initials avatar; clicking opens a menu with My Profile, Notifications, and
- * Sign out — folding in what used to be a standalone top-bar sign-out button.
+ * Desktop avatar dropdown (lg+). The trigger is a gold initials avatar on the
+ * green header band; clicking opens a menu with the member's name, My Profile,
+ * Notifications, a "Staff" group for staff/admin tools, and Sign out.
  *
  * On phones the hamburger drawer (mobile-nav.tsx) and bottom tab bar handle
- * navigation and sign-out, so this is rendered `hidden md:block` by SiteNav.
+ * navigation and sign-out, so this is rendered `hidden lg:block` by SiteNav.
  *
  * Closes on outside-click (mirrors post-actions.tsx) and Escape, restoring focus
  * to the trigger. `signOut` is a server action used directly via a client form.
@@ -20,11 +21,14 @@ export function UserMenu({
   fullName,
   roleLabel,
   unreadCount,
+  staffLinks = [],
   className,
 }: {
   fullName: string;
   roleLabel: string;
   unreadCount: number;
+  /** Staff/admin tools (Directory, Manage, Members), shown as a "Staff" group. */
+  staffLinks?: NavLink[];
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -58,23 +62,20 @@ export function UserMenu({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-md px-2 py-1 text-right transition-colors hover:bg-background"
+        className="flex items-center gap-2 rounded-full py-1 pr-2 pl-1 transition-colors hover:bg-cream/10"
       >
-        <span className="leading-tight">
-          <span className="block text-sm font-medium text-foreground">
-            {fullName}
-          </span>
-          <span className="block text-caption text-muted">{roleLabel}</span>
-        </span>
         <span
           aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-gold-soft text-sm font-semibold text-green-darker"
         >
           {initials(fullName)}
         </span>
+        <span className="sr-only">
+          {fullName}, {roleLabel} — account menu
+        </span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-muted transition-transform",
+            "h-4 w-4 text-cream/70 transition-transform",
             open && "rotate-180",
           )}
         />
@@ -84,7 +85,7 @@ export function UserMenu({
         <div
           role="menu"
           aria-label="Account"
-          className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-md"
+          className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-lg border border-border bg-surface py-1 text-foreground shadow-[0_18px_40px_-18px_rgba(21,42,27,0.45)]"
         >
           <div className="border-b border-border px-4 py-2">
             <p className="truncate text-sm font-medium text-foreground">
@@ -113,6 +114,22 @@ export function UserMenu({
               </span>
             )}
           </Link>
+          {staffLinks.length > 0 && (
+            <div className="border-t border-border pt-1">
+              <p className="eyebrow px-4 pt-2 pb-1 text-[0.65rem]">Staff</p>
+              {staffLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  role="menuitem"
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-2 text-sm text-foreground transition-colors hover:bg-surface-2"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
           <form action={signOut} className="border-t border-border">
             <button
               role="menuitem"
