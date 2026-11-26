@@ -124,7 +124,9 @@ export function EventRsvpButton({
         <span className="text-sm text-foreground">
           You&rsquo;re on the waitlist · party of {waitlistParty}
         </span>
-        {!closed && !needsWaitlist && room != null && (
+        {/* Shown after the deadline too: a waiter who joined before it may
+            still take a freed spot. The server decides. */}
+        {state !== "past" && !needsWaitlist && room != null && (
           <button
             type="button"
             className="btn btn-sm btn-primary"

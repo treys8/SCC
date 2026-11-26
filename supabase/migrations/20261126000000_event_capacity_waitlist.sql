@@ -85,10 +85,22 @@ begin
     where id = new.event_id;
 
   -- Deadline: the service role (auth.uid() is null — staff tooling, seeds)
-  -- may still add people after it closes; members may not.
+  -- may still add people after it closes; members may not — except someone
+  -- who joined the waitlist before the deadline, taking a spot a withdrawal
+  -- freed afterwards (that's what the waitlist is for).
   if auth.uid() is not null
      and v_deadline is not null
-     and now() > v_deadline then
+     and now() > v_deadline
+     and not (
+       tg_op = 'INSERT'
+       and exists (
+         select 1 from public.event_waitlist w
+          where w.event_id = new.event_id
+            and w.member_id = new.member_id
+            and w.party_size >= new.party_size
+            and w.created_at <= v_deadline
+       )
+     ) then
     raise exception 'Sign-ups for this event have closed.';
   end if;
 

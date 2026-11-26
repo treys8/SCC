@@ -265,7 +265,21 @@ export async function setRsvp(
   }
   const growing = !existing || partySize > existing.party_size;
   if (growing && deadlinePassed(event)) {
-    return { error: "Sign-ups for this event have closed." };
+    // A waiter who joined before the deadline may still take a spot that a
+    // later withdrawal freed (the trigger applies the same exception).
+    const { data: wait } = existing
+      ? { data: null }
+      : await supabase
+          .from("event_waitlist")
+          .select("party_size, created_at")
+          .eq("event_id", eventId)
+          .eq("member_id", profile.id)
+          .maybeSingle();
+    const earlyWaiter =
+      !!wait &&
+      wait.party_size >= partySize &&
+      Date.parse(wait.created_at) <= Date.parse(event.signup_deadline!);
+    if (!earlyWaiter) return { error: "Sign-ups for this event have closed." };
   }
 
   if (existing) {
@@ -371,8 +385,9 @@ function revalidateEvent(eventId: string) {
  * party filter is part of the claim, so a party too big for the gap is never
  * stamped notified_at and stays eligible for a later, bigger opening.
  *
- * No-op after the deadline or the event date (the spot can't be taken), and
- * best-effort: never fails the withdraw/edit that triggered it.
+ * No-op once the event date has passed. After the sign-up deadline only
+ * waiters who joined before it are told (they're the only ones who can take
+ * the spot). Best-effort: never fails the withdraw/edit that triggered it.
  */
 async function notifyEventWaitlistIfFreed(eventId: string) {
   try {
@@ -383,7 +398,7 @@ async function notifyEventWaitlistIfFreed(eventId: string) {
       .eq("id", eventId)
       .maybeSingle();
     if (!event || event.registration_url) return;
-    if (event.event_date < clubTodayISO() || deadlinePassed(event)) return;
+    if (event.event_date < clubTodayISO()) return;
 
     let spotsLeft = MAX_EVENT_PARTY; // uncapped now: anyone waiting fits
     if (event.capacity != null) {
@@ -396,13 +411,18 @@ async function notifyEventWaitlistIfFreed(eventId: string) {
     }
     if (spotsLeft <= 0) return;
 
-    const { data: claimed, error } = await admin
+    // After the deadline only waiters who joined before it can take a spot,
+    // so only they are told.
+    let claim = admin
       .from("event_waitlist")
       .update({ notified_at: new Date().toISOString() })
       .eq("event_id", eventId)
       .is("notified_at", null)
-      .lte("party_size", spotsLeft)
-      .select("member_id");
+      .lte("party_size", spotsLeft);
+    if (event.signup_deadline && deadlinePassed(event)) {
+      claim = claim.lte("created_at", event.signup_deadline);
+    }
+    const { data: claimed, error } = await claim.select("member_id");
     if (error) {
       console.error("event waitlist claim failed:", error.message);
       return;
