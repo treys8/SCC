@@ -5,7 +5,7 @@ import { useActionState, useRef, useState } from "react";
 import type { EventFormState } from "@/app/(app)/calendar/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { DEPARTMENTS } from "@/lib/constants";
-import { clubTodayISO } from "@/lib/format";
+import { clubLocalInputValue, clubTodayISO } from "@/lib/format";
 import { uploadEventCover } from "@/lib/upload";
 import type { CalendarEvent } from "@/lib/database.types";
 
@@ -48,6 +48,12 @@ export function EventForm({
   );
   const [fee, setFee] = useState(event?.fee ?? "");
   const [scheduleNote, setScheduleNote] = useState(event?.schedule_note ?? "");
+  const [capacity, setCapacity] = useState(
+    event?.capacity != null ? String(event.capacity) : "",
+  );
+  const [signupDeadline, setSignupDeadline] = useState(
+    event?.signup_deadline ? clubLocalInputValue(event.signup_deadline) : "",
+  );
   const [isHighlight, setIsHighlight] = useState(event?.is_highlight ?? false);
   // Create-only: optionally fan a linked announcement out to the Feed.
   const [alsoPostToFeed, setAlsoPostToFeed] = useState(false);
@@ -241,6 +247,47 @@ export function EventForm({
             className="input"
             placeholder="$50 per player"
           />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="label" htmlFor="capacity">
+            Capacity <span className="text-muted">(optional)</span>
+          </label>
+          <input
+            id="capacity"
+            name="capacity"
+            type="number"
+            min={1}
+            max={1000}
+            step={1}
+            inputMode="numeric"
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
+            className="input"
+            placeholder="48"
+          />
+          <p className="field-hint">
+            Total people. Members see spots left and can join a waitlist when
+            it&apos;s full. Leave blank for no limit.
+          </p>
+        </div>
+        <div>
+          <label className="label" htmlFor="signup_deadline">
+            Sign up by <span className="text-muted">(optional)</span>
+          </label>
+          <input
+            id="signup_deadline"
+            name="signup_deadline"
+            type="datetime-local"
+            value={signupDeadline}
+            onChange={(e) => setSignupDeadline(e.target.value)}
+            className="input"
+          />
+          <p className="field-hint">
+            After this, members can&apos;t sign up or add guests.
+          </p>
         </div>
       </div>
 
