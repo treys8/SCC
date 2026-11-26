@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { FacilityStatus } from "@/lib/database.types";
 
@@ -9,11 +9,21 @@ import type { FacilityStatus } from "@/lib/database.types";
  * staff change a status — so the card updates without a reload on every surface
  * that renders it (the Feed and the /facility console).
  *
+ * `onRemoteUpdate` fires for each pushed change (e.g. to flash the column).
+ *
  * Returns `[rows, mergeRow]`: `mergeRow` lets a caller apply an optimistic local
  * change (staff preset/note edits) that realtime then reconciles.
  */
-export function useLiveFacilityStatus(initial: FacilityStatus[]) {
+export function useLiveFacilityStatus(
+  initial: FacilityStatus[],
+  onRemoteUpdate?: (facility: FacilityStatus["facility"]) => void,
+) {
   const [rows, setRows] = useState(initial);
+  // Latest callback in a ref so a new closure each render doesn't resubscribe.
+  const onRemoteRef = useRef(onRemoteUpdate);
+  useEffect(() => {
+    onRemoteRef.current = onRemoteUpdate;
+  });
 
   const mergeRow = useCallback(
     (next: FacilityStatus) =>
@@ -49,6 +59,7 @@ export function useLiveFacilityStatus(initial: FacilityStatus[]) {
             // own ISO receipt time for a parse-safe, accurate "Updated …".
             const next = payload.new as FacilityStatus;
             mergeRow({ ...next, updated_at: new Date().toISOString() });
+            onRemoteRef.current?.(next.facility);
           },
         )
         .subscribe();

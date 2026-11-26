@@ -144,15 +144,24 @@ export const FACILITY_STATUS_LABEL: Record<FacilityStatusType, string> = {
 };
 
 /**
- * Staff one-tap presets, in display order. "Open" and "All clear" both set the
- * `open` status — "All clear" is the friendlier label for lifting a weather
- * hold. Tapping any preset clears the facility's custom message.
+ * Staff one-tap presets, in display order — one per status. Tapping any preset
+ * clears the facility's custom message.
  */
 export const FACILITY_PRESETS: { label: string; status: FacilityStatusType }[] = [
+  { label: "Open", status: "open" },
   { label: "Frost", status: "frost_delay" },
   { label: "Rain", status: "rain_delay" },
   { label: "Lightning hold", status: "lightning_hold" },
   { label: "Closed", status: "closed" },
-  { label: "Open", status: "open" },
-  { label: "All clear", status: "open" },
 ];
+
+/**
+ * Short-lived weather states that should grab attention on the conditions strip
+ * (tint + pulsing dot). "Closed" is deliberately excluded: it can last a whole
+ * season, and a months-long alarm stops meaning anything.
+ */
+export const URGENT_FACILITY_STATUSES: ReadonlySet<FacilityStatusType> = new Set([
+  "frost_delay",
+  "rain_delay",
+  "lightning_hold",
+]);

@@ -247,3 +247,81 @@ export function clubDayEndExclusiveUTC(dateStr: string): string {
     `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`,
   );
 }
+
+// ── Conditions strip stamps ────────────────────────────────────────────────
+// Pure (the caller passes `now`) so they're unit-testable and render only after
+// hydration — see ConditionsGrid.
+
+/** "YYYY-MM-DD" of an instant, in club time. */
+function clubDayKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLUB_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** Whole club-calendar days from `then` to `now` (0 = same club day). */
+function clubDayDiff(then: Date, now: Date): number {
+  const a = Date.parse(`${clubDayKey(then)}T00:00:00Z`);
+  const b = Date.parse(`${clubDayKey(now)}T00:00:00Z`);
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** Newer ICU puts a narrow no-break space before AM/PM; normalise to a space. */
+const tidy = (s: string) => s.replace(/[  ]/g, " ");
+
+/** Instant -> "7:42 AM" in club time. */
+function clubClock(d: Date): string {
+  return tidy(
+    d.toLocaleTimeString("en-US", {
+      timeZone: CLUB_TZ,
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+  );
+}
+
+/**
+ * The small per-facility "last updated" stamp: "Just now" (under a minute),
+ * "7:42 AM" (earlier today, club time), "Yesterday", else null — an old date
+ * next to a live status reads as neglect, so older stamps are simply hidden.
+ */
+export function conditionsStamp(ts: string, now: Date): string | null {
+  const then = new Date(ts);
+  if (Number.isNaN(then.getTime())) return null;
+  if (now.getTime() - then.getTime() < 60_000) return "Just now";
+  const days = clubDayDiff(then, now);
+  if (days <= 0) return clubClock(then);
+  if (days === 1) return "Yesterday";
+  return null;
+}
+
+/**
+ * When a non-open status began, as best we know (the row's last update):
+ * "7:10 AM" today, "Tue 7:10 AM" within the past six days, else "Nov 3"
+ * (with the year if it isn't this club year). Callers prefix "since ".
+ */
+export function conditionsSince(ts: string, now: Date): string {
+  const then = new Date(ts);
+  if (Number.isNaN(then.getTime())) return "";
+  const days = clubDayDiff(then, now);
+  if (days <= 0) return clubClock(then);
+  if (days <= 6) {
+    const wd = then.toLocaleDateString("en-US", {
+      timeZone: CLUB_TZ,
+      weekday: "short",
+    });
+    return `${wd} ${clubClock(then)}`;
+  }
+  const sameYear = clubDayKey(then).slice(0, 4) === clubDayKey(now).slice(0, 4);
+  return tidy(
+    then.toLocaleDateString("en-US", {
+      timeZone: CLUB_TZ,
+      month: "short",
+      day: "numeric",
+      ...(sameYear ? {} : { year: "numeric" }),
+    }),
+  );
+}

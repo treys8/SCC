@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
 import type { DiningDetail } from "@/components/today/dining-card";
 import { CourseUpdateCard } from "@/components/today/course-update-card";
 import { DiningCard } from "@/components/today/dining-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
-import { FacilityStatusWidget } from "@/components/facility-status-widget";
 import { FeaturedCard } from "@/components/today/featured-card";
 import { TodayEvents } from "@/components/today/today-events";
 import { TodayHero } from "@/components/today/today-hero";
@@ -174,8 +172,8 @@ export default async function TodayPage() {
     today,
     hour * 60 + minute,
   );
-  // Staff get the live, one-tap conditions editor right on the home screen
-  // (quick on mobile); members see the read-only conditions cards.
+  // Everyone sees the same conditions strip; staff can tap a column to update
+  // it in place (quick on mobile).
   const canManage = profile ? isStaff(profile.role) : false;
 
   // One editorial column: the green hero band, the conditions strip flush
@@ -190,22 +188,7 @@ export default async function TodayPage() {
         summary={summary}
         weather={weather}
       />
-      {canManage ? (
-        <section className="mt-8 sm:mt-10">
-          <div className="section-rule">
-            <h2 className="text-section text-foreground">Conditions</h2>
-            <Link
-              href="/manage/conditions"
-              className="shrink-0 text-sm tracking-[0.03em] text-gold-ink hover:text-foreground"
-            >
-              Edit details →
-            </Link>
-          </div>
-          <FacilityStatusWidget initial={facilities} canManage />
-        </section>
-      ) : (
-        <ConditionsGrid facilities={facilities} />
-      )}
+      <ConditionsGrid facilities={facilities} canManage={canManage} />
       <div className="mt-12 space-y-14 sm:mt-16 sm:space-y-20">
       {featured && <FeaturedCard event={featured} />}
       {courseUpdate && (
