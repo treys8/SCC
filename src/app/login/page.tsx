@@ -17,7 +17,9 @@ export default async function LoginPage({
     <AuthShell title="Member sign in" subtitle="Welcome back to the club.">
       {sp.error && (
         <p className="mb-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
-          That sign-in link was invalid or has expired. Please sign in below.
+          {sp.error === "deactivated"
+            ? "This account has been deactivated. Contact the front office if you think that's a mistake."
+            : "That sign-in link was invalid or has expired. Please sign in below."}
         </p>
       )}
       <LoginForm redirectTo={redirectTo} />

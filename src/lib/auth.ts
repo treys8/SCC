@@ -25,10 +25,15 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   return data;
 });
 
-/** Require a profile; redirect to /login if missing. */
+/**
+ * Require an active profile; redirect to /login if missing. A deactivated
+ * login (staff turnover) is signed out via /auth/deactivated — its auth ban
+ * stops refreshes, but a token issued before the ban stays valid until expiry.
+ */
 export async function requireProfile(): Promise<Profile> {
   const profile = await getProfile();
   if (!profile) redirect("/login");
+  if (profile.deactivated_at) redirect("/auth/deactivated");
   return profile;
 }
 

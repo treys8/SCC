@@ -61,6 +61,31 @@ function clampPayload(payload: PushPayload): PushPayload {
   };
 }
 
+/**
+ * Drop deactivated logins from a recipient list. Every staff fan-out (contact
+ * inbox, conditions nudges, golf-log alerts, waitlists) funnels through
+ * notifyUsers / sendPushToUsers, so filtering here — rather than at each call
+ * site's role query — is what keeps a departed manager off every alert.
+ * Fails open (returns the input) if the lookup errors: a missed filter is a
+ * stray alert, a failed one would be a silent outage.
+ */
+async function activeUserIds(
+  admin: ReturnType<typeof createAdminClient>,
+  ids: string[],
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .in("id", ids)
+    .not("deactivated_at", "is", null);
+  if (error) {
+    console.error("activeUserIds: lookup failed:", error.message);
+    return ids;
+  }
+  const inactive = new Set((data ?? []).map((p) => p.id));
+  return ids.filter((id) => !inactive.has(id));
+}
+
 /** Send a push to every subscription owned by the given members. */
 export async function sendPushToUsers(
   userIds: string[],
@@ -76,10 +101,12 @@ export async function sendPushToUsers(
     }
 
     const admin = createAdminClient();
+    const active = await activeUserIds(admin, ids);
+    if (active.length === 0) return;
     const { data: allSubs, error } = await admin
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth, failure_count")
-      .in("user_id", ids);
+      .in("user_id", active);
     if (error) {
       console.error("push: failed to load subscriptions:", error.message);
       return;
@@ -175,14 +202,17 @@ export async function notifyUsers(
   userIds: string[],
   opts: NotifyOptions,
 ): Promise<boolean> {
-  const ids = [...new Set(userIds)].filter(Boolean);
+  const admin = createAdminClient();
+  const ids = await activeUserIds(
+    admin,
+    [...new Set(userIds)].filter(Boolean),
+  );
   if (ids.length === 0) return true;
 
   // Defense in depth: only same-origin app paths land in the DB / push payload
   // (mirrors login redirect guards — stops open-nav if a bad link is ever passed).
   const link = safeInternalPath(opts.link, "/");
 
-  const admin = createAdminClient();
   const { error } = await admin.from("notifications").insert(
     ids.map((id) => ({
       user_id: id,
