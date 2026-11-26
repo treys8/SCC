@@ -298,15 +298,114 @@ export async function setMemberRole(userId: string, role: UserRole) {
   revalidatePath("/members");
 }
 
-export async function removeMember(userId: string) {
+export type MemberActionState = { error?: string };
+
+/**
+ * Tables whose rows cascade away when a profile is deleted and that hold
+ * something the club would want to keep (posts members read, the course log).
+ * A profile with any of these is deactivated, never removed.
+ */
+const AUTHORED_TABLES = ["posts", "golf_log_entries", "golf_log_comments"] as const;
+
+async function hasAuthoredContent(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<boolean> {
+  for (const table of AUTHORED_TABLES) {
+    const { count, error } = await admin
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId);
+    // Unknown is treated as "yes": refusing a delete is recoverable, a
+    // cascade that erases a manager's posts is not.
+    if (error || (count ?? 0) > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Permanently delete a login. Refused for anyone who has authored posts or
+ * course-log entries — deleting the auth user cascades through those rows —
+ * so departed staff are deactivated instead.
+ */
+export async function removeMember(userId: string): Promise<MemberActionState> {
   const me = await requireRole("admin");
   if (me.id === userId) {
-    throw new Error("You cannot remove your own account.");
+    return { error: "You cannot remove your own account." };
   }
 
   const admin = createAdminClient();
+  if (await hasAuthoredContent(admin, userId)) {
+    return {
+      error:
+        "They've written posts or log entries, which removing would delete. Deactivate them instead.",
+    };
+  }
+
   const { error } = await admin.auth.admin.deleteUser(userId);
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   revalidatePath("/members");
+  return {};
+}
+
+/** Ban length for a deactivated login: effectively forever (~100 years). */
+const DEACTIVATED_BAN = "876000h";
+
+/**
+ * Deactivate a login (staff turnover): bans the auth user (no sign-in, no token
+ * refresh), clears their staff title so it can be reassigned, drops their push
+ * subscriptions, and stamps profiles.deactivated_at — which also makes
+ * private.current_user_role() return NULL, so a token issued before the ban
+ * loses staff access immediately. Everything they wrote stays, with a
+ * "Former staff" byline.
+ *
+ * Ban first: if the profile write then fails, they're locked out but still
+ * listed as active — a retry fixes it. The reverse order could leave someone
+ * shown as deactivated who can still sign in.
+ */
+export async function deactivateMember(userId: string): Promise<MemberActionState> {
+  const me = await requireRole("admin");
+  if (me.id === userId) {
+    return { error: "You cannot deactivate your own account." };
+  }
+
+  const admin = createAdminClient();
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: DEACTIVATED_BAN,
+  });
+  if (banError) return { error: banError.message };
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ deactivated_at: new Date().toISOString(), title_id: null })
+    .eq("id", userId);
+  if (error) return { error: error.message };
+
+  await admin.from("push_subscriptions").delete().eq("user_id", userId);
+
+  revalidatePath("/members");
+  revalidatePath("/posts");
+  return {};
+}
+
+/** Undo a deactivation. The staff title is not restored — assign it again. */
+export async function reactivateMember(userId: string): Promise<MemberActionState> {
+  await requireRole("admin");
+
+  const admin = createAdminClient();
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: "none",
+  });
+  if (banError) return { error: banError.message };
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ deactivated_at: null })
+    .eq("id", userId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/members");
+  revalidatePath("/posts");
+  return {};
 }

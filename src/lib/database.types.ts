@@ -69,6 +69,7 @@ export interface Database {
           phone: string | null;
           account_number: string | null;
           title_id: string | null;
+          deactivated_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -82,6 +83,7 @@ export interface Database {
           phone?: string | null;
           account_number?: string | null;
           title_id?: string | null;
+          deactivated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -95,6 +97,7 @@ export interface Database {
           phone?: string | null;
           account_number?: string | null;
           title_id?: string | null;
+          deactivated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

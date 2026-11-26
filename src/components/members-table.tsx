@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  deactivateMember,
+  reactivateMember,
   removeMember,
   setMemberAccount,
   setMemberRole,
@@ -38,6 +40,22 @@ export function MembersTable({
     });
   }
 
+  /** Run a members action that reports refusals as a returned value. */
+  function run(action: () => Promise<{ error?: string }>, fallback: string) {
+    startTransition(async () => {
+      try {
+        const { error } = await action();
+        if (error) {
+          alert(error);
+          return;
+        }
+        router.refresh();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : fallback);
+      }
+    });
+  }
+
   function remove(id: string, name: string) {
     if (
       !confirm(
@@ -45,14 +63,46 @@ export function MembersTable({
       )
     )
       return;
-    startTransition(async () => {
-      try {
-        await removeMember(id);
-        router.refresh();
-      } catch (e) {
-        alert(e instanceof Error ? e.message : "Could not remove member.");
-      }
-    });
+    run(() => removeMember(id), "Could not remove member.");
+  }
+
+  function deactivate(id: string, name: string) {
+    if (
+      !confirm(
+        `Deactivate ${name}? They'll be signed out and can't sign in. Their posts stay up, credited to "Former staff", and their title is freed for someone else.`,
+      )
+    )
+      return;
+    run(() => deactivateMember(id), "Could not deactivate.");
+  }
+
+  function reactivate(id: string) {
+    run(() => reactivateMember(id), "Could not reactivate.");
+  }
+
+  // Render helper: the admin-only row actions (never on your own row).
+  function rowActions(m: MemberWithTitle) {
+    if (!isAdmin || m.id === currentUserId) return null;
+    return (
+      <span className="inline-flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => deactivate(m.id, m.full_name)}
+          disabled={pending}
+          className="btn btn-ghost btn-sm"
+        >
+          Deactivate
+        </button>
+        <button
+          type="button"
+          onClick={() => remove(m.id, m.full_name)}
+          disabled={pending}
+          className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
+        >
+          Remove
+        </button>
+      </span>
+    );
   }
 
   function saveAccount(id: string) {
@@ -142,6 +192,9 @@ export function MembersTable({
     );
   }
 
+  const active = members.filter((m) => !m.deactivated_at);
+  const deactivated = members.filter((m) => m.deactivated_at);
+
   if (members.length === 0) {
     return (
       <EmptyState
@@ -155,7 +208,7 @@ export function MembersTable({
     <>
       {/* Mobile: stacked cards (no horizontal scroll). */}
       <div className="space-y-3 md:hidden">
-        {members.map((m) => {
+        {active.map((m) => {
           const isSelf = m.id === currentUserId;
           return (
             <div
@@ -181,16 +234,7 @@ export function MembersTable({
               </dl>
               <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
                 {roleControl(m)}
-                {isAdmin && !isSelf && (
-                  <button
-                    type="button"
-                    onClick={() => remove(m.id, m.full_name)}
-                    disabled={pending}
-                    className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
-                  >
-                    Remove
-                  </button>
-                )}
+                {rowActions(m)}
               </div>
             </div>
           );
@@ -212,7 +256,7 @@ export function MembersTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {members.map((m) => {
+            {active.map((m) => {
               const isSelf = m.id === currentUserId;
               return (
                 <tr key={m.id} className={pending ? "opacity-60" : undefined}>
@@ -234,16 +278,7 @@ export function MembersTable({
                     {roleControl(m)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {isAdmin && !isSelf && (
-                      <button
-                        type="button"
-                        onClick={() => remove(m.id, m.full_name)}
-                        disabled={pending}
-                        className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
-                      >
-                        Remove
-                      </button>
-                    )}
+                    {rowActions(m)}
                   </td>
                 </tr>
               );
@@ -252,6 +287,43 @@ export function MembersTable({
         </table>
         </div>
       </div>
+
+      {deactivated.length > 0 && (
+        <details className="card p-4">
+          <summary className="cursor-pointer text-sm font-medium text-foreground">
+            Deactivated ({deactivated.length})
+          </summary>
+          <ul className="mt-3 divide-y divide-border">
+            {deactivated.map((m) => (
+              <li
+                key={m.id}
+                className={cn(
+                  "flex flex-wrap items-center justify-between gap-3 py-3",
+                  pending && "opacity-60",
+                )}
+              >
+                <div>
+                  <div className="font-medium text-foreground">{m.full_name}</div>
+                  <div className="text-caption text-muted">
+                    {m.email} · {ROLE_LABEL[m.role]} · deactivated{" "}
+                    {formatDate(m.deactivated_at!.slice(0, 10))}
+                  </div>
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => reactivate(m.id)}
+                    disabled={pending}
+                    className="btn btn-outline btn-sm"
+                  >
+                    Reactivate
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </>
   );
 }
