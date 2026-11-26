@@ -358,3 +358,44 @@ h3,
     opacity: 1;
   }
 }
+
+/* Conditions strip (conditions-grid.tsx). All collapse under the global
+   reduced-motion block above. */
+/* Urgent-status dot: a ring that radiates out from the dot, in its own colour. */
+@keyframes cond-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+/* One-shot gold wash on a column when a live update lands. */
+@keyframes cond-glow {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* The phone's rotating detail line fading in. */
+@keyframes cond-fade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Staff editor bottom sheet (phones). */
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
