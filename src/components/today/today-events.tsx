@@ -2,47 +2,59 @@ import Link from "next/link";
 import type { CalendarEvent } from "@/lib/database.types";
 
 /**
- * "Today at the club" — the day's calendar events as a list, each a time chip
- * plus title and where. Real data (calendar_events for today, soonest first),
- * with each row linking into the full calendar. Shows a gentle empty state when
- * nothing's scheduled, so the heading never sits over a blank space.
+ * "At the club today" — the day's calendar events as a ruled list: the start
+ * time set in serif on the left, then title and where. Real data
+ * (calendar_events for today, soonest first), each row linking to its event.
+ * When nothing's scheduled it says so in one quiet italic line with a way into
+ * the week, rather than an empty box.
  */
 export function TodayEvents({ events }: { events: CalendarEvent[] }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-h2 text-foreground">Today at the club</h2>
+    <section>
+      <div className="section-rule">
+        <h2 className="text-section text-foreground">At the club today</h2>
         <Link
           href="/calendar"
-          className="shrink-0 text-sm font-medium text-accent-600"
+          className="shrink-0 text-sm tracking-[0.03em] text-gold-ink hover:text-foreground"
         >
           Full calendar →
         </Link>
       </div>
 
       {events.length === 0 ? (
-        <p className="card p-5 text-sm text-muted">
-          Nothing on the calendar today.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4 py-2">
+          <p className="font-serif text-xl text-muted italic sm:text-2xl">
+            A quiet day on the calendar.
+          </p>
+          <Link href="/calendar" className="btn btn-outline">
+            View the week
+          </Link>
+        </div>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="rule-list">
           {events.map((event) => (
             <li key={event.id}>
               <Link
                 href={`/calendar/${event.id}`}
-                className="card flex items-center gap-4 p-4 transition-colors hover:bg-surface-2"
+                className="group flex items-baseline gap-5 py-5 sm:gap-8"
               >
-                <TimeChip time={event.start_time} />
+                <EventTime time={event.start_time} />
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-h2 text-foreground">
+                  <h3 className="font-serif text-xl leading-snug text-foreground transition-colors group-hover:text-primary sm:text-2xl">
                     {event.title}
                   </h3>
                   {event.location && (
-                    <p className="mt-0.5 truncate text-sm text-muted">
+                    <p className="mt-1 truncate text-sm text-muted">
                       {event.location}
                     </p>
                   )}
                 </div>
+                <span
+                  aria-hidden
+                  className="self-center text-gold-ink transition-transform group-hover:translate-x-0.5"
+                >
+                  →
+                </span>
               </Link>
             </li>
           ))}
@@ -52,17 +64,19 @@ export function TodayEvents({ events }: { events: CalendarEvent[] }) {
   );
 }
 
-/** A two-line time chip: "9:00" over "AM". */
-function TimeChip({ time }: { time: string }) {
+/** "9:00" in serif over a small-caps "AM", in a fixed-width column. */
+function EventTime({ time }: { time: string }) {
   const [h, min] = time.split(":").map(Number);
   const period = h < 12 ? "AM" : "PM";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   const label = `${hour12}:${String(min).padStart(2, "0")}`;
 
   return (
-    <div className="flex h-14 w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
-      <span className="text-sm font-semibold leading-none">{label}</span>
-      <span className="mt-1 text-2xs uppercase tracking-wide text-muted">
+    <div className="w-16 shrink-0 sm:w-20">
+      <span className="block font-serif text-2xl leading-none text-primary sm:text-[1.7rem]">
+        {label}
+      </span>
+      <span className="mt-1.5 block text-[0.65rem] font-semibold tracking-[0.18em] text-muted">
         {period}
       </span>
     </div>

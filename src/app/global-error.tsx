@@ -28,18 +28,25 @@ export default function GlobalError({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f6f3ea",
-          color: "#1c2620",
+          background: "#1d3523",
+          color: "#f3eee2",
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
           padding: "1.5rem",
         }}
       >
         <main style={{ maxWidth: "28rem", textAlign: "center" }}>
-          <h1 style={{ fontSize: "1.5rem", margin: "0 0 0.5rem" }}>
+          <h1
+            style={{
+              fontFamily: "Georgia, serif",
+              fontWeight: 400,
+              fontSize: "2rem",
+              margin: "0 0 0.75rem",
+            }}
+          >
             Something went wrong
           </h1>
-          <p style={{ color: "#5b6660", margin: "0 0 1.5rem", lineHeight: 1.5 }}>
+          <p style={{ color: "rgba(243, 238, 226, 0.72)", margin: "0 0 1.5rem", lineHeight: 1.5 }}>
             The member portal hit an unexpected error. Please try again — if it
             keeps happening, contact the club.
           </p>
@@ -47,10 +54,10 @@ export default function GlobalError({
             type="button"
             onClick={() => unstable_retry()}
             style={{
-              background: "#335d3b",
-              color: "#fff",
+              background: "#d9c29a",
+              color: "#152a1b",
               border: "none",
-              borderRadius: "0.5rem",
+              borderRadius: "9999px",
               padding: "0.625rem 1.25rem",
               fontSize: "1rem",
               cursor: "pointer",

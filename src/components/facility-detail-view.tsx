@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { FacilityStatusBadge } from "@/components/badges";
 import { FacilityIcon } from "@/components/facility-icon";
 import { FACILITY_LABEL } from "@/lib/constants";
@@ -37,22 +37,18 @@ export function FacilityDetailView({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-600"
-      >
-        <span aria-hidden>←</span> Today
-      </Link>
+      <PageHeader
+        title={FACILITY_LABEL[facility.facility]}
+        eyebrow="Conditions"
+        back={{ href: "/", label: "Today" }}
+      />
 
-      <header className="flex items-start gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <FacilityIcon facility={facility.facility} className="h-6 w-6" />
+      <header className="flex items-center gap-4">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/25 text-primary">
+          <FacilityIcon facility={facility.facility} className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-h1 text-foreground">
-            {FACILITY_LABEL[facility.facility]}
-          </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FacilityStatusBadge status={facility.status} />
             <time
               dateTime={facility.updated_at}

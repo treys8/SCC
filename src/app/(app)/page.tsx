@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuffetCard } from "@/components/today/buffet-card";
+import type { DiningDetail } from "@/components/today/dining-card";
 import { CourseUpdateCard } from "@/components/today/course-update-card";
 import { DiningCard } from "@/components/today/dining-card";
 import { ConditionsGrid } from "@/components/conditions-grid";
@@ -40,10 +41,11 @@ import type {
 
 /**
  * "Today at the Club" — a conditions-first front door, distinct from the Feed.
- * Top to bottom: a concierge hero, the Course & Pool conditions cards (the
- * focus), today's lunch buffet, the day's events, and a dinner-service note.
- * It's all live data: facility status + the conditions detail rows, the buffet
- * (both staff-set on /facility), events, weather, and dining hours.
+ * Top to bottom: the green concierge hero (greeting, summary, weather), the
+ * conditions strip (staff get the editable widget), then the featured event,
+ * a fresh course update, today's dining service(s) — buffet / special /
+ * closed, Fri–Sat dinner, Sunday brunch — and the day's events. All live data:
+ * facility status, the buffet and weekly menu, events, weather, dining hours.
  */
 /** How long a shared course update stays on Today — it's "today on the course",
  * not an archive, and a week-old card reads worse than none. */
@@ -153,15 +155,16 @@ export default async function TodayPage() {
   const isDinnerNight =
     diningStatus === "normal" && isStandingReservationDay(today);
   const isBrunchDay = diningStatus === "normal" && weekday === 7;
-  const brunchMeta = brunch
-    ? [
-        brunch.start_time && formatTimeRange(brunch.start_time, brunch.end_time),
-        brunch.location,
-        brunch.price,
-      ]
-        .filter(Boolean)
-        .join(" · ") || null
+  const brunchHours = brunch?.start_time
+    ? formatTimeRange(brunch.start_time, brunch.end_time)
     : null;
+  const brunchDetails: DiningDetail[] = brunch
+    ? [
+        brunchHours && { label: "Serving", value: brunchHours },
+        brunch.location && { label: "Where", value: brunch.location },
+        brunch.price && { label: "Price", value: brunch.price },
+      ].filter((d): d is DiningDetail => Boolean(d))
+    : [];
   const summary = conciergeSummary(
     reservation,
     weather,
@@ -175,11 +178,11 @@ export default async function TodayPage() {
   // (quick on mobile); members see the read-only conditions cards.
   const canManage = profile ? isStaff(profile.role) : false;
 
-  // A single full-width column, top to bottom: hero → featured → conditions
-  // (a 2×2 tile grid on desktop, see ConditionsGrid) → today's dining services
-  // → the day's events. Tighter vertical rhythm than the phone default.
+  // One editorial column: the green hero band, the conditions strip flush
+  // beneath it, then (with generous rhythm) the featured event, a fresh course
+  // update, today's dining service(s) set like a menu, and the day's events.
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div>
       <TodayHero
         firstName={firstName}
         dateISO={today}
@@ -187,14 +190,13 @@ export default async function TodayPage() {
         summary={summary}
         weather={weather}
       />
-      {featured && <FeaturedCard event={featured} />}
       {canManage ? (
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-h2 text-foreground">Conditions</h2>
+        <section className="mt-8 sm:mt-10">
+          <div className="section-rule">
+            <h2 className="text-section text-foreground">Conditions</h2>
             <Link
               href="/manage/conditions"
-              className="shrink-0 text-sm font-medium text-accent-600"
+              className="shrink-0 text-sm tracking-[0.03em] text-gold-ink hover:text-foreground"
             >
               Edit details →
             </Link>
@@ -204,6 +206,8 @@ export default async function TodayPage() {
       ) : (
         <ConditionsGrid facilities={facilities} />
       )}
+      <div className="mt-12 space-y-14 sm:mt-16 sm:space-y-20">
+      {featured && <FeaturedCard event={featured} />}
       {courseUpdate && (
         <CourseUpdateCard
           postId={courseUpdate.id}
@@ -215,6 +219,7 @@ export default async function TodayPage() {
       )}
       {diningStatus === "closed" && (
         <DiningCard
+          variant="feature"
           eyebrow="Today"
           title={override?.name ?? "Dining room closed"}
           description={override?.description}
@@ -222,9 +227,16 @@ export default async function TodayPage() {
       )}
       {diningStatus === "special" && (
         <DiningCard
+          variant="feature"
           eyebrow="Today"
           title={override?.name ?? "A special service"}
           meta={formatTimeRange(effective.service_start, effective.service_end)}
+          details={[
+            {
+              label: "Serving",
+              value: formatTimeRange(effective.service_start, effective.service_end),
+            },
+          ]}
           description={override?.description}
           reservation={override?.reservations_required ? "required" : "walk_in"}
         />
@@ -234,17 +246,26 @@ export default async function TodayPage() {
       )}
       {isDinnerNight && (
         <DiningCard
+          variant="feature"
           eyebrow="Tonight's dinner"
           title="Dinner service"
           meta={formatTimeRange(settings.service_start, settings.service_end)}
+          details={[
+            {
+              label: "Serving",
+              value: formatTimeRange(settings.service_start, settings.service_end),
+            },
+          ]}
           reservation="required"
         />
       )}
       {isBrunchDay && brunch?.active && (
         <DiningCard
+          variant="feature"
           eyebrow="Sunday brunch"
           title={brunch.title}
-          meta={brunchMeta}
+          meta={brunchHours}
+          details={brunchDetails}
           description={brunch.description}
           reservation={brunch.walk_in ? "walk_in" : "required"}
         />
@@ -254,6 +275,7 @@ export default async function TodayPage() {
       {(otherEvents.length > 0 || !featured) && (
         <TodayEvents events={otherEvents} />
       )}
+      </div>
     </div>
   );
 }

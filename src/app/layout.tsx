@@ -10,6 +10,9 @@ const inter = Inter({
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
+  // Variable font (all weights); the italic face carries the gold accent in
+  // the Today greeting and the menu-style dish lines.
+  style: ["normal", "italic"],
   variable: "--font-playfair",
   display: "swap",
 });
@@ -28,14 +31,15 @@ export const metadata: Metadata = {
   other: { "apple-mobile-web-app-capable": "yes" },
 };
 
-// Mobile-first: fit the device width, tint the browser chrome club green, extend
+// Mobile-first: fit the device width, tint the browser chrome the deep header
+// green (so the status bar blends into the band), extend
 // under the notch/home-indicator so the safe-area insets resolve, and keep
 // pinch-zoom enabled for accessibility.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#335d3b",
+  themeColor: "#1d3523",
 };
 
 export default function RootLayout({

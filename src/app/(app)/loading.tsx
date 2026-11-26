@@ -1,37 +1,27 @@
 import { Skeleton, SkeletonCard } from "@/components/skeleton";
 
-/** Fallback for the "Today at the Club" home: hero, conditions cards, events. */
-export default function TodayLoading() {
+/**
+ * Generic fallback for the app segment. Deliberately NOT a replica of Today:
+ * routes without their own loading.tsx (dining, pool, documents, contact,
+ * search, directory, detail pages) fall back here, so it mocks the shape every
+ * page shares — the green title band, then a couple of content blocks.
+ */
+export default function AppLoading() {
   return (
-    <div className="space-y-8 sm:space-y-10">
+    <div>
       <span role="status" className="sr-only">
         Loading…
       </span>
 
-      {/* Concierge hero */}
-      <div className="space-y-3">
-        <Skeleton className="h-3 w-40" />
-        <Skeleton className="h-9 w-64" />
-        <Skeleton className="h-4 w-full max-w-md" />
+      {/* Title band (same breakout as PageHeader). */}
+      <div className="mx-[calc(50%-50vw)] mb-8 bg-green-deep px-[calc(50vw-50%)] pt-7 pb-9 sm:mb-10 sm:pt-10 sm:pb-12">
+        <div aria-hidden className="h-3 w-28 animate-pulse rounded bg-cream/15" />
+        <div aria-hidden className="mt-4 h-9 w-64 max-w-full animate-pulse rounded bg-cream/15" />
       </div>
 
-      {/* Course & Pool conditions */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[0, 1].map((i) => (
-          <div key={i} className="card p-5">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-6 w-16 rounded-full" />
-            </div>
-            <Skeleton className="mt-4 h-3 w-full" />
-            <Skeleton className="mt-2 h-3 w-2/3" />
-          </div>
-        ))}
-      </div>
-
-      {/* Today's events */}
-      <div className="space-y-3">
-        <Skeleton className="h-5 w-32" />
+      <div className="space-y-6">
+        <Skeleton className="h-4 w-48" />
+        <SkeletonCard />
         <SkeletonCard />
       </div>
     </div>

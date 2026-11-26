@@ -19,8 +19,8 @@ export function NotificationBell({ count }: { count: number }) {
       className={cn(
         "relative flex h-11 w-11 items-center justify-center rounded-md transition-colors sm:h-9 sm:w-9",
         hasUnread
-          ? "text-primary hover:bg-primary/10"
-          : "text-muted hover:bg-background hover:text-foreground",
+          ? "text-gold-soft hover:bg-cream/10"
+          : "text-cream/80 hover:bg-cream/10 hover:text-cream",
       )}
     >
       <svg
@@ -34,7 +34,7 @@ export function NotificationBell({ count }: { count: number }) {
         aria-hidden
       >
         <path
-          className={cn("transition-colors", hasUnread && "fill-primary/10")}
+          className={cn("transition-colors", hasUnread && "fill-gold-soft/15")}
           d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"
         />
         <path d="M10 19a2 2 0 0 0 4 0" />

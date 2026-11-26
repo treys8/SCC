@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
+import { PageHeader } from "@/components/page-header";
 import { AddToCalendar } from "@/components/calendar/add-to-calendar";
 import { DateChip } from "@/components/calendar/date-chip";
 import { EventActions } from "@/components/event-actions";
@@ -71,12 +71,11 @@ export default async function EventDetailPage({ params }: Params) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Link
-        href="/calendar"
-        className="inline-flex items-center gap-1 text-sm font-medium text-accent-600"
-      >
-        ← Back to calendar
-      </Link>
+      <PageHeader
+        title={event.title}
+        eyebrow={formatDate(event.event_date)}
+        back={{ href: "/calendar", label: "Calendar" }}
+      />
 
       <article className="card overflow-hidden">
         {event.cover_image_url && (
@@ -87,8 +86,7 @@ export default async function EventDetailPage({ params }: Params) {
           <div className="flex gap-4">
             <DateChip dateStr={event.event_date} />
             <div className="min-w-0 flex-1">
-              <h1 className="text-h1 text-foreground">{event.title}</h1>
-              <p className="mt-1 text-sm text-muted">
+              <p className="text-sm font-medium text-foreground">
                 {formatDate(event.event_date)} ·{" "}
                 {formatTimeRange(event.start_time, event.end_time)}
               </p>

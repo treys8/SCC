@@ -1,4 +1,5 @@
 import { BottomNav } from "@/components/bottom-nav";
+import { Crest } from "@/components/crest";
 import { IosInstallPrompt } from "@/components/ios-install-prompt";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { SiteNav } from "@/components/site-nav";
@@ -33,16 +34,27 @@ export default async function AppLayout({
     // Reserve space at the bottom on phones so the fixed tab bar never covers
     // content or the footer — including the home-indicator safe area on notched
     // devices (the tab bar grows by the same inset).
-    <div className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+    // `overflow-x-clip` contains the full-bleed title bands (PageHeader /
+    // TodayHero break out with 100vw, which includes the desktop scrollbar).
+    <div className="flex min-h-full flex-col overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       <ServiceWorkerRegister />
       <SiteNav profile={profile} unreadCount={count ?? 0} />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:py-8">
-        <IosInstallPrompt />
+      {/* No top padding: every page opens with a full-bleed green band
+          (PageHeader, or TodayHero on /) that sits flush under the header. */}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-12 md:pb-16">
         {children}
+        {/* After the content, so it never wedges between header and band. */}
+        <IosInstallPrompt />
       </main>
-      <footer className="border-t border-border bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-6 text-center text-caption text-muted">
-          © {new Date().getFullYear()} Starkville Country Club · Member Portal
+      <footer className="on-dark bg-green-darker text-cream/60">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-8 text-center">
+          <Crest tone="dark" className="h-8 w-8 opacity-80" />
+          <p className="font-serif text-sm tracking-[0.04em] text-cream/80">
+            Starkville Country Club
+          </p>
+          <p className="text-caption tracking-[0.06em]">
+            © {new Date().getFullYear()} · Member Portal
+          </p>
         </div>
       </footer>
       <BottomNav />
