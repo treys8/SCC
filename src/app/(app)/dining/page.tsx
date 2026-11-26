@@ -116,7 +116,7 @@ export default async function DiningPage() {
     upcoming.length > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-14">
       <PageHeader
         title="Dining"
         description="Hours, menus, and what's on this week at the club."
@@ -130,8 +130,8 @@ export default async function DiningPage() {
       <SectionsView sections={sections} />
 
       {upcoming.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Coming up</h2>
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Coming up</h2>
           <div className="space-y-3">
             {upcoming.map((o) => (
               <DiningCard
@@ -159,16 +159,18 @@ export default async function DiningPage() {
       )}
 
       {days.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Lunch buffet</h2>
-          {buffetMeta && <p className="text-sm text-muted">{buffetMeta}</p>}
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Lunch buffet</h2>
+          {buffetMeta && (
+            <p className="eyebrow text-[0.68rem] text-muted">{buffetMeta}</p>
+          )}
           <WeeklyMenu days={days} todayWeekday={todayWeekday} />
         </section>
       )}
 
       {brunch?.active && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Sunday brunch</h2>
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Sunday brunch</h2>
           <DiningCard
             eyebrow="Every Sunday"
             title={brunch.title}
@@ -180,9 +182,9 @@ export default async function DiningPage() {
       )}
 
       {menuDocs.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Menus</h2>
-          <ul className="space-y-2">
+        <section className="space-y-5">
+          <h2 className="text-section text-foreground">Menus</h2>
+          <ul className="rule-list">
             {menuDocs.map((doc) => (
               <DocumentLink key={doc.id} doc={doc} />
             ))}

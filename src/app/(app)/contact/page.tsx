@@ -33,7 +33,7 @@ export default async function ContactPage() {
   const myMessages = messages ?? [];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-12">
       <PageHeader
         title="Contact the club"
         description="Send a note to the front office — we'll get back to you."
@@ -42,7 +42,7 @@ export default async function ContactPage() {
       <ContactForm />
 
       {(club?.phone || club?.email) && (
-        <p className="text-sm text-muted">
+        <p className="-mt-6 text-sm text-muted">
           Prefer to reach us directly?{" "}
           {club?.phone && (
             <a
@@ -65,7 +65,9 @@ export default async function ContactPage() {
       )}
 
       <section>
-        <h2 className="mb-3 text-h2 text-foreground">Your messages</h2>
+        <div className="section-rule">
+          <h2 className="text-section text-foreground">Your messages</h2>
+        </div>
         {myMessages.length === 0 ? (
           <EmptyState
             icon={<MessageIcon />}
@@ -73,14 +75,14 @@ export default async function ContactPage() {
             description="Anything you send the front office will show up here."
           />
         ) : (
-          <div className="card divide-y divide-border">
+          <div className="rule-list">
             {myMessages.map((m) => (
               <div
                 key={m.id}
-                className="flex flex-wrap items-start justify-between gap-3 p-4"
+                className="flex flex-wrap items-start justify-between gap-3 py-5"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground">{m.subject}</p>
+                  <p className="font-serif text-lg text-foreground">{m.subject}</p>
                   <p className="mt-0.5 line-clamp-2 text-sm text-muted">
                     {m.message}
                   </p>

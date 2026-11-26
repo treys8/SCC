@@ -60,18 +60,27 @@ export function NotificationList({
 
   return (
     <>
-      <ul className="space-y-2">
+      <ul className="rule-list">
         {items.map((n) => {
           const card = (
             <div
               className={cn(
-                "card p-4 transition-colors",
-                !n.is_read && "border-primary/40 bg-primary/5",
-                n.link && "hover:border-primary",
+                "relative py-5 pl-5 transition-colors",
+                // Unread: a gold rule down the left edge, title in full ink.
+                !n.is_read &&
+                  "before:absolute before:inset-y-5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent",
+                n.link && "hover:bg-surface-2/60",
               )}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="font-medium text-foreground">{n.title}</p>
+                <p
+                  className={cn(
+                    "font-serif text-lg leading-snug",
+                    n.is_read ? "text-foreground/75" : "text-foreground",
+                  )}
+                >
+                  {n.title}
+                </p>
                 <time
                   dateTime={n.created_at}
                   title={formatTimestamp(n.created_at)}
@@ -107,7 +116,7 @@ export function NotificationList({
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-primary hover:text-foreground disabled:opacity-60"
+            className="btn btn-outline"
           >
             {loadError
               ? "Couldn’t load — tap to retry"

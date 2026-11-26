@@ -123,26 +123,33 @@ async function MemberView() {
   );
 
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         title="Reservations"
         description="Request a table and track your reservations."
       />
+      {/* Desktop: the request form beside your bookings; phones stack them. */}
+      <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
       <NewReservationForm
         days={days}
         details={dayDetails}
         availability={Object.fromEntries(availability)}
       />
 
+      <div className="space-y-12">
       {myWaitlist.length > 0 && (
         <section>
-          <h2 className="mb-3 text-h2 text-foreground">You&rsquo;re waiting on</h2>
-          <div className="card divide-y divide-border">
+          <div className="section-rule">
+            <h2 className="text-section text-foreground">
+              You&rsquo;re waiting on
+            </h2>
+          </div>
+          <div className="rule-list">
             {myWaitlist.map((w) => (
-              <div key={w.id} className="flex items-start gap-4 p-4">
+              <div key={w.id} className="flex items-start gap-4 py-5">
                 <DateBlock iso={w.reservation_date} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">
+                  <p className="font-serif text-lg text-foreground">
                     {formatTime(w.reservation_time)} · Party of {w.party_size}
                   </p>
                   <p className="mt-1 text-sm text-muted">
@@ -160,9 +167,9 @@ async function MemberView() {
       )}
 
       <section>
-        <h2 className="mb-3 text-h2 text-foreground">
-          Your reservations
-        </h2>
+        <div className="section-rule">
+          <h2 className="text-section text-foreground">Your reservations</h2>
+        </div>
         {reservations.length === 0 ? (
           <EmptyState
             icon={<CalendarIcon />}
@@ -170,19 +177,19 @@ async function MemberView() {
             description="Use the form above to request your first reservation."
           />
         ) : (
-          <div className="card divide-y divide-border">
+          <div className="rule-list">
             {reservations.map((r) => (
               <div
                 key={r.id}
                 className={cn(
-                  "flex items-start gap-4 p-4",
+                  "flex items-start gap-4 py-5",
                   r.status === "cancelled" && "opacity-60",
                 )}
               >
                 <DateBlock iso={r.reservation_date} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium text-foreground">
+                    <p className="font-serif text-lg text-foreground">
                       {formatTime(r.reservation_time)} · Party of {r.party_size}
                     </p>
                     <StatusBadge status={r.status} />
@@ -195,7 +202,7 @@ async function MemberView() {
                   {r.status === "declined" &&
                   r.proposed_date &&
                   r.proposed_time ? (
-                    <div className="mt-2 rounded-lg border border-accent/30 bg-accent/5 p-3">
+                    <div className="mt-3 border-l-2 border-accent bg-accent/[0.06] py-3 pr-3 pl-4">
                       {r.staff_note && (
                         <p className="text-sm text-muted">{r.staff_note}</p>
                       )}
@@ -224,6 +231,8 @@ async function MemberView() {
           </div>
         )}
       </section>
+      </div>
+      </div>
     </div>
   );
 }
@@ -305,20 +314,20 @@ async function StaffView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-12">
       <PageHeader
         title="Reservations"
         description="Tonight's seating chart, plus the requests to confirm or decline."
       />
 
-      <section className="space-y-3">
+      <section className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-h2 text-foreground">Nightly chart</h2>
+          <h2 className="text-section text-foreground">Nightly chart</h2>
           <ChartDateNav date={chartDate} status={status} />
         </div>
         <div className="card overflow-hidden">
           <div className="flex items-baseline justify-between border-b border-border bg-surface-2 px-4 py-3">
-            <p className="font-serif text-lg font-semibold text-foreground">
+            <p className="font-serif text-xl text-foreground">
               {formatLongDate(chartDate)}
             </p>
             <p className="text-sm text-muted">
@@ -344,7 +353,7 @@ async function StaffView({
                   key={r.id}
                   className="flex items-baseline gap-4 px-4 py-3"
                 >
-                  <span className="w-20 shrink-0 font-medium text-foreground">
+                  <span className="w-20 shrink-0 font-serif text-lg text-primary">
                     {formatTime(r.reservation_time)}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -367,8 +376,8 @@ async function StaffView({
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-h2 text-foreground">Requests</h2>
+      <section className="space-y-5">
+        <h2 className="text-section text-foreground">Requests</h2>
         <div className="flex flex-wrap gap-2">
           <FilterChip href={queueHref()} label="All" active={!status} />
           {RESERVATION_STATUSES.map((s) => (
@@ -407,30 +416,26 @@ function FilterChip({
   return (
     <Link
       href={href}
-      className={cn(
-        "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
-        active
-          ? "border-primary bg-primary text-white"
-          : "border-border bg-surface text-muted hover:border-primary hover:text-primary",
-      )}
+      className={cn("chip", active && "chip-active")}
     >
       {label}
     </Link>
   );
 }
 
-/** The left date chip on a reservation row: gold month over a serif day. */
+/** The left date chip on a reservation row: gold month over a serif day, on
+ *  the deep club green (matches the calendar's DateChip). */
 function DateBlock({ iso }: { iso: string }) {
   const [y, m, d] = iso.split("-").map(Number);
   const month = new Date(y, m - 1, d).toLocaleDateString("en-US", {
     month: "short",
   });
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-accent/10 py-2">
-      <span className="text-2xs font-semibold uppercase tracking-wide text-accent-600">
+    <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-md bg-green-deep py-2.5">
+      <span className="text-2xs font-semibold tracking-[0.14em] text-gold-soft uppercase">
         {month}
       </span>
-      <span className="font-serif text-xl font-semibold leading-none text-foreground">
+      <span className="mt-0.5 font-serif text-2xl leading-none text-cream">
         {d}
       </span>
     </div>

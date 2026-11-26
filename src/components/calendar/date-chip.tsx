@@ -15,12 +15,14 @@ export function DateChip({
   return (
     <div
       className={cn(
-        "flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-primary text-white",
+        "flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-md bg-green-deep text-cream",
         className,
       )}
     >
-      <span className="text-2xs font-semibold tracking-wide">{month}</span>
-      <span className="font-serif text-xl font-semibold leading-none">{d}</span>
+      <span className="text-2xs font-semibold tracking-[0.14em] text-gold-soft">
+        {month}
+      </span>
+      <span className="mt-0.5 font-serif text-2xl leading-none">{d}</span>
     </div>
   );
 }

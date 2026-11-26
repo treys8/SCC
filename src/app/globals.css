@@ -100,9 +100,8 @@
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
   --color-neutral-strong: var(--neutral-strong);
-  /* Smallest type steps (generate `text-2xs` / `text-3xs` utilities). */
+  /* Smallest type step (generates a `text-2xs` utility). */
   --text-2xs: 0.625rem; /* 10px */
-  --text-3xs: 0.5625rem; /* 9px — reservation day-pill micro labels */
   --font-sans: var(--font-inter);
   --font-serif: var(--font-playfair);
 }
@@ -320,6 +319,16 @@ h3,
   }
   .band .btn-ghost {
     @apply text-cream hover:bg-cream/10;
+  }
+
+  /* Filter chips (feed departments, calendar, search tabs, staff filters).
+     Quiet outline at rest; the selected chip is a deep-green pill with gold
+     text. min-h-11 keeps a 44px tap target on phones. */
+  .chip {
+    @apply inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-border bg-transparent px-4 py-2 text-sm whitespace-nowrap text-foreground/75 transition hover:border-primary/40 hover:text-foreground active:scale-[0.98] sm:min-h-0 sm:py-1.5;
+  }
+  .chip-active {
+    @apply border-green-deep bg-green-deep text-gold-soft hover:border-green-deep hover:text-gold-soft;
   }
 
   .badge {

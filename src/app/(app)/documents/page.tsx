@@ -25,7 +25,7 @@ export default async function DocumentsPage() {
   const docs = data ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-14">
       <PageHeader
         title="Documents"
         description="Pool info, newsletters, forms, and menu PDFs to view or download."
@@ -41,9 +41,9 @@ export default async function DocumentsPage() {
             const inCat = docs.filter((d) => d.category === cat.value);
             if (inCat.length === 0) return null;
             return (
-              <section key={cat.value} className="space-y-3">
-                <h2 className="text-h2 text-foreground">{cat.label}</h2>
-                <ul className="space-y-2">
+              <section key={cat.value} className="space-y-4">
+                <h2 className="text-section text-foreground">{cat.label}</h2>
+                <ul className="rule-list">
                   {inCat.map((doc) => (
                     <DocumentLink key={doc.id} doc={doc} />
                   ))}

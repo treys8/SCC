@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { DepartmentBadge } from "@/components/badges";
 import { PageHeader } from "@/components/page-header";
 import { AddToCalendar } from "@/components/calendar/add-to-calendar";
-import { DateChip } from "@/components/calendar/date-chip";
 import { EventActions } from "@/components/event-actions";
 import { EventCover, RegisterLink } from "@/components/event-card";
 import { EventRsvpButton } from "@/components/event-rsvp-button";
@@ -77,47 +76,42 @@ export default async function EventDetailPage({ params }: Params) {
         back={{ href: "/calendar", label: "Calendar" }}
       />
 
-      <article className="card overflow-hidden">
+      <article className="space-y-8">
         {event.cover_image_url && (
-          <EventCover url={event.cover_image_url} eager />
+          <div className="overflow-hidden rounded-lg">
+            <EventCover url={event.cover_image_url} eager />
+          </div>
         )}
 
-        <div className="space-y-5 p-6">
-          <div className="flex gap-4">
-            <DateChip dateStr={event.event_date} />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">
-                {formatDate(event.event_date)} ·{" "}
-                {formatTimeRange(event.start_time, event.end_time)}
-              </p>
-              {event.location && (
-                <p className="mt-0.5 text-sm text-muted">{event.location}</p>
-              )}
-              {event.fee && (
-                <p className="mt-0.5 text-sm text-muted">Fee: {event.fee}</p>
-              )}
-              {/* Same note the golf season schedule carries — "Field full ·
-                  162/162" is exactly what a member opening the event wants. */}
-              {event.schedule_note && (
-                <p className="mt-0.5 text-caption text-muted">
-                  {event.schedule_note}
-                </p>
-              )}
-              {event.department && (
-                <div className="mt-3">
-                  <DepartmentBadge department={event.department} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {event.description && (
-            <p className="whitespace-pre-wrap text-body text-foreground/90">
-              {event.description}
-            </p>
+        {/* The particulars, set as a ruled list like the dining menu. */}
+        <dl className="rule-list">
+          <DetailRow label="When">
+            {formatTimeRange(event.start_time, event.end_time)}
+          </DetailRow>
+          {event.location && (
+            <DetailRow label="Where">{event.location}</DetailRow>
           )}
+          {event.fee && <DetailRow label="Fee">{event.fee}</DetailRow>}
+          {/* Same note the golf season schedule carries — "Field full ·
+              162/162" is exactly what a member opening the event wants. */}
+          {event.schedule_note && (
+            <DetailRow label="Note">{event.schedule_note}</DetailRow>
+          )}
+          {event.department && (
+            <DetailRow label="Department">
+              <DepartmentBadge department={event.department} />
+            </DetailRow>
+          )}
+        </dl>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+        {event.description && (
+          <p className="text-body text-[1.02rem] leading-relaxed whitespace-pre-wrap text-foreground/85">
+            {event.description}
+          </p>
+        )}
+
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-foreground/70 pt-6">
             <div className="flex flex-wrap items-center gap-2">
               {event.registration_url && (
                 <RegisterLink href={event.registration_url} />
@@ -137,8 +131,8 @@ export default async function EventDetailPage({ params }: Params) {
           {/* Staff-only: the headcount this RSVP feeds. Members never see who
               else is coming — see the event_rsvps RLS. */}
           {canManage && showHeadcount && (
-            <div className="rounded-lg border border-border bg-surface-2 p-4">
-              <p className="text-caption font-semibold uppercase tracking-wide text-muted">
+            <div className="rounded-lg border border-border bg-surface p-5">
+              <p className="eyebrow text-[0.66rem]">
                 {canRsvp ? "Coming along" : "Said they were coming"}
               </p>
               {headcount === 0 ? (
@@ -147,7 +141,7 @@ export default async function EventDetailPage({ params }: Params) {
                 </p>
               ) : (
                 <>
-                  <p className="mt-1 font-medium text-foreground">
+                  <p className="mt-2 font-serif text-2xl text-foreground">
                     {headcount} {headcount === 1 ? "member" : "members"}
                   </p>
                   <p className="mt-1 text-sm text-muted">
@@ -167,6 +161,26 @@ export default async function EventDetailPage({ params }: Params) {
           )}
         </div>
       </article>
+    </div>
+  );
+}
+
+/** One label/value line in the event's ruled particulars list. */
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-6 py-3.5">
+      <dt className="shrink-0 text-[0.92rem] tracking-[0.03em] text-muted">
+        {label}
+      </dt>
+      <dd className="text-right text-[0.95rem] font-medium text-foreground">
+        {children}
+      </dd>
     </div>
   );
 }

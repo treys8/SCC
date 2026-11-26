@@ -76,7 +76,7 @@ export function MemberSearch({
           placeholder="Search the feed, documents, and events…"
           aria-label="Search"
           autoFocus
-          className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none"
+          className="w-full border-0 border-b border-foreground/70 bg-transparent py-3 pr-3 pl-9 font-serif text-xl text-foreground placeholder:text-muted/80 focus:border-primary focus:outline-none sm:text-2xl"
         />
       </div>
 
@@ -92,7 +92,7 @@ export function MemberSearch({
               <span
                 className={cn(
                   "ml-1.5 text-xs tabular-nums",
-                  type === t.value ? "text-white/80" : "text-muted",
+                  type === t.value ? "text-gold-soft/75" : "text-muted",
                 )}
               >
                 {counts[t.value]}
@@ -119,12 +119,7 @@ function Chip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={cn(
-        "inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition active:scale-[0.98]",
-        active
-          ? "border-primary bg-primary font-semibold text-white shadow-sm"
-          : "border-border bg-surface text-foreground/70 hover:bg-surface-2 hover:text-foreground",
-      )}
+      className={cn("chip", active && "chip-active")}
     >
       {children}
     </button>
@@ -141,7 +136,7 @@ function SearchIcon() {
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+      className="pointer-events-none absolute top-1/2 left-0.5 h-5 w-5 -translate-y-1/2 text-muted"
     >
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />

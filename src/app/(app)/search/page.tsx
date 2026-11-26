@@ -99,7 +99,7 @@ export default async function SearchPage({
           icon={<SearchGlyph />}
         />
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-14">
           {(type === "all" || type === "posts") && postsN > 0 && (
             <Section title="Feed" count={postsN} more={morePosts}>
               <SearchPostResults
@@ -119,7 +119,7 @@ export default async function SearchPage({
               count={docs.length}
               capped={docs.length === SEARCH_GROUP_LIMIT}
             >
-              <ul className="space-y-2">
+              <ul className="rule-list">
                 {docs.map((doc) => (
                   <DocumentLink key={doc.id} doc={doc} />
                 ))}
@@ -160,10 +160,10 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <h2 className="flex items-baseline gap-2 text-h2 text-foreground">
+    <section className="space-y-5">
+      <h2 className="text-section flex items-baseline gap-3 text-foreground">
         {title}
-        <span className="text-sm font-normal text-muted">
+        <span className="font-sans text-sm text-muted tabular-nums">
           {count}
           {more ? "+" : ""}
         </span>

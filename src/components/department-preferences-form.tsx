@@ -44,9 +44,9 @@ export function DepartmentPreferencesForm({
     });
 
   return (
-    <form action={formAction} className="card space-y-4 p-6">
+    <form action={formAction} className="card space-y-5 p-6 sm:p-8">
       <div>
-        <h2 className="text-h2">Alert preferences</h2>
+        <h2 className="font-serif text-2xl text-foreground">Alert preferences</h2>
         <p className="field-hint">
           You&rsquo;re set to hear from every department. Uncheck any you&rsquo;d
           rather not be notified about. Urgent safety alerts — like a lightning
@@ -58,7 +58,7 @@ export function DepartmentPreferencesForm({
         {DEPARTMENTS.map((dept) => (
           <label
             key={dept.value}
-            className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
+            className="flex cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2.5 transition-colors hover:border-primary/40 has-[:checked]:border-primary/50 has-[:checked]:bg-primary/[0.04]"
           >
             <input
               type="checkbox"
@@ -66,7 +66,7 @@ export function DepartmentPreferencesForm({
               value={dept.value}
               checked={checked.has(dept.value)}
               onChange={(e) => toggle(dept.value, e.target.checked)}
-              className="h-4 w-4"
+              className="h-4 w-4 accent-[var(--primary)]"
             />
             <span className="text-sm">{dept.label}</span>
           </label>

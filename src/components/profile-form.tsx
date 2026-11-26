@@ -17,7 +17,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [phone, setPhone] = useState(profile.phone ?? "");
 
   return (
-    <form action={formAction} className="card space-y-4 p-6">
+    <form action={formAction} className="card space-y-5 p-6 sm:p-8">
       <div>
         <label className="label" htmlFor="full_name">
           Full name

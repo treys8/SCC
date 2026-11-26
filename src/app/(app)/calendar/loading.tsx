@@ -20,7 +20,7 @@ export default function CalendarLoading() {
       </div>
 
       {/* Month grid */}
-      <div className="card p-4">
+      <div>
         <div className="mb-4 flex items-center justify-between">
           <Skeleton className="h-6 w-40" />
           <div className="flex gap-2">
@@ -30,7 +30,7 @@ export default function CalendarLoading() {
         </div>
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: 35 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-square rounded-lg" />
+            <Skeleton key={i} className="h-24 rounded-none" />
           ))}
         </div>
       </div>

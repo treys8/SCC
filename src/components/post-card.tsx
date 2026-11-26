@@ -69,12 +69,12 @@ export function PostCard({
   const body = (
     <>
       {post.title && (
-        <h3 className="mt-3 text-h2 tracking-tight text-foreground">
+        <h3 className="mt-4 font-serif text-2xl leading-tight text-foreground sm:text-[1.7rem]">
           {post.title}
         </h3>
       )}
       {post.content && (
-        <div className="mt-2.5">
+        <div className="mt-3">
           <Markdown>{post.content}</Markdown>
         </div>
       )}
@@ -96,12 +96,12 @@ export function PostCard({
     return (
       <article
         className={cn(
-          "card relative overflow-hidden p-4 pl-5 sm:p-5 sm:pl-6",
-          post.is_pinned && "bg-accent/[0.04]",
+          "card relative overflow-hidden p-5 pl-6 sm:p-7 sm:pl-8",
+          post.is_pinned && "border-accent/40 bg-accent/[0.04]",
         )}
       >
         <span
-          className={cn("absolute inset-y-0 left-0 w-[3px]", barColor)}
+          className={cn("absolute inset-y-0 left-0 w-[2px]", barColor)}
           aria-hidden
         />
         <div className="flex items-start justify-between gap-3">
@@ -112,7 +112,7 @@ export function PostCard({
             />
             <span
               className={cn(
-                "truncate text-caption font-semibold uppercase tracking-wide",
+                "truncate text-[0.68rem] font-semibold tracking-[0.18em] uppercase",
                 accent.text,
               )}
             >
@@ -140,7 +140,9 @@ export function PostCard({
           </div>
         </div>
         {byline && (
-          <p className="mt-1 text-caption text-muted">{byline}</p>
+          <p className="mt-1.5 text-caption tracking-[0.02em] text-muted">
+            {byline}
+          </p>
         )}
         {body}
       </article>
@@ -153,7 +155,7 @@ export function PostCard({
   return (
     <article
       className={cn(
-        "card overflow-hidden p-4 sm:p-5",
+        "card overflow-hidden p-5 sm:p-7",
         // Pinned member posts get a subtle gold left edge + warm tint.
         post.is_pinned && "border-l-2 border-l-accent bg-accent/[0.05]",
       )}
@@ -210,14 +212,14 @@ export function PostCard({
  */
 function PostEventCard({ event }: { event: CalendarEvent }) {
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-border">
+    <div className="mt-4 overflow-hidden rounded-lg border border-border bg-surface-2">
       <Link
         href={`/calendar/${event.id}`}
         className="flex gap-3 p-3 transition-colors hover:bg-surface-2"
       >
         <DateChip dateStr={event.event_date} />
         <div className="min-w-0 flex-1">
-          <h4 className="truncate font-semibold text-foreground">
+          <h4 className="truncate font-serif text-lg text-foreground">
             {event.title}
           </h4>
           <p className="mt-0.5 text-sm text-muted">
@@ -247,7 +249,7 @@ function PostEventCard({ event }: { event: CalendarEvent }) {
  */
 function PostReservationCta() {
   return (
-    <div className="mt-3">
+    <div className="mt-4">
       <Link href="/reservations" className="btn btn-primary btn-sm">
         Reserve a table <UtensilsIcon />
       </Link>
@@ -262,9 +264,10 @@ function PostReservationCta() {
  */
 function PostReservationRequired({ date }: { date: string }) {
   return (
-    <div className="mt-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
-      <p className="text-sm font-semibold text-foreground">
-        Reservations required · {formatDate(date)}
+    <div className="mt-4 border-l-2 border-accent bg-accent/[0.06] py-3 pr-3 pl-4">
+      <p className="eyebrow text-[0.66rem]">Reservations required</p>
+      <p className="mt-1.5 font-serif text-lg text-foreground">
+        {formatDate(date)}
       </p>
       <div className="mt-2">
         <Link href="/reservations" className="btn btn-primary btn-sm">
@@ -311,7 +314,7 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
   return (
     <span
       aria-hidden
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-deep text-sm font-semibold text-gold-soft"
     >
       {initials(name)}
     </span>

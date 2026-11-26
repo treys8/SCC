@@ -12,20 +12,24 @@ export function EmptyState({
   icon?: ReactNode;
 }) {
   return (
-    <div className="card flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+    // No box: a quiet, centred italic line between two hairlines — the
+    // editorial way of saying "nothing here yet".
+    <div className="flex flex-col items-center justify-center gap-2 border-y border-border px-6 py-14 text-center">
       {icon && (
         <div
           aria-hidden
-          className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2 text-muted"
+          className="mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-accent/40 text-gold-ink"
         >
           {icon}
         </div>
       )}
-      <p className="text-h2 text-foreground">{title}</p>
+      <p className="font-serif text-2xl text-foreground italic">{title}</p>
       {description && (
-        <p className="max-w-sm text-sm text-muted">{description}</p>
+        <p className="max-w-sm text-sm leading-relaxed text-muted">
+          {description}
+        </p>
       )}
-      {action && <div className="mt-2">{action}</div>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }

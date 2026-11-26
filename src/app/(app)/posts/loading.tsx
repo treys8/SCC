@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/page-header";
 /** Skeleton shown while the feed's first page streams in. */
 export default function FeedLoading() {
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-5">
       <PageHeader title="Feed" description="Updates from around the club." />
       <div className="h-9" />
       <div className="space-y-4">

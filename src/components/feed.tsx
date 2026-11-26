@@ -232,7 +232,7 @@ export function Feed({
           type="button"
           onClick={onRefresh}
           disabled={refreshing}
-          className="fixed left-1/2 top-20 z-30 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:bg-primary-700 disabled:opacity-60"
+          className="fixed top-20 left-1/2 z-30 -translate-x-1/2 rounded-full bg-green-deep px-5 py-2 text-sm tracking-[0.02em] text-gold-soft shadow-[0_12px_30px_-10px_rgba(21,42,27,0.6)] transition hover:bg-green-darker disabled:opacity-60"
         >
           ↑ {newCount} new {newCount === 1 ? "post" : "posts"}
         </button>
@@ -286,7 +286,7 @@ export function Feed({
                 <button
                   type="button"
                   onClick={loadMore}
-                  className="mx-auto block rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-primary hover:text-foreground"
+                  className="btn btn-outline mx-auto flex"
                 >
                   Couldn&rsquo;t load more — tap to retry
                 </button>
@@ -307,7 +307,7 @@ export function Feed({
         <Link
           href="/posts/new"
           aria-label="New post"
-          className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-3xl leading-none text-white shadow-lg transition hover:bg-primary-700 active:scale-95 md:hidden"
+          className="fixed right-4 bottom-20 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl leading-none text-green-darker shadow-[0_12px_30px_-10px_rgba(21,42,27,0.6)] transition hover:bg-gold-soft active:scale-95 md:hidden"
         >
           +
         </Link>
