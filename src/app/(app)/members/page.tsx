@@ -4,6 +4,7 @@ import { InviteMemberForm } from "@/components/invite-member-form";
 import { MembersTable } from "@/components/members-table";
 import { PageHeader } from "@/components/page-header";
 import { isAdmin, requireRole } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { AccountSummary, MemberWithTitle } from "@/lib/database.types";
 
@@ -38,6 +39,12 @@ export default async function MembersPage() {
     member_names: a.profiles.map((p) => p.full_name),
   }));
 
+  // Who has written something that "Remove" would cascade away — they only
+  // get Deactivate. Admin-only (only admins see row actions), read with the
+  // service role so drafts and the course log count too. removeMember
+  // re-checks server-side; this just doesn't offer a button that would refuse.
+  const authorIds = admin ? await fetchAuthorIds() : [];
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -58,7 +65,22 @@ export default async function MembersPage() {
         members={(members ?? []) as MemberWithTitle[]}
         currentUserId={me.id}
         isAdmin={admin}
+        authorIds={authorIds}
       />
     </div>
   );
+}
+
+async function fetchAuthorIds(): Promise<string[]> {
+  const db = createAdminClient();
+  const results = await Promise.all(
+    (["posts", "golf_log_entries", "golf_log_comments"] as const).map((t) =>
+      db.from(t).select("author_id"),
+    ),
+  );
+  const ids = new Set<string>();
+  for (const { data } of results) {
+    for (const row of data ?? []) ids.add(row.author_id);
+  }
+  return [...ids];
 }

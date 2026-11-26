@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,7 +30,17 @@ export async function GET(request: NextRequest) {
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
-    await supabase.auth.signOut();
+    // signOut() clears the session cookies through the server client's
+    // cookie adapter (the same path /auth/callback uses to set them). If it
+    // errors before clearing, drop the Supabase auth cookies directly —
+    // a surviving session would bounce /login → / → here in a loop.
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (error) {
+      const store = await cookies();
+      for (const c of store.getAll()) {
+        if (c.name.startsWith("sb-")) store.delete(c.name);
+      }
+    }
   }
 
   url.pathname = "/login";

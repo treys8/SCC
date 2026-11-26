@@ -19,11 +19,16 @@ export function MembersTable({
   members,
   currentUserId,
   isAdmin,
+  authorIds = [],
 }: {
   members: MemberWithTitle[];
   currentUserId: string;
   isAdmin: boolean;
+  /** Profiles with posts / log entries: Remove would delete those, so they
+   * only get Deactivate. */
+  authorIds?: string[];
 }) {
+  const authors = new Set(authorIds);
   const [pending, startTransition] = useTransition();
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountDraft, setAccountDraft] = useState("");
@@ -93,14 +98,16 @@ export function MembersTable({
         >
           Deactivate
         </button>
-        <button
-          type="button"
-          onClick={() => remove(m.id, m.full_name)}
-          disabled={pending}
-          className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
-        >
-          Remove
-        </button>
+        {!authors.has(m.id) && (
+          <button
+            type="button"
+            onClick={() => remove(m.id, m.full_name)}
+            disabled={pending}
+            className="btn btn-ghost btn-sm text-danger hover:bg-danger/10"
+          >
+            Remove
+          </button>
+        )}
       </span>
     );
   }
